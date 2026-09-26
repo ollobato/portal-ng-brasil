@@ -7,11 +7,19 @@ export default function SocialPostGenerator({ article, onClose }) {
   
   const [aspectRatio, setAspectRatio] = useState('4:5'); 
   const [copiedCaption, setCopiedCaption] = useState(false);
-  const [customOverlayImage, setCustomOverlayImage] = useState(null);
+
+  const formatText = (text) => {
+    if (!text) return '';
+    const trimmed = text.trim();
+    if (!['.', '!', '?'].includes(trimmed.slice(-1))) {
+      return trimmed + '.';
+    }
+    return trimmed;
+  };
 
   // Editable post fields
-  const [title, setTitle] = useState(article?.title || 'Manchete da Notícia em Destaque');
-  const [subtitle, setSubtitle] = useState(article?.subtitle || 'Decisão impacta setor em expansão e levanta discussões sobre regulação.');
+  const [title, setTitle] = useState(formatText(article?.title) || 'Manchete da Notícia em Destaque.');
+  const [subtitle, setSubtitle] = useState(formatText(article?.subtitle) || 'Decisão impacta setor em expansão e levanta discussões sobre regulação.');
   const [category, setCategory] = useState(article?.categoryLabel || article?.category || 'POLÍTICA');
   const [captionText, setCaptionText] = useState('');
 
@@ -27,8 +35,8 @@ export default function SocialPostGenerator({ article, onClose }) {
 
   useEffect(() => {
     if (article) {
-      setTitle(article.title || '');
-      setSubtitle(article.subtitle || '');
+      setTitle(formatText(article.title));
+      setSubtitle(formatText(article.subtitle));
       setCategory(article.categoryLabel || article.category || 'NOTÍCIAS');
       setImageUrl(getInitialImage(article));
     }
@@ -201,14 +209,6 @@ export default function SocialPostGenerator({ article, onClose }) {
       const sigaWidth = ctx.measureText(sigaText).width;
       ctx.fillText(sigaText, width - 60 - sigaWidth, height - 55);
 
-      // Draw custom Canva overlay if provided
-      if (customOverlayImage) {
-        const overlay = new Image();
-        overlay.src = customOverlayImage;
-        overlay.onload = () => {
-          ctx.drawImage(overlay, 0, 0, width, height);
-        };
-      }
   };
 
   useEffect(() => {
@@ -216,7 +216,7 @@ export default function SocialPostGenerator({ article, onClose }) {
     setTimeout(() => {
        renderCanvas();
     }, 100);
-  }, [title, subtitle, category, imageUrl, aspectRatio, customOverlayImage]);
+  }, [title, subtitle, category, imageUrl, aspectRatio]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
@@ -237,16 +237,6 @@ export default function SocialPostGenerator({ article, onClose }) {
 
   const handleShareWhatsApp = () => {
     shareToWhatsApp(article || { title, subtitle, category, praca: article?.praca, id: article?.id });
-  };
-
-  const handleCustomOverlayUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setCustomOverlayImage(reader.result);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleGenerateNewImage = () => {
@@ -321,65 +311,6 @@ export default function SocialPostGenerator({ article, onClose }) {
               />
             </div>
 
-            {/* Imagem de Fundo (Upload ou Link) */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
-                <span>📸 Imagem de Fundo</span>
-              </label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder="URL da imagem (http...)"
-                  className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-red-500 focus:outline-none"
-                  onBlur={(e) => {
-                    if (e.target.value) setImageUrl(e.target.value);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.target.value) {
-                      setImageUrl(e.target.value);
-                    }
-                  }}
-                />
-                <label className="flex-shrink-0 flex items-center justify-center gap-1 px-3 py-1.5 border border-dashed border-slate-300 bg-white rounded-lg cursor-pointer hover:bg-slate-100 transition-colors text-xs text-slate-600 font-bold">
-                  <Upload className="w-3 h-3 text-slate-500" /> Upload
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onloadend = () => setImageUrl(reader.result);
-                      reader.readAsDataURL(file);
-                    }} 
-                    className="hidden" 
-                  />
-                </label>
-              </div>
-            </div>
-
-            {/* Custom Canva PNG Moldura Upload */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                <span>🎨 Usar Moldura PNG do Canva</span>
-                {customOverlayImage && (
-                  <button onClick={() => setCustomOverlayImage(null)} className="text-[10px] text-red-600 underline">Remover</button>
-                )}
-              </label>
-              <label className="flex items-center justify-center gap-2 p-2 border border-dashed border-slate-300 bg-white rounded-lg cursor-pointer hover:bg-slate-100 transition-colors text-xs text-slate-600 font-bold">
-                <Upload className="w-4 h-4 text-slate-500" />
-                {customOverlayImage ? 'Trocar Moldura PNG' : 'Subir Moldura Transparente (Canva)'}
-                <input type="file" accept="image/png" onChange={handleCustomOverlayUpload} className="hidden" />
-              </label>
-            </div>
-
-            <button
-              onClick={handleGenerateNewImage}
-              className="w-full bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all"
-            >
-              <RefreshCw className="w-4 h-4" /> Gerar Nova Imagem de Fundo (IA)
-            </button>
-            
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1 flex justify-between items-center">
                 <span>Legenda para Redes Sociais</span>
@@ -395,6 +326,52 @@ export default function SocialPostGenerator({ article, onClose }) {
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-600 focus:ring-2 focus:ring-red-500 focus:outline-none"
               />
             </div>
+
+            {/* Imagem de Fundo (Upload ou Link) */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
+                <span>📸 Imagem de Fundo (Foco)</span>
+              </label>
+              <div 
+                className="w-full h-16 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-white cursor-pointer hover:bg-slate-50 transition-colors relative"
+                onPaste={(e) => {
+                  const items = e.clipboardData.items;
+                  for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                      const blob = items[i].getAsFile();
+                      const reader = new FileReader();
+                      reader.onloadend = () => setImageUrl(reader.result);
+                      reader.readAsDataURL(blob);
+                      e.preventDefault();
+                    }
+                  }
+                }}
+              >
+                <div className="text-center text-slate-500 pointer-events-none flex flex-col items-center">
+                  <Upload className="w-4 h-4 mb-1" />
+                  <span className="text-[10px] font-bold">Clique para Subir ou Dê Ctrl+V aqui</span>
+                </div>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onloadend = () => setImageUrl(reader.result);
+                    reader.readAsDataURL(file);
+                  }} 
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleGenerateNewImage}
+              className="w-full bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all"
+            >
+              <RefreshCw className="w-4 h-4" /> Gerar Nova Imagem de Fundo (IA)
+            </button>
           </div>
 
           {/* Action Buttons */}
