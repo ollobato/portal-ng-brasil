@@ -321,6 +321,43 @@ export default function SocialPostGenerator({ article, onClose }) {
               />
             </div>
 
+            {/* Imagem de Fundo (Upload ou Link) */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
+                <span>📸 Imagem de Fundo</span>
+              </label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="URL da imagem (http...)"
+                  className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-red-500 focus:outline-none"
+                  onBlur={(e) => {
+                    if (e.target.value) setImageUrl(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.target.value) {
+                      setImageUrl(e.target.value);
+                    }
+                  }}
+                />
+                <label className="flex-shrink-0 flex items-center justify-center gap-1 px-3 py-1.5 border border-dashed border-slate-300 bg-white rounded-lg cursor-pointer hover:bg-slate-100 transition-colors text-xs text-slate-600 font-bold">
+                  <Upload className="w-3 h-3 text-slate-500" /> Upload
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onloadend = () => setImageUrl(reader.result);
+                      reader.readAsDataURL(file);
+                    }} 
+                    className="hidden" 
+                  />
+                </label>
+              </div>
+            </div>
+
             {/* Custom Canva PNG Moldura Upload */}
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
               <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
