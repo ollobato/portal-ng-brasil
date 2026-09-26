@@ -49,6 +49,7 @@ export default function AdminDashboard({ onLogout, newsData, setNewsData, banner
 
   // Form states
   const [showForm, setShowForm] = useState(false);
+  const [formActiveTab, setFormActiveTab] = useState('portal'); // 'portal' | 'social'
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     title: '', subtitle: '', category: 'politica', praca: 'Nacional', image: '', content: ''
@@ -764,9 +765,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   const renderMaterias = () => {
     if (showForm) {
       return (
-        <div className="flex flex-col xl:flex-row gap-6 items-start w-full">
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 flex-1 w-full shrink-0">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm w-full overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-bold text-slate-800">{editingId ? (editingIsDraft ? 'Revisar Rascunho da IA' : 'Editar Matéria') : 'Criar Nova Matéria'}</h2>
               {!editingId && (
@@ -779,8 +779,26 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                 </button>
               )}
             </div>
-            <button onClick={() => {setShowForm(false); setEditingId(null); setShowAiAssistant(false);}} className="text-sm text-slate-500 hover:text-slate-800 font-semibold">Cancelar</button>
+            <button onClick={() => {setShowForm(false); setEditingId(null); setShowAiAssistant(false); setFormActiveTab('portal');}} className="text-sm text-slate-500 hover:text-slate-800 font-semibold">Cancelar</button>
           </div>
+
+          <div className="flex border-b border-slate-200 bg-slate-50 px-6">
+            <button 
+              onClick={() => setFormActiveTab('portal')}
+              className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${formActiveTab === 'portal' ? 'border-[#d40a38] text-[#d40a38]' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            >
+              Portal (Site)
+            </button>
+            <button 
+              onClick={() => setFormActiveTab('social')}
+              className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${formActiveTab === 'social' ? 'border-[#d40a38] text-[#d40a38]' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            >
+              Redes Sociais
+            </button>
+          </div>
+
+          <div className="p-6">
+            <div className={formActiveTab === 'portal' ? 'block max-w-4xl mx-auto' : 'hidden'}>
 
           {showAiAssistant && (
             <div className="mb-8 p-5 bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 rounded-xl shadow-sm animate-in slide-in-from-top-2 duration-300">
@@ -891,13 +909,13 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           </form>
         </div>
 
-        {/* Right Column: Insta Art Generator */}
-        {editingId && editingIsDraft && (
-          <div className="w-full xl:w-[450px] shrink-0 sticky top-24">
-            <SocialPostGenerator inline={true} article={formData} />
+            <div className={formActiveTab === 'social' ? 'block' : 'hidden'}>
+              <div className="max-w-4xl mx-auto">
+                <SocialPostGenerator inline={true} article={formData} />
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
       );
     }
 
