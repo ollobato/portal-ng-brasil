@@ -878,9 +878,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                     <button onClick={() => setSocialModalArticle(news)} className="text-slate-400 hover:text-indigo-600 mr-2 transition-colors inline-flex items-center gap-1 font-bold text-xs bg-indigo-50 px-2 py-1 rounded" title="Gerar Card Instagram (Canva)">
                       <Camera className="w-3.5 h-3.5 text-indigo-600" /> Insta
                     </button>
-                    <button onClick={() => shareToWhatsApp(news)} className="text-slate-400 hover:text-emerald-600 mr-3 transition-colors inline-flex items-center gap-1 font-bold text-xs bg-emerald-50 px-2 py-1 rounded" title="Enviar no WhatsApp">
-                      <Share2 className="w-3.5 h-3.5 text-emerald-600" /> Zap
-                    </button>
+
                     <button onClick={() => handleEdit(news)} className="text-slate-400 hover:text-blue-600 mr-3 transition-colors" title="Editar">
                       <Edit3 className="w-4 h-4 inline" />
                     </button>
@@ -1286,9 +1284,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                   <button onClick={() => setSocialModalArticle(draft)} className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-md font-bold text-xs transition-colors" title="Gerar Card no estilo Canva">
                     <Camera className="w-3.5 h-3.5" /> Arte Insta
                   </button>
-                  <button onClick={() => shareToWhatsApp(draft)} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-md font-bold text-xs transition-colors" title="Enviar no WhatsApp">
-                    <Share2 className="w-3.5 h-3.5" /> Zap
-                  </button>
+
                   <button onClick={() => handleEdit(draft, true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-md font-bold text-sm transition-colors">
                     <Edit3 className="w-4 h-4" /> Revisar e Aprovar
                   </button>
