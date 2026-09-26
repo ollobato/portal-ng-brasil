@@ -1,7 +1,9 @@
 import React, { Component, useState } from 'react';
 import { trackEvent } from '../utils/analytics';
-import { LogOut, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key } from 'lucide-react';
+import { LogOut, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
+import SocialPostGenerator from './SocialPostGenerator';
+import { shareToWhatsApp } from '../utils/socialExporter';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -142,6 +144,34 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   const [robotGuidelines, setRobotGuidelines] = useState(() => {
     return localStorage.getItem('portal_ng_robot_guidelines') || defaultGuidelines;
   });
+
+  // Social Media Modal State
+  const [socialModalArticle, setSocialModalArticle] = useState(null);
+
+  // AutoPilot State
+  const [isAutoPilot, setIsAutoPilot] = useState(() => {
+    return localStorage.getItem('portal_ng_autopilot') === 'true';
+  });
+  const [autoPilotHours, setAutoPilotHours] = useState(1);
+
+  React.useEffect(() => {
+    localStorage.setItem('portal_ng_autopilot', isAutoPilot ? 'true' : 'false');
+  }, [isAutoPilot]);
+
+  // AutoPilot Interval Handler
+  React.useEffect(() => {
+    let timer = null;
+    if (isAutoPilot && !isRobotRunning) {
+      const ms = autoPilotHours * 60 * 60 * 1000;
+      timer = setInterval(() => {
+        console.log("Piloto Automático: disparando varredura...");
+        runRobotPipeline({ preventDefault: () => {} });
+      }, ms);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isAutoPilot, isRobotRunning, autoPilotHours]);
 
   React.useEffect(() => {
     localStorage.setItem('portal_ng_robot_guidelines', robotGuidelines);
@@ -325,13 +355,15 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         throw new Error("Nenhum link válido encontrado.");
       }
 
-      const newDrafts = [];
+      let totalGeneratedThisSession = 0;
+      const MAX_PER_SESSION = 20;
 
       for (let i = 0; i < urls.length; i++) {
+        if (totalGeneratedThisSession >= MAX_PER_SESSION) break;
+
         const targetUrl = urls[i];
-        setRobotStatus(`[${i + 1}/${urls.length}] Lendo a página inicial de: ${targetUrl}...`);
+        setRobotStatus(`[${i + 1}/${urls.length}] Lendo portal: ${targetUrl}...`);
         
-        // Usa a rota local do servidor Vite no PC, e o scrape.php na Hostinger
         let pageHtml = "";
         try {
           const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -343,186 +375,195 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           if (!res.ok) throw new Error("A conexão com o proxy falhou");
           pageHtml = await res.text();
         } catch (err) {
-          throw new Error(`Não foi possível acessar ${targetUrl}. O proxy falhou.`);
+          console.warn(`Não foi possível acessar ${targetUrl}. Pulando...`);
+          continue;
         }
 
-        setRobotStatus(`[${i + 1}/${urls.length}] Analisando manchetes e escrevendo matérias com IA...`);
-
-        // Parse HTML to extract text
         const parser = new DOMParser();
         const doc = parser.parseFromString(pageHtml, 'text/html');
-        // Remove scripts and styles
         const scripts = doc.querySelectorAll('script, style, noscript, nav, footer, header');
         scripts.forEach(s => s.remove());
-        const pageText = doc.body.innerText.replace(/\s+/g, ' ').slice(0, 12000); // Take first 12k chars to fit context
+        const pageText = doc.body.innerText.replace(/\s+/g, ' ').slice(0, 12000); 
 
-        const newsPerUrl = Math.max(1, Math.floor(20 / urls.length));
+        const maxHeadlines = Math.max(1, Math.floor(MAX_PER_SESSION / urls.length));
 
-        const promptText = `
-          Você é um jornalista sênior editor-chefe escrevendo para o Portal NG Brasil.
-          Abaixo estão as DIRETRIZES EDITORIAIS E DE TOM DE VOZ do nosso portal. Você DEVE ler e aplicar essas diretrizes estritamente ao escrever.
-          NENHUM TEXTO PESQUISADO DEVE SER COPIADO. Todos devem ser re-analisados, reproduzidos e reescritos sob a nossa ótica e valores, de forma original.
+        setRobotStatus(`[${i + 1}/${urls.length}] Mapeando manchetes disponíveis...`);
 
-          --- DIRETRIZES EDITORIAIS ---
-          ${robotGuidelines}
-          -----------------------------
+        const headlinesPrompt = `
+          Identifique as ${maxHeadlines} notícias MAIS RECENTES (OBRIGATORIAMENTE AS NOTÍCIAS DE HOJE) que aparecem neste texto.
           
-          --- APRENDIZADO DE PREFERÊNCIAS DO EDITOR ---
-          (Baseado no histórico de aprovação)
-          ${robotFeedback.liked.length > 0 ? `TÓPICOS QUE O EDITOR GOSTOU E APROVOU (Priorize notícias similares):\n- ${robotFeedback.liked.join('\n- ')}\n` : ''}
-          ${robotFeedback.disliked.length > 0 ? `TÓPICOS QUE O EDITOR REJEITOU (Evite assuntos similares ou dessas vertentes):\n- ${robotFeedback.disliked.join('\n- ')}\n` : ''}
-          ---------------------------------------------
+          RETORNE APENAS UM ARRAY JSON VÁLIDO com os títulos originais dessas notícias (strings).
+          Exemplo: ["Título da notícia 1", "Título da notícia 2"]
+          
+          Texto do portal:
+          ${pageText}
+        `;
 
-          Abaixo está o texto bruto extraído de um portal de notícias de referência: ${targetUrl}.
-          Sua tarefa é encontrar até ${newsPerUrl} notícias MAIS RECENTES (OBRIGATORIAMENTE AS NOTÍCIAS DE HOJE, DO DIA EM QUESTÃO) que aparecem neste texto. Ignore notícias antigas.
-          
-          Para cada notícia identificada, escreva uma matéria jornalística COMPLETA, direta e imparcial, sob a nossa ótica, com no mínimo 3 parágrafos usando tags HTML (como <p>, <h2>, <ul>). 
-          Crie também um título impactante e uma linha fina (subtítulo). IMPORTANTE: O título gerado deve ser O MAIS DIFERENTE POSSÍVEL do título original da notícia.
-          Além disso, extraia informações para a revisão do editor (título original, fonte, link exato ou aproximado, data da notícia e possíveis imagens descritas no texto).
-          
-          Responda EXATAMENTE e APENAS no formato JSON válido abaixo (uma array com as matérias encontradas, limite de ${newsPerUrl}), sem blocos de markdown em volta:
-          [
+        let headlines = [];
+        let errorMessages = [];
+        
+        const callAI = async (prompt) => {
+           let generatedText = null;
+           if (robotGeminiKey.trim()) {
+             try {
+               const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${robotGeminiKey.trim()}`, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
+               });
+               if (!geminiRes.ok) throw new Error("Gemini Falhou");
+               const geminiData = await geminiRes.json();
+               generatedText = geminiData.candidates[0].content.parts[0].text;
+             } catch (e) { errorMessages.push("Gemini: "+e.message); }
+           }
+           if (!generatedText && robotOpenAIKey.trim()) {
+             try {
+               const openAIRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${robotOpenAIKey.trim()}` },
+                 body: JSON.stringify({ model: 'gpt-4o-mini', response_format: { type: "json_object" }, messages: [{ role: 'user', content: prompt }] })
+               });
+               if (!openAIRes.ok) throw new Error("ChatGPT Falhou");
+               const openAIData = await openAIRes.json();
+               generatedText = openAIData.choices[0].message.content;
+             } catch (e) { errorMessages.push("ChatGPT: "+e.message); }
+           }
+           if (!generatedText && robotClaudeKey.trim()) {
+             try {
+               const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json', 'x-api-key': robotClaudeKey.trim(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+                 body: JSON.stringify({ model: 'claude-3-haiku-20240307', max_tokens: 4096, messages: [{ role: 'user', content: prompt }] })
+               });
+               if (!claudeRes.ok) throw new Error("Claude Falhou");
+               const claudeData = await claudeRes.json();
+               generatedText = claudeData.content[0].text;
+             } catch (e) { errorMessages.push("Claude: "+e.message); }
+           }
+           if (!generatedText) throw new Error("Todas as APIs falharam: " + errorMessages.join(" | "));
+           return generatedText;
+        };
+
+        try {
+           const headText = await callAI(headlinesPrompt);
+           const cleanH = headText.replace(/```json/g, '').replace(/```/g, '').trim();
+           headlines = JSON.parse(cleanH);
+           if (!Array.isArray(headlines)) {
+             if (headlines.manchetes) headlines = headlines.manchetes;
+             else headlines = [];
+           }
+        } catch(e) {
+           console.warn("Falha ao buscar manchetes", e);
+           continue;
+        }
+
+        for (let j = 0; j < headlines.length; j++) {
+           if (totalGeneratedThisSession >= MAX_PER_SESSION) break;
+
+           const headline = headlines[j];
+           setRobotStatus(`[${totalGeneratedThisSession + 1}/${MAX_PER_SESSION}] Escrevendo matéria: "${String(headline).substring(0, 40)}..."`);
+
+           const promptArticle = `
+            Você é um jornalista sênior editor-chefe escrevendo para o Portal NG Brasil.
+            Abaixo estão as DIRETRIZES EDITORIAIS E DE TOM DE VOZ do nosso portal. Você DEVE ler e aplicar essas diretrizes estritamente ao escrever.
+            NENHUM TEXTO PESQUISADO DEVE SER COPIADO.
+
+            --- DIRETRIZES EDITORIAIS ---
+            ${robotGuidelines}
+            -----------------------------
+            
+            --- APRENDIZADO DO EDITOR ---
+            ${robotFeedback.liked.length > 0 ? `TÓPICOS APROVADOS (Priorize):\n- ${robotFeedback.liked.join('\n- ')}\n` : ''}
+            ${robotFeedback.disliked.length > 0 ? `TÓPICOS REJEITADOS (Evite):\n- ${robotFeedback.disliked.join('\n- ')}\n` : ''}
+            -----------------------------
+
+            Sua tarefa é escrever uma matéria COMPLETA sobre a seguinte notícia que encontramos no portal:
+            NOTÍCIA A ESCREVER: "${headline}"
+            
+            A matéria deve ser direta e imparcial, com no mínimo 3 parágrafos usando tags HTML (como <p>, <h2>).
+            Crie um título impactante e uma linha fina (subtítulo). IMPORTANTE: O título gerado deve ser DIFERENTE do original.
+            
+            Responda EXATAMENTE e APENAS no formato JSON válido abaixo (UM ÚNICO OBJETO):
             {
               "title": "...",
               "subtitle": "...",
               "content": "...",
               "metadata": {
-                "titulo_original": "Título original exato da notícia lida",
+                "titulo_original": "${String(headline).replace(/"/g, '\\"')}",
                 "fonte": "Nome do Portal / Veículo",
                 "link_fonte": "Link da notícia (ou link do site)",
-                "data_publicacao": "Data que a notícia foi publicada (ex: Hoje, 25/09)",
-                "imagens_referencia": "Descreva as imagens mencionadas ou URLs se houver"
+                "data_publicacao": "Hoje",
+                "imagens_referencia": "Descreva as imagens"
               }
             }
-          ]
-          
-          Texto extraído do portal:
-          ${pageText}
-        `;
+            
+            Texto bruto extraído do portal para referência dos fatos:
+            ${pageText}
+           `;
 
-        let generatedText = null;
-
-        // Tentar Gemini
-        if (robotGeminiKey.trim()) {
            try {
-             const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${robotGeminiKey.trim()}`;
-             const geminiRes = await fetch(geminiUrl, {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ 
-                 contents: [{ parts: [{ text: promptText }] }],
-                 generationConfig: { responseMimeType: 'application/json' }
-               })
-             });
-             if (!geminiRes.ok) throw new Error("Gemini Falhou");
-             const geminiData = await geminiRes.json();
-             generatedText = geminiData.candidates[0].content.parts[0].text;
-           } catch (e) {
-             console.warn("Falha no Gemini:", e);
+              const articleText = await callAI(promptArticle);
+              const cleanA = articleText.replace(/```json/g, '').replace(/```/g, '').trim();
+              const draftObj = JSON.parse(cleanA);
+              
+              if (draftObj && draftObj.title && draftObj.content) {
+                 const meta = draftObj.metadata || {};
+                 let rawLink = meta.link_fonte || targetUrl;
+                 if (rawLink && !rawLink.startsWith('http')) {
+                   rawLink = 'https://' + rawLink;
+                 }
+
+                 const metaHtml = `
+                   <div style="background-color: #f8fafc; border-left: 4px solid #0ea5e9; padding: 16px; border-radius: 4px; font-family: sans-serif; font-size: 13px; color: #334155; margin-bottom: 24px;">
+                     <h4 style="margin-top:0; margin-bottom:8px; color: #0f172a; font-size: 14px; text-transform: uppercase;">🔍 Observações do Robô para Revisão</h4>
+                     <strong>Título Original:</strong> ${meta.titulo_original || 'Não informado'}<br>
+                     <strong>Fonte:</strong> ${meta.fonte || 'Não identificada'}<br>
+                     <strong>Data de Publicação:</strong> ${meta.data_publicacao || 'Não informada'}<br>
+                     <strong>Link Referência:</strong> <a href="${rawLink}" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: bold;">${rawLink}</a><br>
+                     <strong>Imagens de Referência:</strong> ${meta.imagens_referencia || 'Nenhuma'}
+                   </div>
+                 `;
+
+                 const newDraft = {
+                    id: `draft-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    category: 'geral',
+                    categoryLabel: 'Geral',
+                    title: draftObj.title,
+                    subtitle: draftObj.subtitle,
+                    praca: 'Nacional',
+                    sourceName: meta.fonte || new URL(targetUrl).hostname,
+                    author: { name: "IA Curadora", role: `Fonte: ${new URL(targetUrl).hostname}`, avatar: "https://images.unsplash.com/photo-1616161560417-66d4aba5ce44?w=150&auto=format&fit=crop&q=80" },
+                    date: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
+                    readTime: "3 min de leitura",
+                    image: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&auto=format&fit=crop&q=80",
+                    content: metaHtml + draftObj.content,
+                    metadata: meta
+                 };
+
+                 setDraftData(prev => {
+                    const updated = [newDraft, ...prev];
+                    localStorage.setItem('portal_ng_drafts', JSON.stringify(updated));
+                    return updated;
+                 });
+
+                 setDailyUsage(prev => {
+                    const newTotal = prev + 1;
+                    const today = new Date().toISOString().split('T')[0];
+                    localStorage.setItem('portal_ng_daily_usage', JSON.stringify({ date: today, count: newTotal }));
+                    return newTotal;
+                 });
+
+                 totalGeneratedThisSession++;
+                 
+                 await new Promise(r => setTimeout(r, 4500));
+              }
+           } catch(e) {
+              console.warn("Falha ao gerar matéria individual", e);
            }
-        }
-
-        // Tentar ChatGPT (OpenAI)
-        if (!generatedText && robotOpenAIKey.trim()) {
-           try {
-              setRobotStatus(`[${i + 1}/${urls.length}] Tentando via ChatGPT...`);
-              const openAIRes = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${robotOpenAIKey.trim()}` },
-                body: JSON.stringify({
-                  model: 'gpt-4o-mini',
-                  messages: [{ role: 'user', content: promptText }]
-                })
-              });
-              const openAIData = await openAIRes.json().catch(() => null);
-              if (!openAIRes.ok) throw new Error(openAIData?.error?.message || `ChatGPT HTTP ${openAIRes.status}`);
-              generatedText = openAIData.choices[0].message.content;
-           } catch (e) {
-              console.warn("Falha no ChatGPT:", e);
-              if (!errorMessages) var errorMessages = [];
-              errorMessages.push(`ChatGPT: ${e.message}`);
-           }
-        }
-
-        // Tentar Claude (Anthropic)
-        if (!generatedText && robotClaudeKey.trim()) {
-           try {
-              setRobotStatus(`[${i + 1}/${urls.length}] ChatGPT indisponível. Tentando via Claude...`);
-              const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-                 method: 'POST',
-                 headers: {
-                   'Content-Type': 'application/json',
-                   'x-api-key': robotClaudeKey,
-                   'anthropic-version': '2023-06-01',
-                   'anthropic-dangerous-direct-browser-access': 'true'
-                 },
-                 body: JSON.stringify({
-                    model: 'claude-3-haiku-20240307',
-                    max_tokens: 4096,
-                    messages: [{ role: 'user', content: promptText }]
-                 })
-              });
-              if (!claudeRes.ok) throw new Error("Claude Falhou");
-              const claudeData = await claudeRes.json();
-              generatedText = claudeData.content[0].text;
-           } catch (e) {
-              console.warn("Falha no Claude:", e);
-           }
-        }
-
-        if (!generatedText) {
-           const details = (typeof errorMessages !== 'undefined' && errorMessages.length > 0) ? errorMessages.join(' | ') : 'Nenhuma chave configurada ou erro desconhecido.';
-           throw new Error(`As APIs falharam. Detalhes: ${details}`);
-        }
-        
-        // Parse the JSON (cleaning potential markdown formatting from the response)
-        const cleanJsonStr = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const parsedDrafts = JSON.parse(cleanJsonStr);
-
-        for (const draft of parsedDrafts) {
-          const meta = draft.metadata || {};
-          let rawLink = meta.link_fonte || targetUrl;
-          if (rawLink && !rawLink.startsWith('http')) {
-            rawLink = 'https://' + rawLink;
-          }
-
-          const metaHtml = `
-            <div style="background-color: #f8fafc; border-left: 4px solid #0ea5e9; padding: 16px; border-radius: 4px; font-family: sans-serif; font-size: 13px; color: #334155; margin-bottom: 24px;">
-              <h4 style="margin-top:0; margin-bottom:8px; color: #0f172a; font-size: 14px; text-transform: uppercase;">🔍 Observações do Robô para Revisão</h4>
-              <strong>Título Original:</strong> ${meta.titulo_original || 'Não informado'}<br>
-              <strong>Fonte:</strong> ${meta.fonte || 'Não identificada'}<br>
-              <strong>Data de Publicação:</strong> ${meta.data_publicacao || 'Não informada'}<br>
-              <strong>Link Referência:</strong> <a href="${rawLink}" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: bold;">${rawLink}</a><br>
-              <strong>Imagens de Referência:</strong> ${meta.imagens_referencia || 'Nenhuma'}
-            </div>
-          `;
-
-          newDrafts.push({
-            id: `draft-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            category: 'geral',
-            categoryLabel: 'Geral',
-            title: draft.title,
-            subtitle: draft.subtitle,
-            praca: 'Nacional',
-            sourceName: meta.fonte || new URL(targetUrl).hostname,
-            author: { name: "IA Curadora (Gemini)", role: `Fonte: ${new URL(targetUrl).hostname}`, avatar: "https://images.unsplash.com/photo-1616161560417-66d4aba5ce44?w=150&auto=format&fit=crop&q=80" },
-            date: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
-            readTime: "3 min de leitura",
-            image: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&auto=format&fit=crop&q=80",
-            content: metaHtml + draft.content,
-            metadata: meta
-          });
-        }
-        
-        // Anti-Rate Limit: Pause for 4 seconds before fetching the next URL to avoid overloading the API
-        if (targetUrl !== urls[urls.length - 1]) {
-          setRobotStatus(`Pausa de segurança para evitar sobrecarga... (4s)`);
-          await new Promise(r => setTimeout(r, 4000));
         }
       }
 
-      setDraftData(prev => [...newDrafts, ...prev]);
-      setRobotStatus('Sucesso! As notícias foram escritas e enviadas para a Fila de Aprovação.');
+      setRobotStatus(`Concluído! ${totalGeneratedThisSession} matérias foram geradas e entregues uma a uma.`);
       
       setTimeout(() => {
         setIsRobotRunning(false);
@@ -834,11 +875,17 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                     {news.date}
                   </td>
                   <td className="px-6 py-4 text-right">
+                    <button onClick={() => setSocialModalArticle(news)} className="text-slate-400 hover:text-indigo-600 mr-2 transition-colors inline-flex items-center gap-1 font-bold text-xs bg-indigo-50 px-2 py-1 rounded" title="Gerar Card Instagram (Canva)">
+                      <Camera className="w-3.5 h-3.5 text-indigo-600" /> Insta
+                    </button>
+                    <button onClick={() => shareToWhatsApp(news)} className="text-slate-400 hover:text-emerald-600 mr-3 transition-colors inline-flex items-center gap-1 font-bold text-xs bg-emerald-50 px-2 py-1 rounded" title="Enviar no WhatsApp">
+                      <Share2 className="w-3.5 h-3.5 text-emerald-600" /> Zap
+                    </button>
                     <button onClick={() => handleEdit(news)} className="text-slate-400 hover:text-blue-600 mr-3 transition-colors" title="Editar">
-                      <Edit3 className="w-4 h-4" />
+                      <Edit3 className="w-4 h-4 inline" />
                     </button>
                     <button onClick={() => handleDelete(news.id)} className="text-slate-400 hover:text-red-600 transition-colors" title="Excluir">
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 inline" />
                     </button>
                   </td>
                 </tr>
@@ -1129,12 +1176,42 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           </div>
 
           <div className="border border-slate-200 rounded-lg p-5">
-            <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Settings className="w-4 h-4"/> Especificações Editoriais da IA</h3>
-            <p className="text-sm text-slate-600 mb-4">O robô foi pré-configurado pelo desenvolvedor com as regras editoriais do Portal NG (Tons formais, linguagem direta e isenção).</p>
+            <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Settings className="w-4 h-4"/> Modo Piloto Automático (Zero Clique)</h3>
+            <p className="text-xs text-slate-500 mb-4">Deixe a varredura e reescrita de notícias rodando sozinha em segundo plano no intervalo que escolher.</p>
             
+            <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
+              <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-700">
+                <input 
+                  type="checkbox" 
+                  checked={isAutoPilot} 
+                  onChange={e => setIsAutoPilot(e.target.checked)} 
+                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>Ativar Piloto Automático</span>
+              </label>
+
+              <select 
+                value={autoPilotHours} 
+                onChange={e => setAutoPilotHours(Number(e.target.value))}
+                disabled={!isAutoPilot}
+                className="px-2 py-1 border border-slate-300 rounded text-xs bg-white text-slate-700 font-semibold"
+              >
+                <option value={1}>A cada 1 hora</option>
+                <option value={2}>A cada 2 horas</option>
+                <option value={4}>A cada 4 horas</option>
+                <option value={8}>A cada 8 horas</option>
+              </select>
+
+              {isAutoPilot && (
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded animate-pulse">
+                  ● Robô Ativo no Piloto Automático
+                </span>
+              )}
+            </div>
+
             {!isRobotRunning && !robotStatus ? (
               <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg transition-all">
-                <Bot className="w-5 h-5" /> Iniciar Varredura de Notícias
+                <Bot className="w-5 h-5" /> Iniciar Varredura de Notícias Agora
               </button>
             ) : (
               <div className="w-full bg-indigo-50 border border-indigo-200 rounded-lg p-6 flex flex-col items-center justify-center gap-4">
@@ -1206,6 +1283,12 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                       <ThumbsDown className="w-4 h-4" />
                     </button>
                   </div>
+                  <button onClick={() => setSocialModalArticle(draft)} className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-md font-bold text-xs transition-colors" title="Gerar Card no estilo Canva">
+                    <Camera className="w-3.5 h-3.5" /> Arte Insta
+                  </button>
+                  <button onClick={() => shareToWhatsApp(draft)} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-md font-bold text-xs transition-colors" title="Enviar no WhatsApp">
+                    <Share2 className="w-3.5 h-3.5" /> Zap
+                  </button>
                   <button onClick={() => handleEdit(draft, true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-md font-bold text-sm transition-colors">
                     <Edit3 className="w-4 h-4" /> Revisar e Aprovar
                   </button>
@@ -1324,6 +1407,14 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           {activeTab === 'robot' && renderRobot()}
           {activeTab === 'aprovacao' && renderApprovals()}
         </div>
+
+        {/* Social Media Card Modal */}
+        {socialModalArticle && (
+          <SocialPostGenerator 
+            article={socialModalArticle} 
+            onClose={() => setSocialModalArticle(null)} 
+          />
+        )}
 
       </main>
 
