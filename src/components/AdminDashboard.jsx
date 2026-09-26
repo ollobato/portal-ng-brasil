@@ -399,7 +399,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         // Tentar Gemini
         if (robotGeminiKey.trim()) {
            try {
-             const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${robotGeminiKey}`;
+             const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${robotGeminiKey.trim()}`;
              const geminiRes = await fetch(geminiUrl, {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
