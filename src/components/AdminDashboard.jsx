@@ -160,6 +160,23 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   const [robotStartDate, setRobotStartDate] = useState('');
   const [robotStartTime, setRobotStartTime] = useState('');
   const [robotCategory, setRobotCategory] = useState('todas');
+  
+  const [robotActiveTab, setRobotActiveTab] = useState('curadora');
+  const [newPortalUrl, setNewPortalUrl] = useState('');
+
+  const handleAddPortal = () => {
+    if (newPortalUrl && newPortalUrl.includes('http')) {
+      const current = robotUrls ? robotUrls + '\n' : '';
+      setRobotUrls(current + newPortalUrl);
+      setNewPortalUrl('');
+    }
+  };
+
+  const handleRemovePortal = (index) => {
+    const urls = robotUrls.split('\n').filter(u => u.trim());
+    urls.splice(index, 1);
+    setRobotUrls(urls.join('\n'));
+  };
 
   const [isAutoPilot, setIsAutoPilot] = useState(() => {
     return localStorage.getItem('portal_ng_autopilot') === 'true';
@@ -1136,51 +1153,138 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-200 pb-4">
+          <button onClick={() => setRobotActiveTab('curadora')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${robotActiveTab === 'curadora' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Curadora</button>
+          <button onClick={() => setRobotActiveTab('prompt')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${robotActiveTab === 'prompt' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Prompt</button>
+          <button onClick={() => setRobotActiveTab('portais')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${robotActiveTab === 'portais' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Portais</button>
+          <button onClick={() => setRobotActiveTab('chaves')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${robotActiveTab === 'chaves' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Chaves API</button>
+          <button onClick={() => setRobotActiveTab('configuracoes')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${robotActiveTab === 'configuracoes' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Configurações</button>
+        </div>
+
         <form onSubmit={runRobotPipeline} className="space-y-6">
-          <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-lg space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1">A partir da Data</label>
-                <input type="date" value={robotStartDate} onChange={e => setRobotStartDate(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm" />
-                <p className="text-[10px] text-slate-500 mt-1">Deixe vazio para o padrão (24 a 48h)</p>
+          {robotActiveTab === 'curadora' && (
+            <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-lg space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800 mb-1">A partir da Data</label>
+                  <input type="date" value={robotStartDate} onChange={e => setRobotStartDate(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm" />
+                  <p className="text-[10px] text-slate-500 mt-1">Deixe vazio para o padrão (24 a 48h)</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800 mb-1">A partir da Hora</label>
+                  <input type="time" value={robotStartTime} onChange={e => setRobotStartTime(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800 mb-1">Categoria (Filtro)</label>
+                  <select value={robotCategory} onChange={e => setRobotCategory(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm">
+                    <option value="todas">Todas as Categorias</option>
+                    <option value="geral">Geral</option>
+                    <option value="politica">Política</option>
+                    <option value="economia">Economia</option>
+                    <option value="turismo">Turismo</option>
+                    <option value="esportes">Esportes</option>
+                    <option value="entretenimento">Entretenimento</option>
+                    <option value="tecnologia">Tecnologia</option>
+                    <option value="saude">Saúde</option>
+                    <option value="mundo">Mundo</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1">A partir da Hora</label>
-                <input type="time" value={robotStartTime} onChange={e => setRobotStartTime(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1">Categoria (Filtro)</label>
-                <select value={robotCategory} onChange={e => setRobotCategory(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm">
-                  <option value="todas">Todas as Categorias</option>
-                  <option value="geral">Geral</option>
-                  <option value="politica">Política</option>
-                  <option value="economia">Economia</option>
-                  <option value="turismo">Turismo</option>
-                  <option value="esportes">Esportes</option>
-                  <option value="entretenimento">Entretenimento</option>
-                  <option value="tecnologia">Tecnologia</option>
-                  <option value="saude">Saúde</option>
-                  <option value="mundo">Mundo</option>
-                </select>
-              </div>
+
+              {!isRobotRunning && !robotStatus ? (
+                <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg transition-all mt-4">
+                  <Bot className="w-5 h-5" /> Iniciar Varredura de Notícias Agora
+                </button>
+              ) : (
+                <div className="w-full bg-indigo-50 border border-indigo-200 rounded-lg p-6 flex flex-col items-center justify-center gap-4 mt-4">
+                  <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                  <p className="font-bold text-indigo-800 text-center animate-pulse">{robotStatus}</p>
+                </div>
+              )}
             </div>
-            
-            <div>
-              <label className="block text-sm font-semibold text-slate-800 mb-1 flex items-center justify-between">
-                <span>Portais de Referência (Um link por linha)</span>
-                <button type="button" onClick={() => setRobotUrls(defaultUrls)} className="text-xs text-indigo-600 hover:text-indigo-800 font-normal">Restaurar Padrão</button>
-              </label>
+          )}
+
+          {robotActiveTab === 'prompt' && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+              <label className="block text-sm font-semibold text-slate-800 mb-1">Diretrizes Editoriais (Prompt do Robô)</label>
+              <p className="text-xs text-slate-500 mb-2">Este texto será enviado para a IA como regra obrigatória de reescrita, garantindo que ela não copie notícias e siga a visão de mundo do portal.</p>
               <textarea 
-                value={robotUrls} 
-                onChange={e => setRobotUrls(e.target.value)} 
+                value={robotGuidelines} 
+                onChange={e => setRobotGuidelines(e.target.value)} 
                 required 
-                placeholder="https://g1.globo.com/&#10;https://www.uol.com.br/" 
-                className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm min-h-[100px]" 
+                className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm min-h-[300px]" 
               />
             </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6">
+          )}
+
+          {robotActiveTab === 'portais' && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800">Portais Monitorados</h4>
+                  <p className="text-xs text-slate-500">Adicione ou remova os portais de onde o robô buscará notícias.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setRobotUrls(defaultUrls)} className="px-3 py-2 bg-slate-200 text-slate-700 font-bold rounded-lg text-xs hover:bg-slate-300 transition-colors">Restaurar Padrão</button>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mb-6">
+                <input 
+                  type="url" 
+                  value={newPortalUrl} 
+                  onChange={e => setNewPortalUrl(e.target.value)} 
+                  placeholder="https://exemplo.com.br" 
+                  className="flex-1 px-4 py-2 border border-slate-300 rounded-md text-sm"
+                />
+                <button type="button" onClick={handleAddPortal} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-md text-sm hover:bg-indigo-700 transition-colors">Adicionar</button>
+              </div>
+
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold text-slate-700">Nome do Portal</th>
+                      <th className="px-4 py-3 font-semibold text-slate-700">Link Referência</th>
+                      <th className="px-4 py-3 font-semibold text-slate-700 w-20 text-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {robotUrls.split('\n').filter(u => u.trim()).map((url, i) => {
+                      let domainName = url;
+                      try {
+                        const parsed = new URL(url);
+                        domainName = parsed.hostname.replace('www.', '');
+                        domainName = domainName.charAt(0).toUpperCase() + domainName.slice(1);
+                        domainName = 'Portal ' + domainName;
+                      } catch(e) {}
+                      return (
+                        <tr key={i} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 font-medium text-slate-800">{domainName}</td>
+                          <td className="px-4 py-3 text-slate-500"><a href={url} target="_blank" rel="noreferrer" className="hover:text-indigo-600 hover:underline truncate max-w-[200px] block">{url}</a></td>
+                          <td className="px-4 py-3 text-center">
+                            <button type="button" onClick={() => handleRemovePortal(i)} className="text-red-400 hover:text-red-600 p-1">
+                              <Trash2 className="w-4 h-4 mx-auto" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {robotUrls.split('\n').filter(u => u.trim()).length === 0 && (
+                      <tr>
+                        <td colSpan="3" className="px-4 py-8 text-center text-slate-500">Nenhum portal cadastrado.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {robotActiveTab === 'chaves' && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
               <h4 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Key className="w-4 h-4 text-slate-500" /> Configuração de Chaves (APIs)</h4>
-              <p className="text-xs text-slate-500 mb-6">Insira a chave da IA de sua preferência. O robô usará a primeira disponível e pulará as vazias.</p>
+              <p className="text-xs text-slate-500 mb-6">Insira a chave da IA de sua preferência. O robô usará a primeira disponível e pulará as vazias. As chaves de API ficam salvas apenas no seu navegador para segurança.</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Google Gemini</label>
@@ -1205,64 +1309,45 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                 </div>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-800 mb-1">Diretrizes Editoriais (Prompt do Robô)</label>
-              <p className="text-xs text-slate-500 mb-2">Este texto será enviado para a IA como regra obrigatória de reescrita, garantindo que ela não copie notícias e siga a visão de mundo do portal.</p>
-              <textarea 
-                value={robotGuidelines} 
-                onChange={e => setRobotGuidelines(e.target.value)} 
-                required 
-                className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm min-h-[300px]" 
-              />
-            </div>
-            <p className="text-[11px] text-slate-500">* As chaves de API ficam salvas apenas no seu navegador para segurança.</p>
-          </div>
+          )}
 
-          <div className="border border-slate-200 rounded-lg p-5">
-            <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Settings className="w-4 h-4"/> Modo Piloto Automático (Zero Clique)</h3>
-            <p className="text-xs text-slate-500 mb-4">Deixe a varredura e reescrita de notícias rodando sozinha em segundo plano no intervalo que escolher.</p>
-            
-            <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
-              <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-700">
-                <input 
-                  type="checkbox" 
-                  checked={isAutoPilot} 
-                  onChange={e => setIsAutoPilot(e.target.checked)} 
-                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                />
-                <span>Ativar Piloto Automático</span>
-              </label>
+          {robotActiveTab === 'configuracoes' && (
+            <div className="border border-slate-200 rounded-lg p-5">
+              <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Settings className="w-4 h-4"/> Modo Piloto Automático (Zero Clique)</h3>
+              <p className="text-xs text-slate-500 mb-4">Deixe a varredura e reescrita de notícias rodando sozinha em segundo plano no intervalo que escolher.</p>
+              
+              <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-700">
+                  <input 
+                    type="checkbox" 
+                    checked={isAutoPilot} 
+                    onChange={e => setIsAutoPilot(e.target.checked)} 
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>Ativar Piloto Automático</span>
+                </label>
 
-              <select 
-                value={autoPilotHours} 
-                onChange={e => setAutoPilotHours(Number(e.target.value))}
-                disabled={!isAutoPilot}
-                className="px-2 py-1 border border-slate-300 rounded text-xs bg-white text-slate-700 font-semibold"
-              >
-                <option value={1}>A cada 1 hora</option>
-                <option value={2}>A cada 2 horas</option>
-                <option value={4}>A cada 4 horas</option>
-                <option value={8}>A cada 8 horas</option>
-              </select>
+                <select 
+                  value={autoPilotHours} 
+                  onChange={e => setAutoPilotHours(Number(e.target.value))}
+                  disabled={!isAutoPilot}
+                  className="px-2 py-1 border border-slate-300 rounded text-xs bg-white text-slate-700 font-semibold"
+                >
+                  <option value={1}>A cada 1 hora</option>
+                  <option value={2}>A cada 2 horas</option>
+                  <option value={4}>A cada 4 horas</option>
+                  <option value={8}>A cada 8 horas</option>
+                </select>
 
-              {isAutoPilot && (
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded animate-pulse">
-                  ● Robô Ativo no Piloto Automático
-                </span>
-              )}
-            </div>
-
-            {!isRobotRunning && !robotStatus ? (
-              <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg transition-all">
-                <Bot className="w-5 h-5" /> Iniciar Varredura de Notícias Agora
-              </button>
-            ) : (
-              <div className="w-full bg-indigo-50 border border-indigo-200 rounded-lg p-6 flex flex-col items-center justify-center gap-4">
-                <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                <p className="font-bold text-indigo-800 text-center animate-pulse">{robotStatus}</p>
+                {isAutoPilot && (
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded animate-pulse">
+                    ● Robô Ativo no Piloto Automático
+                  </span>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
         </form>
       </div>
     );
