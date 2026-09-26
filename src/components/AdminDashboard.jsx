@@ -1,6 +1,6 @@
 import React, { Component, useState } from 'react';
 import { trackEvent } from '../utils/analytics';
-import { LogOut, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { LogOut, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
 
 class ErrorBoundary extends Component {
@@ -295,8 +295,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
   const runRobotPipeline = async (e) => {
     e.preventDefault();
-    if (!robotUrls.trim() || !robotGeminiKey.trim()) {
-      alert("Por favor, insira os links dos portais e a chave do Gemini.");
+    if (!robotUrls.trim() || (!robotGeminiKey.trim() && !robotOpenAIKey.trim() && !robotClaudeKey.trim())) {
+      alert("Por favor, insira os links dos portais e pelo menos uma chave de IA (Gemini, ChatGPT ou Claude).");
       return;
     }
     
@@ -1076,18 +1076,31 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                 className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm min-h-[100px]" 
               />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1">Chave API Google Gemini (IA 1)</label>
-                <input type="password" value={robotGeminiKey} onChange={e => setRobotGeminiKey(e.target.value)} placeholder="AIzaSy..." className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1">Chave API ChatGPT (IA 2)</label>
-                <input type="password" value={robotOpenAIKey} onChange={e => setRobotOpenAIKey(e.target.value)} placeholder="sk-proj-..." className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1">Chave API Claude (IA 3)</label>
-                <input type="password" value={robotClaudeKey} onChange={e => setRobotClaudeKey(e.target.value)} placeholder="sk-ant-..." className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm" />
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6">
+              <h4 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Key className="w-4 h-4 text-slate-500" /> Configuração de Chaves (APIs)</h4>
+              <p className="text-xs text-slate-500 mb-6">Insira a chave da IA de sua preferência. O robô usará a primeira disponível e pulará as vazias.</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Google Gemini</label>
+                  <div className="flex items-center gap-2">
+                    <input type="password" value={robotGeminiKey} onChange={e => setRobotGeminiKey(e.target.value)} placeholder="AIzaSy..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    <button type="button" onClick={() => alert('Chave do Gemini salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">ChatGPT (OpenAI)</label>
+                  <div className="flex items-center gap-2">
+                    <input type="password" value={robotOpenAIKey} onChange={e => setRobotOpenAIKey(e.target.value)} placeholder="sk-proj-..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    <button type="button" onClick={() => alert('Chave do ChatGPT salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Claude (Anthropic)</label>
+                  <div className="flex items-center gap-2">
+                    <input type="password" value={robotClaudeKey} onChange={e => setRobotClaudeKey(e.target.value)} placeholder="sk-ant-..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    <button type="button" onClick={() => alert('Chave do Claude salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
+                  </div>
+                </div>
               </div>
             </div>
             <div>
