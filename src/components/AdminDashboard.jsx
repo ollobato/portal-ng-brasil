@@ -333,7 +333,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         category: formData.category,
         categoryLabel: formData.category.charAt(0).toUpperCase() + formData.category.slice(1),
         praca: formData.praca,
-        image: formData.image || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&auto=format&fit=crop&q=80",
+        image: formData.image || `https://image.pollinations.ai/prompt/${encodeURIComponent("News photo about " + formData.title + ", realistic, high quality, professional photography")}?width=1200&height=1200&nologo=true`,
         content: formData.content,
       };
 
@@ -359,7 +359,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         },
         date: dateStr,
         readTime: "3 min de leitura",
-        image: formData.image || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&auto=format&fit=crop&q=80",
+        image: formData.image || `https://image.pollinations.ai/prompt/${encodeURIComponent("News photo about " + formData.title + ", realistic, high quality, professional photography")}?width=1200&height=1200&nologo=true`,
         isFeatured: true, // Force to see it on home
         isTrending: false,
         views: 0,
@@ -594,7 +594,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                     author: { name: "IA Curadora", role: `Fonte: ${originDomain}`, avatar: "https://images.unsplash.com/photo-1616161560417-66d4aba5ce44?w=150&auto=format&fit=crop&q=80" },
                     date: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
                     readTime: "3 min de leitura",
-                    image: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&auto=format&fit=crop&q=80",
+                    image: `https://image.pollinations.ai/prompt/${encodeURIComponent("News photo about " + draftObj.title + ", realistic, high quality, professional photography")}?width=1200&height=1200&nologo=true`,
                     content: metaHtml + draftObj.content,
                     metadata: meta
                  };
