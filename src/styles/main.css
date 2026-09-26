@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+/* Custom Theme Variables & Portal NG Brasil Palette */
+@layer base {
+  :root {
+    --font-heading: 'Barlow Condensed', sans-serif;
+    --font-body: 'Barlow', sans-serif;
+    --font-serif: 'Merriweather', serif;
+
+    --brand-green: #006644;
+    --brand-green-light: #10b981;
+    --brand-gold: #f59e0b;
+    --brand-navy: #0a192f;
+    --title-blue: #0A3A8A; /* Classic editorial blue */
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: #ffffff; /* Fundo branco clássico */
+    color: #334155; /* Texto cinza escuro clássico */
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Custom Typography Utility */
+.font-heading {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.text-title-blue {
+  color: var(--title-blue);
+}
+
+/* Custom Animations */
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-ticker {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: ticker 38s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+}
+
+.pulse-red {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+/* Clean Panels */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid #e2e8f0;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-green-light);
+}
+
+/* News Cards & Hover Effects - Clean */
+.news-card {
+  transition: all 0.2s ease-in-out;
+  background-color: #ffffff;
+}
+.news-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+
+/* Category Badges */
+.badge-politica {
+  background-color: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+}
+
+.badge-turismo {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-entretenimento {
+  background-color: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+/* Custom Buttons */
+.btn-emerald {
+  background: var(--brand-green);
+  color: white;
+  transition: all 0.2s ease;
+}
+.btn-emerald:hover {
+  background: #004d33;
+  box-shadow: 0 4px 10px rgba(0, 102, 68, 0.2);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
