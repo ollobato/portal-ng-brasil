@@ -1,12 +1,14 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Download, Copy, Share2, Image as ImageIcon, Sparkles, Check, RefreshCw, Upload } from 'lucide-react';
+import { Download, Copy, Share2, Image as ImageIcon, Sparkles, Check, RefreshCw, Upload, Send } from 'lucide-react';
 import { formatInstagramCaption, formatWhatsAppMessage, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
 
-export default function SocialPostGenerator({ article, onClose, inline = false }) {
+export default function SocialPostGenerator({ article, onClose, inline = false, metaToken, metaFbPageId, metaIgAccountId, imgbbKey }) {
   const canvasRef = useRef(null);
   
   const [aspectRatio, setAspectRatio] = useState('4:5'); 
   const [copiedCaption, setCopiedCaption] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
+  const [postStatus, setPostStatus] = useState('');
 
   const formatText = (text) => {
     if (!text) return '';
@@ -275,6 +277,81 @@ export default function SocialPostGenerator({ article, onClose, inline = false }
     setImageUrl(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1200&height=1200&nologo=true&seed=${randomSeed}`);
   };
 
+  const handlePostToMeta = async () => {
+    if (!metaToken || !imgbbKey) {
+      alert("Por favor, configure as credenciais do Meta e ImgBB na aba de Configurações.");
+      return;
+    }
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    try {
+      setIsPosting(true);
+      
+      // 1. Upload to ImgBB
+      setPostStatus('Hospedando imagem...');
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+      const formData = new FormData();
+      formData.append('image', blob);
+      
+      const imgbbRes = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
+        method: 'POST',
+        body: formData
+      });
+      const imgbbData = await imgbbRes.json();
+      
+      if (!imgbbData.success) throw new Error("Erro ao subir imagem no ImgBB: " + (imgbbData.error?.message || "Desconhecido"));
+      
+      const publicImageUrl = imgbbData.data.url;
+
+      // 2. Post to Facebook (if ID is configured)
+      if (metaFbPageId) {
+        setPostStatus('Postando no Facebook...');
+        const fbRes = await fetch(`https://graph.facebook.com/v19.0/${metaFbPageId}/photos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: publicImageUrl, message: captionText, access_token: metaToken })
+        });
+        const fbData = await fbRes.json();
+        if (fbData.error) console.error("Erro Facebook:", fbData.error);
+      }
+
+      // 3. Post to Instagram (if ID is configured)
+      if (metaIgAccountId) {
+        setPostStatus('Preparando Instagram...');
+        // Step A: Create Media Container
+        const igMediaRes = await fetch(`https://graph.facebook.com/v19.0/${metaIgAccountId}/media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_url: publicImageUrl, caption: captionText, access_token: metaToken })
+        });
+        const igMediaData = await igMediaRes.json();
+        if (igMediaData.error) throw new Error("Erro no Instagram (Media): " + igMediaData.error.message);
+        
+        const creationId = igMediaData.id;
+
+        // Step B: Publish Media Container
+        setPostStatus('Publicando no Instagram...');
+        const igPublishRes = await fetch(`https://graph.facebook.com/v19.0/${metaIgAccountId}/media_publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ creation_id: creationId, access_token: metaToken })
+        });
+        const igPublishData = await igPublishRes.json();
+        if (igPublishData.error) throw new Error("Erro no Instagram (Publish): " + igPublishData.error.message);
+      }
+
+      alert("Postado com sucesso!");
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao postar: " + err.message);
+    } finally {
+      setIsPosting(false);
+      setPostStatus('');
+    }
+  };
+
   const content = (
     <div className={`bg-white shadow-sm overflow-hidden flex flex-col ${inline ? 'rounded-xl border border-slate-200 h-full' : 'md:flex-row rounded-2xl max-w-4xl w-full my-8 border border-slate-200'}`}>
       
@@ -406,18 +483,33 @@ export default function SocialPostGenerator({ article, onClose, inline = false }
         {/* Action Buttons */}
         <div className="space-y-2 pt-2 border-t border-slate-100">
           <button
-            onClick={handleDownload}
-            className="w-full bg-[#d40a38] hover:bg-red-700 text-white font-bold py-2 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all text-sm"
+            onClick={handlePostToMeta}
+            disabled={isPosting || (!metaToken || !imgbbKey)}
+            className={`w-full ${isPosting ? 'bg-slate-400' : (!metaToken || !imgbbKey) ? 'bg-slate-300' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'} text-white font-bold py-3 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all text-sm`}
+            title={(!metaToken || !imgbbKey) ? "Configure as chaves do Meta e ImgBB nas Configurações primeiro" : "Postar simultaneamente no Facebook e Instagram"}
           >
-            <Download className="w-4 h-4" /> Baixar Imagem (PNG)
+            {isPosting ? (
+              <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> {postStatus}</>
+            ) : (
+              <><Send className="w-4 h-4" /> Postar no Instagram e Facebook</>
+            )}
           </button>
 
-          <button
-            onClick={handleShareWhatsApp}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all"
-          >
-            <Share2 className="w-4 h-4" /> Enviar no WhatsApp
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleDownload}
+              className="flex-1 bg-[#d40a38] hover:bg-red-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs"
+            >
+              <Download className="w-3 h-3" /> Baixar (PNG)
+            </button>
+
+            <button
+              onClick={handleShareWhatsApp}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all"
+            >
+              <Share2 className="w-4 h-4" /> WhatsApp
+            </button>
+          </div>
         </div>
       </div>
     </div>
