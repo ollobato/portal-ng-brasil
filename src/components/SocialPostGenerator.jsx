@@ -236,6 +236,12 @@ export default function SocialPostGenerator({ article, onClose }) {
     reader.readAsDataURL(file);
   };
 
+  const handleGenerateNewImage = () => {
+    const randomSeed = Math.floor(Math.random() * 1000000);
+    const prompt = `News photo about ${title}, realistic, high quality`;
+    setImageUrl(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1200&height=1200&nologo=true&seed=${randomSeed}`);
+  };
+
   return (
     <div className="fixed inset-0 z-[999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row border border-slate-200 my-8">
@@ -316,6 +322,13 @@ export default function SocialPostGenerator({ article, onClose }) {
                 <input type="file" accept="image/png" onChange={handleCustomOverlayUpload} className="hidden" />
               </label>
             </div>
+
+            <button
+              onClick={handleGenerateNewImage}
+              className="w-full bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all"
+            >
+              <RefreshCw className="w-4 h-4" /> Gerar Nova Imagem de Fundo (IA)
+            </button>
           </div>
 
           {/* Action Buttons */}
