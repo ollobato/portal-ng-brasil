@@ -409,7 +409,10 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
              const geminiRes = await fetch(geminiUrl, {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+               body: JSON.stringify({ 
+                 contents: [{ parts: [{ text: promptText }] }],
+                 generationConfig: { responseMimeType: 'application/json' }
+               })
              });
              if (!geminiRes.ok) throw new Error("Gemini Falhou");
              const geminiData = await geminiRes.json();
