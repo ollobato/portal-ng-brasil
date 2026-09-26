@@ -405,7 +405,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
          let generatedText = null;
          if (robotGeminiKey.trim()) {
            try {
-             const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${robotGeminiKey.trim()}`, {
+             const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${robotGeminiKey.trim()}`, {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
@@ -455,7 +455,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
           const proxyUrl = isLocalhost 
             ? `/api/scrape?url=${encodeURIComponent(targetUrl)}`
-            : `/scrape.php?url=${encodeURIComponent(targetUrl)}`;
+            : `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
             
           const res = await fetch(proxyUrl);
           if (!res.ok) throw new Error("A conexão com o proxy falhou");
