@@ -436,7 +436,10 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           Identifique as ${maxHeadlines} notícias MAIS RECENTES (OBRIGATORIAMENTE AS NOTÍCIAS DE HOJE) que aparecem neste texto.
           
           RETORNE APENAS UM ARRAY JSON VÁLIDO com os títulos originais dessas notícias (strings).
-          Exemplo: ["Título da notícia 1", "Título da notícia 2"]
+          IMPORTANTE: Se o texto for uma página de erro, bloqueio, ou simplesmente não contiver notícias legíveis, RETORNE UM ARRAY VAZIO: []
+          
+          Exemplo de sucesso: ["Acidente na BR causa trânsito", "Prefeitura abre vagas de emprego"]
+          Exemplo de falha: []
           
           Texto do portal:
           ${pageText}
