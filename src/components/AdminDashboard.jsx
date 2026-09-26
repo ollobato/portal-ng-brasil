@@ -60,7 +60,7 @@ export default function AdminDashboard({ onLogout, newsData, setNewsData, banner
   const [aiPrompt, setAiPrompt] = useState('');
 
   // Robot / Automation states
-  const defaultUrls = "https://danuzionews.com/\nhttps://forbes.com.br/\nhttps://www.gazetadopovo.com.br\nhttps://www.brasilparalelo.com.br/\nhttps://www.cnnbrasil.com.br/\nhttps://revistaoeste.com/\nhttps://agenciagov.ebc.com.br/\nhttps://agenciabrasil.ebc.com.br/\nhttps://www.gov.br/pt-br\nhttps://www.voanews.com/\nhttps://news.un.org/pt/\nhttps://www.r7.com/\nhttps://g1.globo.com/\nhttps://www.panrotas.com.br/\nhttps://diariodoturismo.com.br/\nhttps://brasilturis.com.br/\nhttps://www.gov.br/fazenda\nhttps://www.gov.br/saude\nhttps://www.gov.br/mec\nhttps://www.gov.br/mcti/pt-br";
+  const defaultUrls = "https://danuzionews.com/\nhttps://forbes.com.br/\nhttps://www.gazetadopovo.com.br\nhttps://www.brasilparalelo.com.br/\nhttps://www.cnnbrasil.com.br/\nhttps://revistaoeste.com/\nhttps://agenciagov.ebc.com.br/\nhttps://agenciabrasil.ebc.com.br/\nhttps://www.gov.br/pt-br\nhttps://www.voanews.com/\nhttps://news.un.org/pt/\nhttps://www.r7.com/\nhttps://g1.globo.com/\nhttps://www.uol.com.br/\nhttps://www.estadao.com.br/\nhttps://www.folha.uol.com.br/\nhttps://www.bbc.com/portuguese\nhttps://www.poder360.com.br/\nhttps://www.metropoles.com/\nhttps://www.terra.com.br/\nhttps://www.panrotas.com.br/\nhttps://diariodoturismo.com.br/\nhttps://brasilturis.com.br/\nhttps://www.gov.br/fazenda\nhttps://www.gov.br/saude\nhttps://www.gov.br/mec\nhttps://www.gov.br/mcti/pt-br";
   
   const [robotUrls, setRobotUrls] = useState(() => {
     const saved = localStorage.getItem('portal_ng_robot_urls');
@@ -156,6 +156,10 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
   const [isRobotRunning, setIsRobotRunning] = useState(false);
   const [robotStatus, setRobotStatus] = useState('');
+  
+  const [robotStartDate, setRobotStartDate] = useState('');
+  const [robotStartTime, setRobotStartTime] = useState('');
+  const [robotCategory, setRobotCategory] = useState('todas');
 
   const [isAutoPilot, setIsAutoPilot] = useState(() => {
     return localStorage.getItem('portal_ng_autopilot') === 'true';
@@ -432,11 +436,19 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
         setRobotStatus(`[${i + 1}/${urls.length}] Mapeando manchetes disponíveis...`);
 
+        const categoryInstruction = robotCategory === 'todas' 
+          ? '' 
+          : `\nFiltro obrigatório: SELECIONE APENAS NOTÍCIAS QUE SE ENCAIXEM NA CATEGORIA "${robotCategory.toUpperCase()}". Ignore notícias de outros assuntos.\n`;
+
+        const timeInstruction = (robotStartDate || robotStartTime) 
+          ? `\nFiltro de Tempo obrigatório: Selecione notícias publicadas a partir de ${robotStartDate ? 'data ' + robotStartDate : ''} ${robotStartTime ? 'às ' + robotStartTime : ''}.\n` 
+          : `\nDê preferência para notícias de hoje ou das últimas 24 a 48 horas (incluindo as postadas ontem a partir das 20h).\n`;
+
         const headlinesPrompt = `
-          Identifique as ${maxHeadlines} notícias MAIS RECENTES que aparecem neste texto. Dê preferência para notícias de hoje ou das últimas 24 a 48 horas (incluindo as postadas ontem a partir das 20h).
+          Identifique as ${maxHeadlines} notícias MAIS RECENTES que aparecem neste texto.${timeInstruction}${categoryInstruction}
           
           RETORNE APENAS UM ARRAY JSON VÁLIDO com os títulos originais dessas notícias (strings).
-          IMPORTANTE: Se o texto for uma página de erro, bloqueio, ou simplesmente não contiver notícias legíveis, RETORNE UM ARRAY VAZIO: []
+          IMPORTANTE: Se o texto for uma página de erro, bloqueio, ou simplesmente não contiver notícias legíveis que atendam aos filtros, RETORNE UM ARRAY VAZIO: []
           
           Exemplo de sucesso: ["Acidente na BR causa trânsito", "Prefeitura abre vagas de emprego"]
           Exemplo de falha: []
@@ -529,8 +541,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
                  const newDraft = {
                     id: `draft-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    category: 'geral',
-                    categoryLabel: 'Geral',
+                    category: robotCategory === 'todas' ? 'geral' : robotCategory,
+                    categoryLabel: robotCategory === 'todas' ? 'Geral' : robotCategory.charAt(0).toUpperCase() + robotCategory.slice(1),
                     title: draftObj.title,
                     subtitle: draftObj.subtitle,
                     praca: 'Nacional',
@@ -1126,8 +1138,38 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
         <form onSubmit={runRobotPipeline} className="space-y-6">
           <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-lg space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-800 mb-1">A partir da Data</label>
+                <input type="date" value={robotStartDate} onChange={e => setRobotStartDate(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm" />
+                <p className="text-[10px] text-slate-500 mt-1">Deixe vazio para o padrão (24 a 48h)</p>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-800 mb-1">A partir da Hora</label>
+                <input type="time" value={robotStartTime} onChange={e => setRobotStartTime(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-800 mb-1">Categoria (Filtro)</label>
+                <select value={robotCategory} onChange={e => setRobotCategory(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm">
+                  <option value="todas">Todas as Categorias</option>
+                  <option value="geral">Geral</option>
+                  <option value="politica">Política</option>
+                  <option value="economia">Economia</option>
+                  <option value="turismo">Turismo</option>
+                  <option value="esportes">Esportes</option>
+                  <option value="entretenimento">Entretenimento</option>
+                  <option value="tecnologia">Tecnologia</option>
+                  <option value="saude">Saúde</option>
+                  <option value="mundo">Mundo</option>
+                </select>
+              </div>
+            </div>
+            
             <div>
-              <label className="block text-sm font-semibold text-slate-800 mb-1">Portais de Referência (Um link por linha)</label>
+              <label className="block text-sm font-semibold text-slate-800 mb-1 flex items-center justify-between">
+                <span>Portais de Referência (Um link por linha)</span>
+                <button type="button" onClick={() => setRobotUrls(defaultUrls)} className="text-xs text-indigo-600 hover:text-indigo-800 font-normal">Restaurar Padrão</button>
+              </label>
               <textarea 
                 value={robotUrls} 
                 onChange={e => setRobotUrls(e.target.value)} 
