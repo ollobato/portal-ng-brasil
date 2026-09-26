@@ -156,6 +156,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
   const [isRobotRunning, setIsRobotRunning] = useState(false);
   const [robotStatus, setRobotStatus] = useState('');
+  const [robotProgress, setRobotProgress] = useState(null);
   
   const [robotStartDate, setRobotStartDate] = useState('');
   const [robotStartTime, setRobotStartTime] = useState('');
@@ -378,6 +379,11 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
       let totalGeneratedThisSession = 0;
       const MAX_PER_SESSION = 20;
+      
+      setRobotProgress({
+        portals: { current: 0, total: urls.length },
+        news: { current: 0, total: MAX_PER_SESSION }
+      });
 
       let errorMessages = [];
       const callAI = async (prompt) => {
@@ -426,7 +432,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         if (totalGeneratedThisSession >= MAX_PER_SESSION) break;
 
         const targetUrl = urls[i];
-        setRobotStatus(`[${i + 1}/${urls.length}] Lendo portal: ${targetUrl}...`);
+        setRobotProgress(p => ({ ...p, portals: { current: i + 1, total: urls.length } }));
+        setRobotStatus(`Lendo portal: ${targetUrl}...`);
         
         let pageHtml = "";
         try {
@@ -451,7 +458,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
         const maxHeadlines = Math.max(1, Math.floor(MAX_PER_SESSION / urls.length));
 
-        setRobotStatus(`[${i + 1}/${urls.length}] Mapeando manchetes disponíveis...`);
+        setRobotProgress(p => ({ ...p, portals: { current: i + 1, total: urls.length } }));
+        setRobotStatus(`Mapeando manchetes disponíveis...`);
 
         const categoryInstruction = robotCategory === 'todas' 
           ? '' 
@@ -493,7 +501,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
            if (totalGeneratedThisSession >= MAX_PER_SESSION) break;
 
            const headline = headlines[j];
-           setRobotStatus(`[${totalGeneratedThisSession + 1}/${MAX_PER_SESSION}] Escrevendo matéria: "${String(headline).substring(0, 40)}..."`);
+           setRobotProgress(p => ({ ...p, news: { current: totalGeneratedThisSession + 1, total: MAX_PER_SESSION } }));
+           setRobotStatus(`Escrevendo matéria: "${String(headline).substring(0, 40)}..."`);
 
            const promptArticle = `
             Você é um jornalista sênior editor-chefe escrevendo para o Portal NG Brasil.
@@ -600,6 +609,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       setTimeout(() => {
         setIsRobotRunning(false);
         setRobotStatus('');
+        setRobotProgress(null);
         setActiveTab('aprovacao');
       }, 2000);
 
@@ -607,6 +617,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       alert("Erro na Automação: " + error.message);
       setIsRobotRunning(false);
       setRobotStatus('');
+      setRobotProgress(null);
     }
   };
 
@@ -1197,8 +1208,34 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                 </button>
               ) : (
                 <div className="w-full bg-indigo-50 border border-indigo-200 rounded-lg p-6 flex flex-col items-center justify-center gap-4 mt-4">
-                  <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                  <p className="font-bold text-indigo-800 text-center animate-pulse">{robotStatus}</p>
+                  {robotProgress ? (
+                    <div className="w-full max-w-md space-y-4">
+                      <div>
+                        <div className="flex justify-between text-xs font-bold text-indigo-800 mb-1">
+                          <span>1. Leitura de Portais</span>
+                          <span>{robotProgress.portals.current} / {robotProgress.portals.total}</span>
+                        </div>
+                        <div className="w-full bg-indigo-200 rounded-full h-2 overflow-hidden">
+                          <div className="bg-indigo-600 h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (robotProgress.portals.current / (robotProgress.portals.total || 1)) * 100)}%` }}></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-xs font-bold text-violet-800 mb-1">
+                          <span>2. Geração de Notícias</span>
+                          <span>{robotProgress.news.current} / {robotProgress.news.total}</span>
+                        </div>
+                        <div className="w-full bg-violet-200 rounded-full h-2 overflow-hidden">
+                          <div className="bg-violet-600 h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (robotProgress.news.current / (robotProgress.news.total || 1)) * 100)}%` }}></div>
+                        </div>
+                      </div>
+                      <p className="font-bold text-indigo-800 text-center text-sm animate-pulse mt-2">{robotStatus}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                      <p className="font-bold text-indigo-800 text-center animate-pulse">{robotStatus}</p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
