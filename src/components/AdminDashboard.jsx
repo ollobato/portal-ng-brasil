@@ -433,7 +433,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         setRobotStatus(`[${i + 1}/${urls.length}] Mapeando manchetes disponíveis...`);
 
         const headlinesPrompt = `
-          Identifique as ${maxHeadlines} notícias MAIS RECENTES (OBRIGATORIAMENTE AS NOTÍCIAS DE HOJE) que aparecem neste texto.
+          Identifique as ${maxHeadlines} notícias MAIS RECENTES que aparecem neste texto. Dê preferência para notícias de hoje ou das últimas 24 a 48 horas (incluindo as postadas ontem a partir das 20h).
           
           RETORNE APENAS UM ARRAY JSON VÁLIDO com os títulos originais dessas notícias (strings).
           IMPORTANTE: Se o texto for uma página de erro, bloqueio, ou simplesmente não contiver notícias legíveis, RETORNE UM ARRAY VAZIO: []
