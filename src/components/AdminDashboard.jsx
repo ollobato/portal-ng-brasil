@@ -148,30 +148,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   // Social Media Modal State
   const [socialModalArticle, setSocialModalArticle] = useState(null);
 
-  // AutoPilot State
-  const [isAutoPilot, setIsAutoPilot] = useState(() => {
-    return localStorage.getItem('portal_ng_autopilot') === 'true';
-  });
-  const [autoPilotHours, setAutoPilotHours] = useState(1);
 
-  React.useEffect(() => {
-    localStorage.setItem('portal_ng_autopilot', isAutoPilot ? 'true' : 'false');
-  }, [isAutoPilot]);
-
-  // AutoPilot Interval Handler
-  React.useEffect(() => {
-    let timer = null;
-    if (isAutoPilot && !isRobotRunning) {
-      const ms = autoPilotHours * 60 * 60 * 1000;
-      timer = setInterval(() => {
-        console.log("Piloto Automático: disparando varredura...");
-        runRobotPipeline({ preventDefault: () => {} });
-      }, ms);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isAutoPilot, isRobotRunning, autoPilotHours]);
 
   React.useEffect(() => {
     localStorage.setItem('portal_ng_robot_guidelines', robotGuidelines);
@@ -179,6 +156,29 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
   const [isRobotRunning, setIsRobotRunning] = useState(false);
   const [robotStatus, setRobotStatus] = useState('');
+
+  const [isAutoPilot, setIsAutoPilot] = useState(() => {
+    return localStorage.getItem('portal_ng_autopilot') === 'true';
+  });
+  const [autoPilotHours, setAutoPilotHours] = useState(1); // 1, 2, 4, 8
+
+  React.useEffect(() => {
+    localStorage.setItem('portal_ng_autopilot', isAutoPilot ? 'true' : 'false');
+  }, [isAutoPilot]);
+
+  React.useEffect(() => {
+    let intervalId = null;
+    if (isAutoPilot && !isRobotRunning) {
+      const ms = autoPilotHours * 60 * 60 * 1000;
+      intervalId = setInterval(() => {
+        console.log("Piloto Automático: disparando varredura...");
+        runRobotPipeline({ preventDefault: () => {} });
+      }, ms);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isAutoPilot, isRobotRunning, autoPilotHours]);
   
   // Daily Usage Tracking
   const dailyUsageLimit = 1500;
