@@ -149,6 +149,22 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
   const [isRobotRunning, setIsRobotRunning] = useState(false);
   const [robotStatus, setRobotStatus] = useState('');
+  
+  // Daily Usage Tracking
+  const dailyUsageLimit = 1500;
+  const [dailyUsage, setDailyUsage] = useState(() => {
+    try {
+      const storedStr = localStorage.getItem('portal_ng_daily_usage');
+      const today = new Date().toISOString().split('T')[0];
+      if (storedStr) {
+        const stored = JSON.parse(storedStr);
+        if (stored.date === today) return stored.count;
+      }
+      return 0;
+    } catch {
+      return 0;
+    }
+  });
 
   // Authors state
   const [authors, setAuthors] = useState(() => {
@@ -340,6 +356,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         scripts.forEach(s => s.remove());
         const pageText = doc.body.innerText.replace(/\s+/g, ' ').slice(0, 12000); // Take first 12k chars to fit context
 
+        const newsPerUrl = Math.max(1, Math.floor(20 / urls.length));
+
         const promptText = `
           Você é um jornalista sênior editor-chefe escrevendo para o Portal NG Brasil.
           Abaixo estão as DIRETRIZES EDITORIAIS E DE TOM DE VOZ do nosso portal. Você DEVE ler e aplicar essas diretrizes estritamente ao escrever.
@@ -356,13 +374,13 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           ---------------------------------------------
 
           Abaixo está o texto bruto extraído de um portal de notícias de referência: ${targetUrl}.
-          Sua tarefa é encontrar as 2 (duas) notícias ou manchetes MAIS RECENTES (OBRIGATORIAMENTE AS NOTÍCIAS DE HOJE, DO DIA EM QUESTÃO) que aparecem neste texto. Ignore notícias antigas.
+          Sua tarefa é encontrar até ${newsPerUrl} notícias MAIS RECENTES (OBRIGATORIAMENTE AS NOTÍCIAS DE HOJE, DO DIA EM QUESTÃO) que aparecem neste texto. Ignore notícias antigas.
           
-          Para cada uma das 2 notícias identificadas, escreva uma matéria jornalística COMPLETA, direta e imparcial, sob a nossa ótica, com no mínimo 3 parágrafos usando tags HTML (como <p>, <h2>, <ul>). 
+          Para cada notícia identificada, escreva uma matéria jornalística COMPLETA, direta e imparcial, sob a nossa ótica, com no mínimo 3 parágrafos usando tags HTML (como <p>, <h2>, <ul>). 
           Crie também um título impactante e uma linha fina (subtítulo). IMPORTANTE: O título gerado deve ser O MAIS DIFERENTE POSSÍVEL do título original da notícia.
           Além disso, extraia informações para a revisão do editor (título original, fonte, link exato ou aproximado, data da notícia e possíveis imagens descritas no texto).
           
-          Responda EXATAMENTE e APENAS no formato JSON válido abaixo (uma array com 2 objetos), sem blocos de markdown em volta:
+          Responda EXATAMENTE e APENAS no formato JSON válido abaixo (uma array com as matérias encontradas, limite de ${newsPerUrl}), sem blocos de markdown em volta:
           [
             {
               "title": "...",
@@ -375,21 +393,9 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                 "data_publicacao": "Data que a notícia foi publicada (ex: Hoje, 25/09)",
                 "imagens_referencia": "Descreva as imagens mencionadas ou URLs se houver"
               }
-            },
-            {
-              "title": "...",
-              "subtitle": "...",
-              "content": "...",
-              "metadata": {
-                "titulo_original": "...",
-                "fonte": "...",
-                "link_fonte": "...",
-                "data_publicacao": "...",
-                "imagens_referencia": "..."
-              }
             }
           ]
-
+          
           Texto extraído do portal:
           ${pageText}
         `;
