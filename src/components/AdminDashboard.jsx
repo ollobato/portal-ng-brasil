@@ -416,20 +416,22 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         // Tentar ChatGPT (OpenAI)
         if (!generatedText && robotOpenAIKey.trim()) {
            try {
-              setRobotStatus(`[${i + 1}/${urls.length}] Gemini indisponível. Tentando via ChatGPT...`);
+              setRobotStatus(`[${i + 1}/${urls.length}] Tentando via ChatGPT...`);
               const openAIRes = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${robotOpenAIKey}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${robotOpenAIKey.trim()}` },
                 body: JSON.stringify({
                   model: 'gpt-4o-mini',
                   messages: [{ role: 'user', content: promptText }]
                 })
               });
-              if (!openAIRes.ok) throw new Error("ChatGPT Falhou");
-              const openAIData = await openAIRes.json();
+              const openAIData = await openAIRes.json().catch(() => null);
+              if (!openAIRes.ok) throw new Error(openAIData?.error?.message || `ChatGPT HTTP ${openAIRes.status}`);
               generatedText = openAIData.choices[0].message.content;
            } catch (e) {
               console.warn("Falha no ChatGPT:", e);
+              if (!errorMessages) var errorMessages = [];
+              errorMessages.push(`ChatGPT: ${e.message}`);
            }
         }
 
@@ -460,7 +462,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         }
 
         if (!generatedText) {
-           throw new Error("Todas as APIs (Gemini, ChatGPT e Claude) falharam por sobrecarga ou erro. Tente novamente mais tarde.");
+           const details = (typeof errorMessages !== 'undefined' && errorMessages.length > 0) ? errorMessages.join(' | ') : 'Nenhuma chave configurada ou erro desconhecido.';
+           throw new Error(`As APIs falharam. Detalhes: ${details}`);
         }
         
         // Parse the JSON (cleaning potential markdown formatting from the response)
