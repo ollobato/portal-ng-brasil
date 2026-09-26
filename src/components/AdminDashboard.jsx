@@ -100,6 +100,20 @@ export default function AdminDashboard({ onLogout, newsData, setNewsData, banner
       localStorage.setItem('portal_ng_robot_feedback', JSON.stringify(newState));
       return newState;
     });
+
+    setDraftData(prev => {
+      const drafts = [...prev];
+      const index = drafts.findIndex(d => d.id === draft.id);
+      if (index > -1) {
+        const [moved] = drafts.splice(index, 1);
+        if (type === 'like') {
+          drafts.unshift(moved);
+        } else {
+          drafts.push(moved);
+        }
+      }
+      return drafts;
+    });
   };
   
   React.useEffect(() => {
@@ -554,11 +568,15 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                    rawLink = 'https://' + rawLink;
                  }
 
+                 let originDomain = new URL(targetUrl).hostname.replace('www.', '');
+                 originDomain = originDomain.charAt(0).toUpperCase() + originDomain.slice(1);
+                 originDomain = 'Portal ' + originDomain;
+
                  const metaHtml = `
                    <div style="background-color: #f8fafc; border-left: 4px solid #0ea5e9; padding: 16px; border-radius: 4px; font-family: sans-serif; font-size: 13px; color: #334155; margin-bottom: 24px;">
                      <h4 style="margin-top:0; margin-bottom:8px; color: #0f172a; font-size: 14px; text-transform: uppercase;">🔍 Observações do Robô para Revisão</h4>
                      <strong>Título Original:</strong> ${meta.titulo_original || 'Não informado'}<br>
-                     <strong>Fonte:</strong> ${meta.fonte || 'Não identificada'}<br>
+                     <strong>Fonte:</strong> ${originDomain}<br>
                      <strong>Data de Publicação:</strong> ${meta.data_publicacao || 'Não informada'}<br>
                      <strong>Link Referência:</strong> <a href="${rawLink}" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: bold;">${rawLink}</a><br>
                      <strong>Imagens de Referência:</strong> ${meta.imagens_referencia || 'Nenhuma'}
@@ -572,8 +590,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                     title: draftObj.title,
                     subtitle: draftObj.subtitle,
                     praca: 'Nacional',
-                    sourceName: meta.fonte || new URL(targetUrl).hostname,
-                    author: { name: "IA Curadora", role: `Fonte: ${new URL(targetUrl).hostname}`, avatar: "https://images.unsplash.com/photo-1616161560417-66d4aba5ce44?w=150&auto=format&fit=crop&q=80" },
+                    sourceName: originDomain,
+                    author: { name: "IA Curadora", role: `Fonte: ${originDomain}`, avatar: "https://images.unsplash.com/photo-1616161560417-66d4aba5ce44?w=150&auto=format&fit=crop&q=80" },
                     date: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
                     readTime: "3 min de leitura",
                     image: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&auto=format&fit=crop&q=80",
@@ -1418,10 +1436,10 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                     <img src={draft.image} alt="Capa" className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-amber-100 text-amber-700 text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm">Revisão Pendente</span>
-                      <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-sm flex items-center gap-1"><Bot className="w-3 h-3"/> Gerado por IA</span>
-                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-sm">📰 {draft.sourceName || (draft.author?.role?.replace('Fonte: ', '')) || 'Desconhecido'}</span>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                      <span className="bg-amber-100 text-amber-700 text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-sm whitespace-nowrap">Revisão Pendente</span>
+                      <span className="text-[9px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-sm flex items-center gap-1 whitespace-nowrap"><Bot className="w-2.5 h-2.5"/> Gerado por IA</span>
+                      <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-sm whitespace-nowrap">📰 {draft.sourceName || (draft.author?.role?.replace('Fonte: ', '')) || 'Desconhecido'}</span>
                     </div>
                     <h3 className="font-bold text-slate-800 text-sm sm:text-base line-clamp-1">{draft.title}</h3>
                     <p className="text-xs sm:text-sm text-slate-500 line-clamp-1 mt-0.5">{draft.subtitle}</p>
