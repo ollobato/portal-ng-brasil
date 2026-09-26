@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Download, Copy, Share2, Image as ImageIcon, Sparkles, Check, RefreshCw, Upload } from 'lucide-react';
 import { formatInstagramCaption, formatWhatsAppMessage, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
 
-export default function SocialPostGenerator({ article, onClose }) {
+export default function SocialPostGenerator({ article, onClose, inline = false }) {
   const canvasRef = useRef(null);
   
   const [aspectRatio, setAspectRatio] = useState('4:5'); 
@@ -129,65 +129,95 @@ export default function SocialPostGenerator({ article, onClose }) {
          ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
       }
 
-      // Title Text
+      // Pre-calculate Title Lines
       ctx.font = 'bold 70px "Barlow Condensed", sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.textBaseline = 'top';
-      
-      const words = title.toUpperCase().split(' ');
-      let line = '';
-      let textY = cardY + 50;
+      const titleWords = title.toUpperCase().split(' ');
+      let titleLines = [];
+      let currentLine = '';
       const maxWidth = width - 120;
-      
-      const lines = [];
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
+
+      for (let n = 0; n < titleWords.length; n++) {
+        const testLine = currentLine + titleWords[n] + ' ';
         const metrics = ctx.measureText(testLine);
         if (metrics.width > maxWidth && n > 0) {
-          lines.push(line);
-          line = words[n] + ' ';
+          titleLines.push(currentLine.trim());
+          currentLine = titleWords[n] + ' ';
         } else {
-          line = testLine;
+          currentLine = testLine;
         }
       }
-      lines.push(line);
+      titleLines.push(currentLine.trim());
 
+      // Pre-calculate Subtitle Lines
+      ctx.font = '400 36px "Barlow Condensed", sans-serif';
+      const subWords = subtitle.split(' ');
+      let subLines = [];
+      currentLine = '';
+      for (let n = 0; n < subWords.length; n++) {
+        const testLine = currentLine + subWords[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && n > 0) {
+          subLines.push(currentLine.trim());
+          currentLine = subWords[n] + ' ';
+        } else {
+          currentLine = testLine;
+        }
+      }
+      subLines.push(currentLine.trim());
+
+      // Metrics for vertical centering
+      const titleLineHeight = 75;
+      const subLineHeight = 46;
+      const titleSpacing = 15;
+      const totalTextHeight = (titleLines.length * titleLineHeight) + titleSpacing + (subLines.length * subLineHeight);
+      
+      const bottomLimit = height - 120; // 30px above the divider line
+      const topLimit = cardY + 30; // 30px below the card start
+      const availableHeight = bottomLimit - topLimit;
+      
+      const startY = topLimit + (availableHeight - totalTextHeight) / 2;
+
+      // Draw Title
+      ctx.font = 'bold 70px "Barlow Condensed", sans-serif';
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'left'; // We manually calculate X to support multi-color lines
+      
       let globalWordIndex = 0;
-      lines.forEach(l => {
-          let currentX = 60;
-          const lWords = l.trim().split(' ');
-          lWords.forEach(w => {
-             // Heuristic for Canva effect: words in the middle/end are red
-             const isRed = globalWordIndex >= words.length * 0.45 && globalWordIndex <= words.length * 0.85;
+      let textY = startY;
+
+      titleLines.forEach(l => {
+          const lWords = l.split(' ');
+          const fullLineWidth = ctx.measureText(l).width;
+          let currentX = (width / 2) - (fullLineWidth / 2);
+          
+          lWords.forEach((w, idx) => {
+             const isRed = globalWordIndex >= titleWords.length * 0.45 && globalWordIndex <= titleWords.length * 0.85;
              ctx.fillStyle = isRed ? '#d40a38' : '#ffffff';
              
-             ctx.fillText(w + ' ', currentX, textY);
-             currentX += ctx.measureText(w + ' ').width;
+             ctx.fillText(w, currentX, textY);
+             
+             currentX += ctx.measureText(w).width;
+             if (idx < lWords.length - 1) {
+                currentX += ctx.measureText(' ').width;
+             }
              globalWordIndex++;
           });
-          textY += 75; // Reduced line height from 90 to 75
+          textY += titleLineHeight;
       });
 
-      // Subtitle
+      // Draw Subtitle
       ctx.font = '400 36px "Barlow Condensed", sans-serif';
       ctx.fillStyle = '#cbd5e1';
+      ctx.textAlign = 'center'; // Subtitle is single color, so we can use native centering
       
-      let subLine = '';
-      let subY = textY + 20; // Reduced spacing before subtitle
-      const subWords = subtitle.split(' ');
-      
-      subWords.forEach((w, n) => {
-        const testLine = subLine + w + ' ';
-        if (ctx.measureText(testLine).width > maxWidth && n > 0) {
-          ctx.fillText(subLine, 60, subY);
-          subLine = w + ' ';
-          subY += 46; // Reduced line height from 55 to 46
-        } else {
-          subLine = testLine;
-        }
+      let subY = textY + titleSpacing;
+      subLines.forEach(l => {
+        ctx.fillText(l, width / 2, subY);
+        subY += subLineHeight;
       });
-      ctx.fillText(subLine, 60, subY);
 
+      // Reset textAlign for footer
+      ctx.textAlign = 'left';
       // Footer divider line
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.lineWidth = 2;
@@ -245,13 +275,12 @@ export default function SocialPostGenerator({ article, onClose }) {
     setImageUrl(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1200&height=1200&nologo=true&seed=${randomSeed}`);
   };
 
-  return (
-    <div className="fixed inset-0 z-[999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row border border-slate-200 my-8">
-        
-        {/* Left Column: Canvas Preview */}
-        <div className="w-full md:w-1/2 bg-slate-950 p-6 flex flex-col items-center justify-center relative border-r border-slate-800">
-          <div className="flex items-center gap-2 mb-4 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-800">
+  const content = (
+    <div className={`bg-white shadow-sm overflow-hidden flex flex-col ${inline ? 'rounded-xl border border-slate-200 h-full' : 'md:flex-row rounded-2xl max-w-4xl w-full my-8 border border-slate-200'}`}>
+      
+      {/* Left Column: Canvas Preview */}
+      <div className={`w-full ${inline ? '' : 'md:w-1/2'} bg-slate-950 p-6 flex flex-col items-center justify-center relative ${inline ? 'border-b' : 'border-r'} border-slate-800`}>
+        <div className="flex items-center gap-2 mb-4 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-800">
             <Sparkles className="w-4 h-4 text-red-500 animate-pulse" />
             <span className="text-xs font-bold text-slate-300">Pré-visualização da Arte do Instagram</span>
           </div>
@@ -277,12 +306,12 @@ export default function SocialPostGenerator({ article, onClose }) {
           </div>
         </div>
 
-        {/* Right Column: Controls & Actions */}
-        <div className="w-full md:w-1/2 p-6 flex flex-col justify-between space-y-6 max-h-[80vh] overflow-y-auto">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Gerador de Redes Sociais</h2>
-              <p className="text-xs text-slate-500">Exporte a arte no modelo oficial do Canva (Barlow Condensed)</p>
+      {/* Right Column: Controls & Actions */}
+      <div className={`w-full ${inline ? '' : 'md:w-1/2'} p-6 flex flex-col justify-between space-y-6 ${inline ? '' : 'max-h-[80vh] overflow-y-auto'}`}>
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Estúdio Criativo (Artes)</h2>
+            <p className="text-xs text-slate-500">Exporte a arte no modelo oficial do Canva (Barlow Condensed)</p>
             </div>
             {onClose && (
               <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1">✕</button>
@@ -374,25 +403,33 @@ export default function SocialPostGenerator({ article, onClose }) {
             </button>
           </div>
 
-          {/* Action Buttons */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
-            <button
-              onClick={handleDownload}
-              className="w-full bg-[#d40a38] hover:bg-red-700 text-white font-bold py-2 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all text-sm"
-            >
-              <Download className="w-4 h-4" /> Baixar Imagem (PNG)
-            </button>
+        {/* Action Buttons */}
+        <div className="space-y-2 pt-2 border-t border-slate-100">
+          <button
+            onClick={handleDownload}
+            className="w-full bg-[#d40a38] hover:bg-red-700 text-white font-bold py-2 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all text-sm"
+          >
+            <Download className="w-4 h-4" /> Baixar Imagem (PNG)
+          </button>
 
-            <button
-              onClick={handleShareWhatsApp}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all"
-            >
-              <Share2 className="w-4 h-4" /> Enviar no WhatsApp
-            </button>
-          </div>
+          <button
+            onClick={handleShareWhatsApp}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all"
+          >
+            <Share2 className="w-4 h-4" /> Enviar no WhatsApp
+          </button>
         </div>
-
       </div>
+    </div>
+  );
+
+  if (inline) {
+    return content;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+      {content}
     </div>
   );
 }

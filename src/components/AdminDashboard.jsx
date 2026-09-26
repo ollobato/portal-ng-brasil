@@ -764,8 +764,9 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   const renderMaterias = () => {
     if (showForm) {
       return (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-3xl">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+        <div className="flex flex-col xl:flex-row gap-6 items-start w-full">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 flex-1 w-full shrink-0">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-bold text-slate-800">{editingId ? (editingIsDraft ? 'Revisar Rascunho da IA' : 'Editar Matéria') : 'Criar Nova Matéria'}</h2>
               {!editingId && (
@@ -889,6 +890,14 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
             </button>
           </form>
         </div>
+
+        {/* Right Column: Insta Art Generator */}
+        {editingId && editingIsDraft && (
+          <div className="w-full xl:w-[450px] shrink-0 sticky top-24">
+            <SocialPostGenerator inline={true} article={formData} />
+          </div>
+        )}
+      </div>
       );
     }
 
