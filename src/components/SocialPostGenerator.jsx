@@ -13,14 +13,23 @@ export default function SocialPostGenerator({ article, onClose }) {
   const [title, setTitle] = useState(article?.title || 'Manchete da Notícia em Destaque');
   const [subtitle, setSubtitle] = useState(article?.subtitle || 'Decisão impacta setor em expansão e levanta discussões sobre regulação.');
   const [category, setCategory] = useState(article?.categoryLabel || article?.category || 'POLÍTICA');
-  const [imageUrl, setImageUrl] = useState(article?.image || `https://image.pollinations.ai/prompt/${encodeURIComponent("News photo about " + title + ", realistic, high quality")}?width=1200&height=1200&nologo=true`);
+
+  const getInitialImage = (art) => {
+    const img = art?.image;
+    if (!img || img.includes('1504711434969-e33886168f5c')) {
+      return `https://image.pollinations.ai/prompt/${encodeURIComponent("News photo about " + (art?.title || 'brasil news') + ", realistic, high quality")}?width=1200&height=1440&nologo=true`;
+    }
+    return img;
+  };
+
+  const [imageUrl, setImageUrl] = useState(getInitialImage(article));
 
   useEffect(() => {
     if (article) {
       setTitle(article.title || '');
       setSubtitle(article.subtitle || '');
       setCategory(article.categoryLabel || article.category || 'NOTÍCIAS');
-      setImageUrl(article.image || `https://image.pollinations.ai/prompt/${encodeURIComponent("News photo about " + article.title + ", realistic, high quality")}?width=1200&height=1200&nologo=true`);
+      setImageUrl(getInitialImage(article));
     }
   }, [article]);
 
@@ -30,7 +39,7 @@ export default function SocialPostGenerator({ article, onClose }) {
     const ctx = canvas.getContext('2d');
 
     const width = 1080;
-    const height = aspectRatio === '1:1' ? 1080 : 1350;
+    const height = aspectRatio === '1:1' ? 1080 : 1440;
     canvas.width = width;
     canvas.height = height;
 
@@ -78,10 +87,10 @@ export default function SocialPostGenerator({ article, onClose }) {
 
   const finalizeDraw = (ctx, width, height, logo) => {
       // 2. Draw dark blue bottom shape with rounded corner
-      const cardHeight = height * 0.43;
+      const cardHeight = height * 0.45;
       const cardY = height - cardHeight;
       
-      ctx.fillStyle = '#04101e'; // dark navy from canva
+      ctx.fillStyle = '#00172e'; // dark blue requested
       ctx.beginPath();
       // top-left rounded
       ctx.moveTo(0, height);
@@ -102,19 +111,19 @@ export default function SocialPostGenerator({ article, onClose }) {
       ctx.closePath();
       ctx.fill();
       
-      // Draw Logo at Top Right
+      // Draw Logo at Top Right - Increased size
       if (logo) {
-         ctx.drawImage(logo, width - 220, 60, 160, 160 * (logo.height / logo.width));
+         ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
       }
 
       // Title Text
-      ctx.font = 'bold 85px "Barlow Condensed", sans-serif';
+      ctx.font = 'bold 70px "Barlow Condensed", sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.textBaseline = 'top';
       
       const words = title.toUpperCase().split(' ');
       let line = '';
-      let textY = cardY + 70;
+      let textY = cardY + 50;
       const maxWidth = width - 120;
       
       const lines = [];
@@ -143,15 +152,15 @@ export default function SocialPostGenerator({ article, onClose }) {
              currentX += ctx.measureText(w + ' ').width;
              globalWordIndex++;
           });
-          textY += 90;
+          textY += 75; // Reduced line height from 90 to 75
       });
 
       // Subtitle
-      ctx.font = '400 45px "Barlow Condensed", sans-serif';
+      ctx.font = '400 36px "Barlow Condensed", sans-serif';
       ctx.fillStyle = '#cbd5e1';
       
       let subLine = '';
-      let subY = textY + 40;
+      let subY = textY + 20; // Reduced spacing before subtitle
       const subWords = subtitle.split(' ');
       
       subWords.forEach((w, n) => {
@@ -159,7 +168,7 @@ export default function SocialPostGenerator({ article, onClose }) {
         if (ctx.measureText(testLine).width > maxWidth && n > 0) {
           ctx.fillText(subLine, 60, subY);
           subLine = w + ' ';
-          subY += 55;
+          subY += 46; // Reduced line height from 55 to 46
         } else {
           subLine = testLine;
         }
