@@ -4,7 +4,7 @@ import { LogOut, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Set
 import Editor from 'react-simple-wysiwyg';
 import SocialPostGenerator from './SocialPostGenerator';
 import { shareToWhatsApp } from '../utils/socialExporter';
-import { useFirebaseSync } from '../hooks/useFirebaseSync';
+import { useFirebaseSync, useFirebaseDoc } from '../hooks/useFirebaseSync';
 import { storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
