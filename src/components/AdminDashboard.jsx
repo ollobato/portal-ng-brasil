@@ -642,15 +642,18 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
         try {
            const headText = await callAI(headlinesPrompt);
-           const match = headText.match(/\{[\s\S]*\}/);
-           if (match) {
-             const parsed = JSON.parse(match[0]);
-             headlines = parsed.manchetes || [];
+           let cleanH = headText.replace(/```json/gi, '').replace(/```/g, '').trim();
+           const startIndex = cleanH.indexOf('{');
+           const endIndex = cleanH.lastIndexOf('}');
+           if (startIndex !== -1 && endIndex !== -1) {
+             cleanH = cleanH.substring(startIndex, endIndex + 1);
            }
+           const parsed = JSON.parse(cleanH);
+           headlines = Array.isArray(parsed.manchetes) ? parsed.manchetes : [];
         } catch(e) {
            console.warn("Falha ao buscar manchetes", e);
-           setRobotStatus(`A IA não conseguiu ler o conteúdo de ${targetUrl}.`);
-           await new Promise(r => setTimeout(r, 2000));
+           setRobotStatus(`Erro na IA (${targetUrl}): ${e.message}`);
+           await new Promise(r => setTimeout(r, 4000));
            continue;
         }
 
@@ -707,11 +710,15 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
            try {
               const articleText = await callAI(promptArticle);
-              const match = articleText.match(/\{[\s\S]*\}/);
-              if (match) {
-                const draftObj = JSON.parse(match[0]);
-                
-                if (draftObj && draftObj.title && draftObj.content) {
+              let cleanA = articleText.replace(/```json/gi, '').replace(/```/g, '').trim();
+              const startIndex = cleanA.indexOf('{');
+              const endIndex = cleanA.lastIndexOf('}');
+              if (startIndex !== -1 && endIndex !== -1) {
+                cleanA = cleanA.substring(startIndex, endIndex + 1);
+              }
+              const draftObj = JSON.parse(cleanA);
+              
+              if (draftObj && draftObj.title && draftObj.content) {
                  const meta = draftObj.metadata || {};
                  let rawLink = meta.link_fonte || targetUrl;
                  if (rawLink && !rawLink.startsWith('http')) {
@@ -766,7 +773,6 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                  
                  await new Promise(r => setTimeout(r, 4500));
               }
-             }
            } catch(e) {
               console.warn("Falha ao gerar matéria individual", e);
            }
