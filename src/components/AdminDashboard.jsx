@@ -9,38 +9,52 @@ import { storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const compressImage = (file) => {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) return resolve(file);
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const max_size = 1200;
-        if (width > max_size || height > max_size) {
-          if (width > height) {
-            height *= max_size / width;
-            width = max_size;
-          } else {
-            width *= max_size / height;
-            height = max_size;
+  return new Promise((resolve) => {
+    try {
+      if (!file.type.startsWith('image/')) return resolve(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const max_size = 1200;
+            if (width > max_size || height > max_size) {
+              if (width > height) {
+                height *= max_size / width;
+                width = max_size;
+              } else {
+                width *= max_size / height;
+                height = max_size;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob((blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                resolve(file); // fallback to original
+              }
+            }, 'image/jpeg', 0.85);
+          } catch (err) {
+            console.error("Compression error:", err);
+            resolve(file); // fallback to original
           }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => {
-          resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
-        }, 'image/jpeg', 0.85);
+        };
+        img.onerror = () => resolve(file);
+        img.src = event.target.result;
       };
-      img.onerror = (e) => reject(e);
-    };
-    reader.onerror = (e) => reject(e);
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Reader setup error:", err);
+      resolve(file); // always fallback to original on error
+    }
   });
 };
 
@@ -360,10 +374,11 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     let file = e.target.files[0];
     if (!file) return;
     
+    const fileName = file.name;
     setIsUploadingFiles(prev => ({ ...prev, [field]: true }));
     try {
       file = await compressImage(file);
-      const fileRef = ref(storage, `news/${Date.now()}_${file.name}`);
+      const fileRef = ref(storage, `news/${Date.now()}_${fileName}`);
       await uploadBytes(fileRef, file);
       const url = await getDownloadURL(fileRef);
       
@@ -387,10 +402,11 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     let file = e.target.files[0];
     if (!file) return;
     
+    const fileName = file.name;
     setIsUploadingFiles(prev => ({ ...prev, [`banner_${bannerId}`]: true }));
     try {
       file = await compressImage(file);
-      const fileRef = ref(storage, `banners/${Date.now()}_${file.name}`);
+      const fileRef = ref(storage, `banners/${Date.now()}_${fileName}`);
       await uploadBytes(fileRef, file);
       const url = await getDownloadURL(fileRef);
       // Wait, handleUpdateBanner was moved to renderBanners local state!
