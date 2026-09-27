@@ -1302,16 +1302,46 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Imagem do Banner (Upload)</label>
-                  <label className="flex items-center justify-center w-full bg-[#040f1d] hover:bg-slate-800 text-white px-4 py-2.5 rounded-md text-sm font-bold cursor-pointer transition-colors relative">
-                    {isUploadingFiles[`banner_${banner.id}`] ? 'Enviando Imagem...' : 'Fazer Upload da Imagem'}
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      onChange={(e) => handleBannerImageUpload(e, banner.id)} 
-                      className="hidden"
-                      disabled={isUploadingFiles[`banner_${banner.id}`]}
-                    />
-                  </label>
+                  {banner.image ? (
+                    <label className="relative block w-full h-[90px] rounded-lg overflow-hidden border-2 border-dashed border-slate-300 hover:border-indigo-500 cursor-pointer group">
+                      <img src={banner.image} alt="Preview do Banner" className="w-full h-full object-cover" />
+                      {isUploadingFiles[`banner_${banner.id}`] && (
+                        <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">Enviando Imagem...</span>
+                        </div>
+                      )}
+                      {!isUploadingFiles[`banner_${banner.id}`] && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-white font-bold text-sm">Clique para Trocar Imagem</span>
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleBannerImageUpload(e, banner.id)} 
+                        className="hidden"
+                        disabled={isUploadingFiles[`banner_${banner.id}`]}
+                      />
+                    </label>
+                  ) : (
+                    <label className="flex items-center justify-center w-full bg-[#040f1d] hover:bg-slate-800 text-white px-4 py-8 rounded-md text-sm font-bold cursor-pointer transition-colors relative border-2 border-dashed border-slate-400">
+                      {isUploadingFiles[`banner_${banner.id}`] ? (
+                        'Enviando Imagem...'
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <ImageIcon className="w-6 h-6 mb-2 text-slate-300" />
+                          <span>Fazer Upload da Imagem</span>
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleBannerImageUpload(e, banner.id)} 
+                        className="hidden"
+                        disabled={isUploadingFiles[`banner_${banner.id}`]}
+                      />
+                    </label>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Link de Destino (Ao clicar)</label>
@@ -1323,16 +1353,6 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                     placeholder="https://site-do-patrocinador.com.br"
                   />
                 </div>
-
-                {/* Preview */}
-                {banner.image && (
-                  <div className="mt-4 p-4 border border-slate-200 bg-slate-50 rounded-lg">
-                    <span className="block text-xs font-bold text-slate-500 mb-2 uppercase">Pré-visualização</span>
-                    <div className="w-full h-[90px] rounded-lg overflow-hidden border border-slate-300">
-                      <img src={banner.image} alt="Preview do Banner" className="w-full h-full object-cover" />
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           ))
