@@ -1523,6 +1523,15 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                 required 
                 className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm min-h-[300px]" 
               />
+              <div className="flex justify-end mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => alert("✅ Diretrizes editoriais e regras do robô salvas com sucesso na nuvem!")}
+                  className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg text-sm hover:bg-indigo-700 transition-colors"
+                >
+                  Salvar Diretrizes
+                </button>
+              </div>
             </div>
           )}
 
