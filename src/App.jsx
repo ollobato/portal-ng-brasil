@@ -69,6 +69,43 @@ export default function App() {
   const [selectedPraca, setSelectedPraca] = useState('Todas');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedArticle, setSelectedArticle] = useState(null);
+
+  // Sync URL with selected article for unique links
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const materiaId = urlParams.get('materia');
+      
+      if (materiaId && !isNewsLoading) {
+        const found = newsData.find(n => String(n.id) === String(materiaId));
+        if (found) {
+          setSelectedArticle(found);
+          setCurrentView('portal'); // Ensure we are not in admin if reading
+        }
+      } else if (!materiaId && selectedArticle) {
+        setSelectedArticle(null);
+      }
+    };
+
+    // Run on mount and when news data loads
+    handleUrlChange();
+
+    // Listen to browser back/forward buttons
+    window.addEventListener('popstate', handleUrlChange);
+    return () => window.removeEventListener('popstate', handleUrlChange);
+  }, [newsData, isNewsLoading]);
+
+  // Handle opening an article and updating the URL
+  const handleOpenArticle = (article) => {
+    setSelectedArticle(article);
+    window.history.pushState({}, '', `?materia=${article.id}`);
+  };
+
+  // Handle closing an article
+  const handleCloseArticle = () => {
+    setSelectedArticle(null);
+    window.history.pushState({}, '', window.location.pathname);
+  };
   
   // Bookmarks (saved articles)
   const [savedArticleIds, setSavedArticleIds] = useState(() => {
@@ -242,10 +279,9 @@ export default function App() {
 
   const savedArticlesList = newsData.filter(n => savedArticleIds.includes(n.id));
   
-  // Acessos do dia (Simulado com base no módulo de insights, ou soma real)
+  // Acessos do dia (Soma real das matérias do banco de dados)
   const totalViews = newsData.reduce((acc, curr) => acc + (curr.views || 0), 0);
-  const dailyViews = (totalViews * 0.14).toFixed(0); // Aproximadamente 14% do total por dia, ou "1.248" se vazio
-  const displayDailyViews = totalViews > 0 ? Number(dailyViews).toLocaleString('pt-BR') : '0';
+  const displayDailyViews = totalViews.toLocaleString('pt-BR');
 
   // Renderização Condicional de Rotas
   if (isAuthLoading) {
@@ -350,7 +386,7 @@ export default function App() {
         {selectedArticle ? (
           <ArticleModal 
             article={selectedArticle}
-            onClose={() => setSelectedArticle(null)}
+            onClose={handleCloseArticle}
             onToggleBookmark={toggleBookmark}
             isBookmarked={isBookmarked}
             fontSize={fontSize}
@@ -388,7 +424,7 @@ export default function App() {
                   <HeroSection 
                     featuredNews={featuredNews}
                     trendingNews={trendingNews}
-                    onSelectArticle={setSelectedArticle}
+                    onSelectArticle={handleOpenArticle}
                     onToggleBookmark={toggleBookmark}
                     isBookmarked={isBookmarked}
                   />
@@ -416,7 +452,7 @@ export default function App() {
                     subtitle="Acontecimentos em tempo real, economia, educação, polícia e o dia a dia do brasileiro."
                     icon={Newspaper}
                     articles={brasilArticles}
-                    onSelectArticle={setSelectedArticle}
+                    onSelectArticle={handleOpenArticle}
                     onToggleBookmark={toggleBookmark}
                     isBookmarked={isBookmarked}
                   />
@@ -430,7 +466,7 @@ export default function App() {
                     subtitle="Acompanhamento dos bastidores de Brasília, projetos no Congresso, economia e decisões."
                     icon={Landmark}
                     articles={politicaArticles}
-                    onSelectArticle={setSelectedArticle}
+                    onSelectArticle={handleOpenArticle}
                     onToggleBookmark={toggleBookmark}
                     isBookmarked={isBookmarked}
                   />
@@ -444,7 +480,7 @@ export default function App() {
                     subtitle="Lançamentos, inteligência artificial, mercado tech e ciências."
                     icon={Cpu}
                     articles={tecnologiaArticles}
-                    onSelectArticle={setSelectedArticle}
+                    onSelectArticle={handleOpenArticle}
                     onToggleBookmark={toggleBookmark}
                     isBookmarked={isBookmarked}
                   />
@@ -458,7 +494,7 @@ export default function App() {
                     subtitle="Medicina, saúde pública, dicas de bem-estar e novidades científicas."
                     icon={HeartPulse}
                     articles={saudeArticles}
-                    onSelectArticle={setSelectedArticle}
+                    onSelectArticle={handleOpenArticle}
                     onToggleBookmark={toggleBookmark}
                     isBookmarked={isBookmarked}
                   />
@@ -472,7 +508,7 @@ export default function App() {
                     subtitle="Roteiros paradisíacos no Brasil, ecoturismo, dicas de hospedagem, aviação e gastronomia regional."
                     icon={Compass}
                     articles={turismoArticles}
-                    onSelectArticle={setSelectedArticle}
+                    onSelectArticle={handleOpenArticle}
                     onToggleBookmark={toggleBookmark}
                     isBookmarked={isBookmarked}
                   />
@@ -486,7 +522,7 @@ export default function App() {
                     subtitle="Cinema, festivais de música, artes plásticas, bastidores da TV, streaming e produções nacionais."
                     icon={Film}
                     articles={entretenimentoArticles}
-                    onSelectArticle={setSelectedArticle}
+                    onSelectArticle={handleOpenArticle}
                     onToggleBookmark={toggleBookmark}
                     isBookmarked={isBookmarked}
                   />
@@ -509,7 +545,7 @@ export default function App() {
         <SavedArticlesModal 
           savedArticles={savedArticlesList}
           onClose={() => setIsSavedModalOpen(false)}
-          onSelectArticle={setSelectedArticle}
+          onSelectArticle={handleOpenArticle}
           onRemoveSaved={removeSaved}
         />
       )}
