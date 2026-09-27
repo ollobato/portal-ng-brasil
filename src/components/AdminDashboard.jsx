@@ -602,11 +602,12 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         const headlinesPrompt = `
           Identifique as ${maxHeadlines} notícias MAIS RECENTES que aparecem neste texto.${timeInstruction}${categoryInstruction}
           
-          RETORNE APENAS UM ARRAY JSON VÁLIDO com os títulos originais dessas notícias (strings).
-          IMPORTANTE: Se o texto for uma página de erro, bloqueio, ou simplesmente não contiver notícias legíveis que atendam aos filtros, RETORNE UM ARRAY VAZIO: []
-          
-          Exemplo de sucesso: ["Acidente na BR causa trânsito", "Prefeitura abre vagas de emprego"]
-          Exemplo de falha: []
+          RETORNE EXATAMENTE UM OBJETO JSON VÁLIDO no seguinte formato:
+          {
+            "manchetes": ["TÍTULO 1", "TÍTULO 2"]
+          }
+          IMPORTANTE: Se o texto for uma página de erro, bloqueio, ou simplesmente não contiver notícias legíveis, retorne {"manchetes": []}.
+          NÃO INCLUA markdown ou explicações fora do JSON.
           
           Texto do portal:
           ${pageText}
@@ -616,11 +617,10 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
         try {
            const headText = await callAI(headlinesPrompt);
-           const cleanH = headText.replace(/```json/g, '').replace(/```/g, '').trim();
-           headlines = JSON.parse(cleanH);
-           if (!Array.isArray(headlines)) {
-             if (headlines.manchetes) headlines = headlines.manchetes;
-             else headlines = [];
+           const match = headText.match(/\{[\s\S]*\}/);
+           if (match) {
+             const parsed = JSON.parse(match[0]);
+             headlines = parsed.manchetes || [];
            }
         } catch(e) {
            console.warn("Falha ao buscar manchetes", e);
@@ -654,7 +654,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
             A matéria deve ser direta e imparcial, com no mínimo 3 parágrafos usando tags HTML (como <p>, <h2>).
             Crie um título impactante e uma linha fina (subtítulo). IMPORTANTE: O título gerado deve ser DIFERENTE do original.
             
-            Responda EXATAMENTE e APENAS no formato JSON válido abaixo (UM ÚNICO OBJETO):
+            RETORNE EXATAMENTE UM OBJETO JSON VÁLIDO no seguinte formato (SEM MARKDOWN):
             {
               "title": "...",
               "subtitle": "...",
@@ -674,10 +674,11 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
            try {
               const articleText = await callAI(promptArticle);
-              const cleanA = articleText.replace(/```json/g, '').replace(/```/g, '').trim();
-              const draftObj = JSON.parse(cleanA);
-              
-              if (draftObj && draftObj.title && draftObj.content) {
+              const match = articleText.match(/\{[\s\S]*\}/);
+              if (match) {
+                const draftObj = JSON.parse(match[0]);
+                
+                if (draftObj && draftObj.title && draftObj.content) {
                  const meta = draftObj.metadata || {};
                  let rawLink = meta.link_fonte || targetUrl;
                  if (rawLink && !rawLink.startsWith('http')) {
@@ -732,6 +733,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                  
                  await new Promise(r => setTimeout(r, 4500));
               }
+             }
            } catch(e) {
               console.warn("Falha ao gerar matéria individual", e);
            }
