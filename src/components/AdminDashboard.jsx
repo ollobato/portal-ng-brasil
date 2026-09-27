@@ -8,10 +8,17 @@ import { useFirebaseSync } from '../hooks/useFirebaseSync';
 import { storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-const compressImage = (file) => {
+const compressImageToBase64 = (file) => {
   return new Promise((resolve) => {
     try {
-      if (!file.type.startsWith('image/')) return resolve(file);
+      if (!file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
@@ -21,6 +28,7 @@ const compressImage = (file) => {
             let width = img.width;
             let height = img.height;
             const max_size = 1200;
+            
             if (width > max_size || height > max_size) {
               if (width > height) {
                 height *= max_size / width;
@@ -32,28 +40,26 @@ const compressImage = (file) => {
             }
             canvas.width = width;
             canvas.height = height;
+            
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob((blob) => {
-              if (blob) {
-                resolve(blob);
-              } else {
-                resolve(file); // fallback to original
-              }
-            }, 'image/jpeg', 0.85);
+            
+            // Retorna Base64 com 80% de qualidade
+            const base64Url = canvas.toDataURL('image/jpeg', 0.80);
+            resolve(base64Url);
           } catch (err) {
             console.error("Compression error:", err);
-            resolve(file); // fallback to original
+            resolve(event.target.result); 
           }
         };
-        img.onerror = () => resolve(file);
+        img.onerror = () => resolve(event.target.result);
         img.src = event.target.result;
       };
-      reader.onerror = () => resolve(file);
+      reader.onerror = () => resolve('');
       reader.readAsDataURL(file);
     } catch (err) {
       console.error("Reader setup error:", err);
-      resolve(file); // always fallback to original on error
+      resolve('');
     }
   });
 };
@@ -374,25 +380,22 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     let file = e.target.files[0];
     if (!file) return;
     
-    const fileName = file.name;
     setIsUploadingFiles(prev => ({ ...prev, [field]: true }));
     try {
-      file = await compressImage(file);
-      const fileRef = ref(storage, `news/${Date.now()}_${fileName}`);
-      await uploadBytes(fileRef, file);
-      const url = await getDownloadURL(fileRef);
+      const base64Url = await compressImageToBase64(file);
+      if (!base64Url) throw new Error("Falha na conversão da imagem");
       
       if (field === 'cover') {
-        setFormData(prev => ({ ...prev, image: url }));
+        setFormData(prev => ({ ...prev, image: base64Url }));
       } else if (field === 'content') {
         setFormData(prev => ({ 
           ...prev, 
-          content: prev.content + `<br><img src="${url}" alt="Imagem no corpo" style="max-width: 100%; height: auto; border-radius: 8px; margin: 15px 0;" /><br>` 
+          content: prev.content + `<br><img src="${base64Url}" alt="Imagem no corpo" style="max-width: 100%; height: auto; border-radius: 8px; margin: 15px 0;" /><br>` 
         }));
       }
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Erro ao enviar imagem. Verifique o tamanho do arquivo.");
+      alert("Erro ao enviar imagem. Tente uma imagem diferente.");
     } finally {
       setIsUploadingFiles(prev => ({ ...prev, [field]: false }));
     }
@@ -402,20 +405,12 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     let file = e.target.files[0];
     if (!file) return;
     
-    const fileName = file.name;
     setIsUploadingFiles(prev => ({ ...prev, [`banner_${bannerId}`]: true }));
     try {
-      file = await compressImage(file);
-      const fileRef = ref(storage, `banners/${Date.now()}_${fileName}`);
-      await uploadBytes(fileRef, file);
-      const url = await getDownloadURL(fileRef);
-      // Wait, handleUpdateBanner was moved to renderBanners local state!
-      // I can't call it from here directly if it's defined inside renderBanners.
-      // I'll need to define it outside, or pass the updated file URL to the banner local state.
-      // Since it's inside AdminDashboard, but handleUpdateBanner is inside renderBanners,
-      // I will update the global banners state, which is not ideal.
-      // Let's change handleUpdateBanner to setLocalBanners which is accessible here!
-      setLocalBanners(prev => prev.map(b => b.id === bannerId ? { ...b, image: url } : b));
+      const base64Url = await compressImageToBase64(file);
+      if (!base64Url) throw new Error("Falha na conversão da imagem");
+      
+      setLocalBanners(prev => prev.map(b => b.id === bannerId ? { ...b, image: base64Url } : b));
     } catch (err) {
       console.error("Upload error:", err);
       alert("Erro ao enviar imagem do banner.");
