@@ -516,10 +516,16 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
          
          if (robotGeminiKey.trim()) {
            const attemptGemini = async (modelName) => {
+             const body = { contents: [{ parts: [{ text: prompt }] }] };
+             // Only 1.5 models support responseMimeType
+             if (modelName.includes('1.5')) {
+               body.generationConfig = { responseMimeType: 'application/json' };
+             }
+             
              const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${robotGeminiKey.trim()}`, {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
+               body: JSON.stringify(body)
              });
              if (!geminiRes.ok) {
                  if (geminiRes.status === 429 && retryCount < 2) {
@@ -528,9 +534,10 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                      return await callAI(prompt, retryCount + 1);
                  }
                  const errText = await geminiRes.text();
-                 if (modelName === 'gemini-1.5-flash' && (geminiRes.status === 404 || errText.includes('is not found'))) {
-                     // Fallback to older gemini-pro if 1.5 flash is not available on this API key/region
-                     return await attemptGemini('gemini-pro');
+                 if (geminiRes.status === 404 || errText.includes('is not found')) {
+                     if (modelName === 'gemini-1.5-flash') return await attemptGemini('gemini-1.5-flash-latest');
+                     if (modelName === 'gemini-1.5-flash-latest') return await attemptGemini('gemini-1.5-pro');
+                     if (modelName === 'gemini-1.5-pro') return await attemptGemini('gemini-pro');
                  }
                  throw new Error(`Gemini Falhou (${modelName}): ` + errText);
              }
