@@ -247,8 +247,14 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   const [robotStatus, setRobotStatus] = useState('');
   const [robotProgress, setRobotProgress] = useState(null);
   
-  const [robotStartDate, setRobotStartDate] = useState('');
-  const [robotStartTime, setRobotStartTime] = useState('');
+  const [robotStartDate, setRobotStartDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().split('T')[0];
+  });
+  const [robotStartTime, setRobotStartTime] = useState(() => {
+    const d = new Date();
+    return d.toTimeString().substring(0,5);
+  });
   const [robotCategory, setRobotCategory] = useState('todas');
   
   const [robotActiveTab, setRobotActiveTab] = useState('curadora');
@@ -566,12 +572,17 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
               res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
               if (res.ok) {
                 pageHtml = await res.text();
+              } else {
+                res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
+                if (res.ok) pageHtml = await res.text();
               }
             }
           }
-          if (!pageHtml) throw new Error("A conexão com o proxy falhou");
+          if (!pageHtml) throw new Error("A conexão com os 3 proxies falhou.");
         } catch (err) {
           console.warn(`Não foi possível acessar ${targetUrl}. Pulando...`, err);
+          setRobotStatus(`Falha de conexão com ${targetUrl}. Tentando próximo...`);
+          await new Promise(r => setTimeout(r, 2000));
           continue;
         }
 
@@ -583,6 +594,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         
         if (!pageText || pageText.length < 100) {
           console.warn(`Portal ${targetUrl} retornou texto vazio ou bloqueado. Pulando...`);
+          setRobotStatus(`Bloqueio de leitura em ${targetUrl}. Tentando próximo...`);
+          await new Promise(r => setTimeout(r, 2000));
           continue;
         }
 
@@ -624,6 +637,14 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
            }
         } catch(e) {
            console.warn("Falha ao buscar manchetes", e);
+           setRobotStatus(`A IA não conseguiu ler o conteúdo de ${targetUrl}.`);
+           await new Promise(r => setTimeout(r, 2000));
+           continue;
+        }
+
+        if (headlines.length === 0) {
+           setRobotStatus(`Nenhuma manchete encontrada em ${targetUrl} (verifique os filtros).`);
+           await new Promise(r => setTimeout(r, 2000));
            continue;
         }
 
