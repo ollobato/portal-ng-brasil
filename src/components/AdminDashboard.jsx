@@ -5,6 +5,8 @@ import Editor from 'react-simple-wysiwyg';
 import SocialPostGenerator from './SocialPostGenerator';
 import { shareToWhatsApp } from '../utils/socialExporter';
 import { useFirebaseSync } from '../hooks/useFirebaseSync';
+import { storage } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -308,21 +310,50 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     setShowForm(true);
   };
 
-  const handleImageUpload = (e, field) => {
+  const [isUploadingFiles, setIsUploadingFiles] = useState({});
+
+  const handleImageUpload = async (e, field) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
+    
+    setIsUploadingFiles(prev => ({ ...prev, [field]: true }));
+    try {
+      const fileRef = ref(storage, `news/${Date.now()}_${file.name}`);
+      await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(fileRef);
+      
       if (field === 'cover') {
-        setFormData(prev => ({ ...prev, image: reader.result }));
+        setFormData(prev => ({ ...prev, image: url }));
       } else if (field === 'content') {
         setFormData(prev => ({ 
           ...prev, 
-          content: prev.content + `<br><img src="${reader.result}" alt="Imagem no corpo" style="max-width: 100%; height: auto; border-radius: 8px; margin: 15px 0;" /><br>` 
+          content: prev.content + `<br><img src="${url}" alt="Imagem no corpo" style="max-width: 100%; height: auto; border-radius: 8px; margin: 15px 0;" /><br>` 
         }));
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Erro ao enviar imagem. Verifique o tamanho do arquivo.");
+    } finally {
+      setIsUploadingFiles(prev => ({ ...prev, [field]: false }));
+    }
+  };
+
+  const handleBannerImageUpload = async (e, bannerId) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setIsUploadingFiles(prev => ({ ...prev, [`banner_${bannerId}`]: true }));
+    try {
+      const fileRef = ref(storage, `banners/${Date.now()}_${file.name}`);
+      await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(fileRef);
+      handleUpdateBanner(bannerId, 'image', url);
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Erro ao enviar imagem do banner.");
+    } finally {
+      setIsUploadingFiles(prev => ({ ...prev, [`banner_${bannerId}`]: false }));
+    }
   };
 
   const handleSaveForm = (e) => {
@@ -881,15 +912,18 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
               </div>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Imagem de Capa (URL ou Upload)</label>
-              <div className="flex gap-2 mb-2">
-                <input required type="text" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="flex-1 px-4 py-2 border border-slate-300 rounded-md text-sm focus:ring-[#d40a38] focus:border-[#d40a38]" placeholder="https://link-da-imagem.com/foto.jpg" />
-                <label className="bg-[#040f1d] hover:bg-slate-800 text-white px-4 py-2 rounded-md text-sm font-bold cursor-pointer whitespace-nowrap transition-colors flex items-center justify-center">
-                  Fazer Upload
-                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} className="hidden" />
-                </label>
-              </div>
-              {formData.image && formData.image.startsWith('data:image') && (
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Imagem de Capa (Upload)</label>
+              <label className="flex items-center justify-center w-full bg-[#040f1d] hover:bg-slate-800 text-white px-4 py-2.5 rounded-md text-sm font-bold cursor-pointer transition-colors relative mb-2">
+                {isUploadingFiles['cover'] ? 'Enviando Imagem...' : 'Fazer Upload da Capa'}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => handleImageUpload(e, 'cover')} 
+                  className="hidden" 
+                  disabled={isUploadingFiles['cover']}
+                />
+              </label>
+              {formData.image && (
                 <div className="w-32 h-20 rounded-md overflow-hidden bg-slate-100">
                   <img src={formData.image} alt="Preview da Capa" className="w-full h-full object-cover" />
                 </div>
@@ -898,9 +932,9 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm font-semibold text-slate-700">Conteúdo da Notícia</label>
-                <label className="text-xs text-[#d40a38] hover:text-red-700 font-bold cursor-pointer flex items-center gap-1 bg-red-50 px-2 py-1 rounded">
-                  + Inserir Foto no Texto
-                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'content')} className="hidden" />
+                <label className={`text-xs ${isUploadingFiles['content'] ? 'text-slate-500 bg-slate-100' : 'text-[#d40a38] hover:text-red-700 bg-red-50 cursor-pointer'} font-bold flex items-center gap-1 px-2 py-1 rounded`}>
+                  {isUploadingFiles['content'] ? 'Enviando...' : '+ Inserir Foto no Texto'}
+                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'content')} className="hidden" disabled={isUploadingFiles['content']} />
                 </label>
               </div>
               <div className="bg-white rounded-md border border-slate-300 overflow-hidden mb-12">
@@ -1169,14 +1203,27 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
               </div>
               <div className="p-6 space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">URL da Imagem (Upload)</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Título do Banner / Nome do Patrocinador</label>
                   <input 
                     type="text" 
-                    value={banner.image} 
-                    onChange={e => handleUpdateBanner(banner.id, 'image', e.target.value)} 
+                    value={banner.title || ''} 
+                    onChange={e => handleUpdateBanner(banner.id, 'title', e.target.value)} 
                     className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-red-500 focus:border-red-500" 
-                    placeholder="https://sua-imagem.com/banner.jpg"
+                    placeholder="Ex: Coca-Cola"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Imagem do Banner (Upload)</label>
+                  <label className="flex items-center justify-center w-full bg-[#040f1d] hover:bg-slate-800 text-white px-4 py-2.5 rounded-md text-sm font-bold cursor-pointer transition-colors relative">
+                    {isUploadingFiles[`banner_${banner.id}`] ? 'Enviando Imagem...' : 'Fazer Upload da Imagem'}
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => handleBannerImageUpload(e, banner.id)} 
+                      className="hidden"
+                      disabled={isUploadingFiles[`banner_${banner.id}`]}
+                    />
+                  </label>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Link de Destino (Ao clicar)</label>
