@@ -621,7 +621,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           : `\nFiltro obrigatório: SELECIONE APENAS NOTÍCIAS QUE SE ENCAIXEM NA CATEGORIA "${robotCategory.toUpperCase()}". Ignore notícias de outros assuntos.\n`;
 
         const timeInstruction = (robotStartDate || robotStartTime) 
-          ? `\nFiltro de Tempo obrigatório: Selecione notícias publicadas a partir de ${robotStartDate ? 'data ' + robotStartDate : ''} ${robotStartTime ? 'às ' + robotStartTime : ''}.\n` 
+          ? `\nFiltro de Tempo: O usuário iniciou a pesquisa com a referência de tempo ${robotStartDate ? 'data ' + robotStartDate : ''} ${robotStartTime ? 'às ' + robotStartTime : ''}. Selecione as notícias mais recentes (hoje ou últimas 24h) relativas a esse momento.\n` 
           : `\nDê preferência para notícias de hoje ou das últimas 24 a 48 horas (incluindo as postadas ontem a partir das 20h).\n`;
 
         const headlinesPrompt = `
