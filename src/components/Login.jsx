@@ -20,7 +20,8 @@ export default function Login({ onLogin, onNavigateHome }) {
         onLogin();
       } catch (err) {
         console.error("Login error:", err);
-        setError('E-mail ou senha incorretos. Tente novamente.');
+        // Display the actual error code to the user to help debug
+        setError(`Erro: ${err.code || err.message}. Verifique os dados e tente novamente.`);
       } finally {
         setIsLoading(false);
       }
