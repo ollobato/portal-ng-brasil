@@ -8,6 +8,42 @@ import { useFirebaseSync } from '../hooks/useFirebaseSync';
 import { storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
+const compressImage = (file) => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) return resolve(file);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const max_size = 1200;
+        if (width > max_size || height > max_size) {
+          if (width > height) {
+            height *= max_size / width;
+            width = max_size;
+          } else {
+            width *= max_size / height;
+            height = max_size;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+        }, 'image/jpeg', 0.85);
+      };
+      img.onerror = (e) => reject(e);
+    };
+    reader.onerror = (e) => reject(e);
+  });
+};
+
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -35,6 +71,14 @@ class ErrorBoundary extends Component {
 
 export default function AdminDashboard({ onLogout, newsData, setNewsData, banners, setBanners }) {
   const [activeTab, setActiveTab] = useState('insights');
+  const [localBanners, setLocalBanners] = useState(banners || []);
+  
+  // Sync local banners when props change (initial load)
+  React.useEffect(() => {
+    if (banners && banners.length > 0) {
+      setLocalBanners(banners);
+    }
+  }, [banners]);
 
   // Drafts state for approval queue (synced with Firebase)
   const [draftDataRaw, setDraftData] = useFirebaseSync('drafts', []);
@@ -313,11 +357,12 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   const [isUploadingFiles, setIsUploadingFiles] = useState({});
 
   const handleImageUpload = async (e, field) => {
-    const file = e.target.files[0];
+    let file = e.target.files[0];
     if (!file) return;
     
     setIsUploadingFiles(prev => ({ ...prev, [field]: true }));
     try {
+      file = await compressImage(file);
       const fileRef = ref(storage, `news/${Date.now()}_${file.name}`);
       await uploadBytes(fileRef, file);
       const url = await getDownloadURL(fileRef);
@@ -339,15 +384,22 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   };
 
   const handleBannerImageUpload = async (e, bannerId) => {
-    const file = e.target.files[0];
+    let file = e.target.files[0];
     if (!file) return;
     
     setIsUploadingFiles(prev => ({ ...prev, [`banner_${bannerId}`]: true }));
     try {
+      file = await compressImage(file);
       const fileRef = ref(storage, `banners/${Date.now()}_${file.name}`);
       await uploadBytes(fileRef, file);
       const url = await getDownloadURL(fileRef);
-      handleUpdateBanner(bannerId, 'image', url);
+      // Wait, handleUpdateBanner was moved to renderBanners local state!
+      // I can't call it from here directly if it's defined inside renderBanners.
+      // I'll need to define it outside, or pass the updated file URL to the banner local state.
+      // Since it's inside AdminDashboard, but handleUpdateBanner is inside renderBanners,
+      // I will update the global banners state, which is not ideal.
+      // Let's change handleUpdateBanner to setLocalBanners which is accessible here!
+      setLocalBanners(prev => prev.map(b => b.id === bannerId ? { ...b, image: url } : b));
     } catch (err) {
       console.error("Upload error:", err);
       alert("Erro ao enviar imagem do banner.");
@@ -492,23 +544,36 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         let pageHtml = "";
         try {
           const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-          const proxyUrl = isLocalhost 
-            ? `/api/scrape?url=${encodeURIComponent(targetUrl)}`
-            : `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-            
-          const res = await fetch(proxyUrl);
-          if (!res.ok) throw new Error("A conexão com o proxy falhou");
-          pageHtml = await res.text();
+          if (isLocalhost) {
+            const res = await fetch(`/api/scrape?url=${encodeURIComponent(targetUrl)}`);
+            if (res.ok) pageHtml = await res.text();
+          } else {
+            let res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+            if (res.ok) {
+              pageHtml = await res.text();
+            } else {
+              res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+              if (res.ok) {
+                pageHtml = await res.text();
+              }
+            }
+          }
+          if (!pageHtml) throw new Error("A conexão com o proxy falhou");
         } catch (err) {
-          console.warn(`Não foi possível acessar ${targetUrl}. Pulando...`);
+          console.warn(`Não foi possível acessar ${targetUrl}. Pulando...`, err);
           continue;
         }
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(pageHtml, 'text/html');
-        const scripts = doc.querySelectorAll('script, style, noscript, nav, footer, header');
+        const scripts = doc.querySelectorAll('script, style, noscript, nav, footer, header, iframe');
         scripts.forEach(s => s.remove());
-        const pageText = doc.body.innerText.replace(/\s+/g, ' ').slice(0, 12000); 
+        const pageText = doc.body.innerText.replace(/\s+/g, ' ').trim().slice(0, 12000); 
+        
+        if (!pageText || pageText.length < 100) {
+          console.warn(`Portal ${targetUrl} retornou texto vazio ou bloqueado. Pulando...`);
+          continue;
+        }
 
         const maxHeadlines = Math.max(1, Math.floor(MAX_PER_SESSION / urls.length));
 
@@ -1146,17 +1211,22 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   const renderBanners = () => {
     const handleAddBanner = () => {
       const newBanner = { id: Date.now(), active: false, image: '', link: '' };
-      setBanners([...banners, newBanner]);
+      setLocalBanners([...localBanners, newBanner]);
     };
 
     const handleUpdateBanner = (id, field, value) => {
-      setBanners(banners.map(b => b.id === id ? { ...b, [field]: value } : b));
+      setLocalBanners(localBanners.map(b => b.id === id ? { ...b, [field]: value } : b));
     };
 
     const handleDeleteBanner = (id) => {
       if (window.confirm("Tem certeza que deseja excluir este banner?")) {
-        setBanners(banners.filter(b => b.id !== id));
+        setLocalBanners(localBanners.filter(b => b.id !== id));
       }
+    };
+
+    const handleSaveBanners = () => {
+      setBanners(localBanners); // Triggers Firebase sync
+      alert("Banners salvos e publicados com sucesso!");
     };
 
     return (
@@ -1174,24 +1244,31 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           </button>
         </div>
 
-        {banners.length === 0 ? (
+        {localBanners.length === 0 ? (
           <div className="bg-white border border-slate-200 p-8 rounded-xl text-center">
             <ImageIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <h3 className="text-slate-700 font-bold mb-1">Nenhum banner configurado</h3>
             <p className="text-sm text-slate-500 mb-4">Clique em "Novo Banner" para adicionar seu primeiro patrocinador.</p>
           </div>
         ) : (
-          banners.map((banner, index) => (
+          localBanners.map((banner, index) => (
             <div key={banner.id} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-6">
               <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Banner {index + 1}</h3>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <button 
                     onClick={() => handleUpdateBanner(banner.id, 'active', !banner.active)}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${banner.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${banner.active ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                    title={banner.active ? 'Pausar Banner' : 'Ativar Banner'}
                   >
-                    {banner.active ? 'Banner Ativado' : 'Banner Oculto'}
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${banner.active ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
+                  <span className={`text-xs font-bold ${banner.active ? 'text-emerald-700' : 'text-slate-500'}`}>
+                    {banner.active ? 'ATIVO' : 'PAUSADO'}
+                  </span>
+                  
+                  <div className="w-px h-4 bg-slate-300 mx-1"></div>
+                  
                   <button 
                     onClick={() => handleDeleteBanner(banner.id)}
                     className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
@@ -1248,6 +1325,17 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
               </div>
             </div>
           ))
+        )}
+
+        {localBanners.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-slate-200">
+            <button 
+              onClick={handleSaveBanners}
+              className="w-full bg-[#d40a38] hover:bg-red-700 text-white py-3 rounded-md text-sm font-bold shadow-sm transition-colors"
+            >
+              Salvar Alterações e Publicar Banners
+            </button>
+          </div>
         )}
       </div>
     );
