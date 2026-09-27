@@ -63,6 +63,44 @@ export function useFirebaseSync(collectionName, fallbackInitialData = []) {
   return [data, setData, loading];
 }
 
+export function useFirebaseDoc(collectionName, docId, fallbackInitialData = {}) {
+  const [data, setDataState] = useState(fallbackInitialData);
+  const [loading, setLoading] = useState(true);
+
+  // Sync from Firebase
+  useEffect(() => {
+    const docRef = doc(db, collectionName, docId);
+    const unsubscribe = onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setDataState({ ...fallbackInitialData, ...snapshot.data() });
+      } else {
+        setDataState(fallbackInitialData);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error(`Error fetching ${collectionName}/${docId} from Firebase:`, error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [collectionName, docId]);
+
+  // Wrapper for set state that syncs to Firebase
+  const setData = async (newDataOrFn) => {
+    const newData = typeof newDataOrFn === 'function' ? newDataOrFn(data) : newDataOrFn;
+    setDataState(newData);
+
+    try {
+      const docRef = doc(db, collectionName, docId);
+      await setDoc(docRef, newData, { merge: true });
+    } catch (error) {
+      console.error(`Error saving ${collectionName}/${docId} to Firebase:`, error);
+    }
+  };
+
+  return [data, setData, loading];
+}
+
 // Utility to run once to migrate local storage to Firebase
 export const migrateLocalStorageToFirebase = async () => {
   try {

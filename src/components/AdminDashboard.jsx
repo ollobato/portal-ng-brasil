@@ -122,91 +122,8 @@ export default function AdminDashboard({ onLogout, newsData, setNewsData, banner
   const [aiPrompt, setAiPrompt] = useState('');
 
   // Robot / Automation states
+  
   const defaultUrls = "https://danuzionews.com/\nhttps://forbes.com.br/\nhttps://www.gazetadopovo.com.br\nhttps://www.brasilparalelo.com.br/\nhttps://www.cnnbrasil.com.br/\nhttps://revistaoeste.com/\nhttps://agenciagov.ebc.com.br/\nhttps://agenciabrasil.ebc.com.br/\nhttps://www.gov.br/pt-br\nhttps://www.voanews.com/\nhttps://news.un.org/pt/\nhttps://www.r7.com/\nhttps://g1.globo.com/\nhttps://www.uol.com.br/\nhttps://www.estadao.com.br/\nhttps://www.folha.uol.com.br/\nhttps://www.bbc.com/portuguese\nhttps://www.poder360.com.br/\nhttps://www.metropoles.com/\nhttps://www.terra.com.br/\nhttps://www.panrotas.com.br/\nhttps://diariodoturismo.com.br/\nhttps://brasilturis.com.br/\nhttps://www.gov.br/fazenda\nhttps://www.gov.br/saude\nhttps://www.gov.br/mec\nhttps://www.gov.br/mcti/pt-br";
-  
-  const [robotUrls, setRobotUrls] = useState(() => {
-    const saved = localStorage.getItem('portal_ng_robot_urls');
-    if (!saved || saved.split('\n').length < 10) return defaultUrls;
-    return saved;
-  });
-  const [robotGeminiKey, setRobotGeminiKey] = useState(() => {
-    return localStorage.getItem('portal_ng_gemini_key') || '';
-  });
-  const [robotOpenAIKey, setRobotOpenAIKey] = useState(() => {
-    return localStorage.getItem('portal_ng_openai_key') || '';
-  });
-  const [robotClaudeKey, setRobotClaudeKey] = useState(() => {
-    return localStorage.getItem('portal_ng_claude_key') || '';
-  });
-  
-  // Meta & ImgBB API Keys
-  const [metaToken, setMetaToken] = useState(() => localStorage.getItem('portal_ng_meta_token') || '');
-  const [metaFbPageId, setMetaFbPageId] = useState(() => localStorage.getItem('portal_ng_meta_fb_page_id') || '');
-  const [metaIgAccountId, setMetaIgAccountId] = useState(() => localStorage.getItem('portal_ng_meta_ig_account_id') || '');
-  const [imgbbKey, setImgbbKey] = useState(() => localStorage.getItem('portal_ng_imgbb_key') || '');
-
-  
-  const [robotFeedback, setRobotFeedback] = useState(() => {
-    const saved = localStorage.getItem('portal_ng_robot_feedback');
-    return saved ? JSON.parse(saved) : { liked: [], disliked: [] };
-  });
-
-  const handleFeedback = (draft, type) => {
-    setRobotFeedback(prev => {
-      const title = draft.metadata?.titulo_original || draft.title;
-      const newState = { ...prev };
-      
-      // Limit to last 15 examples to avoid prompt overflow
-      if (type === 'like') {
-        if (!newState.liked.includes(title)) newState.liked = [title, ...newState.liked].slice(0, 15);
-        newState.disliked = newState.disliked.filter(t => t !== title);
-      } else if (type === 'dislike') {
-        if (!newState.disliked.includes(title)) newState.disliked = [title, ...newState.disliked].slice(0, 15);
-        newState.liked = newState.liked.filter(t => t !== title);
-      }
-      
-      localStorage.setItem('portal_ng_robot_feedback', JSON.stringify(newState));
-      return newState;
-    });
-
-    setDraftData(prev => {
-      const drafts = [...prev];
-      const index = drafts.findIndex(d => d.id === draft.id);
-      if (index > -1) {
-        const [moved] = drafts.splice(index, 1);
-        if (type === 'like') {
-          drafts.unshift(moved);
-        } else {
-          drafts.push(moved);
-        }
-      }
-      return drafts;
-    });
-  };
-  
-  React.useEffect(() => {
-    localStorage.setItem('portal_ng_robot_urls', robotUrls);
-  }, [robotUrls]);
-
-  React.useEffect(() => {
-    localStorage.setItem('portal_ng_gemini_key', robotGeminiKey);
-  }, [robotGeminiKey]);
-
-  React.useEffect(() => {
-    localStorage.setItem('portal_ng_openai_key', robotOpenAIKey);
-  }, [robotOpenAIKey]);
-
-  React.useEffect(() => {
-    localStorage.setItem('portal_ng_claude_key', robotClaudeKey);
-  }, [robotClaudeKey]);
-
-  React.useEffect(() => {
-    localStorage.setItem('portal_ng_meta_token', metaToken);
-    localStorage.setItem('portal_ng_meta_fb_page_id', metaFbPageId);
-    localStorage.setItem('portal_ng_meta_ig_account_id', metaIgAccountId);
-    localStorage.setItem('portal_ng_imgbb_key', imgbbKey);
-  }, [metaToken, metaFbPageId, metaIgAccountId, imgbbKey]);
-
   const defaultGuidelines = `A estruturação do Portal NG Brasil como um veículo de comunicação de viés conservador (centro-direita), com a sofisticação da Forbes e o dinamismo da CNN, exige um posicionamento de marca que transmita autoridade inquestionável. O segredo para não tornar a linha ideológica "escancarada" ou panfletária é ancorar o portal estritamente na qualidade técnica da informação, nos princípios éticos do jornalismo e na estética de alto valor.
 
 A aplicação de 15 anos de experiência prática em criação de conteúdo, passando pela agilidade da produção de TV, coberturas de hard news e visão estratégica lapidada em mercados de alta exigência, permite que esse novo projeto nasça não apenas como um feed de notícias, mas como um ecossistema de influência real.
@@ -230,58 +147,130 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 ⚬ Transparência Comercial (A Máquina de Vendas): Como o portal também possui uma estratégia de monetização via publieditoriais e patrocínios (herdada da modelagem do NG Gramado), é obrigatório informar claramente à sociedade quando as matérias tiverem caráter publicitário, decorrerem de patrocínios ou promoções. A separação clara entre o que é Editorial e o que é Patrocinado eleva a confiança do leitor de alto padrão.
 ⚬ Pluralidade e Rigor: Antes da divulgação de denúncias ou fatos polêmicos, é dever do portal ouvir o maior número de pessoas e instituições envolvidas. Isso blinda o portal contra processos e reforça a imagem de um veículo justo e centrado.`;
 
-  const [robotGuidelines, setRobotGuidelines] = useState(() => {
-    return localStorage.getItem('portal_ng_robot_guidelines') || defaultGuidelines;
-  });
+  const fallbackSettings = {
+    robotUrls: localStorage.getItem("portal_ng_robot_urls") || defaultUrls,
+    robotGeminiKey: localStorage.getItem("portal_ng_gemini_key") || "",
+    robotOpenAIKey: localStorage.getItem("portal_ng_openai_key") || "",
+    robotClaudeKey: localStorage.getItem("portal_ng_claude_key") || "",
+    metaToken: localStorage.getItem("portal_ng_meta_token") || "",
+    metaFbPageId: localStorage.getItem("portal_ng_meta_fb_page_id") || "",
+    metaIgAccountId: localStorage.getItem("portal_ng_meta_ig_account_id") || "",
+    imgbbKey: localStorage.getItem("portal_ng_imgbb_key") || "",
+    robotFeedback: localStorage.getItem("portal_ng_robot_feedback") ? JSON.parse(localStorage.getItem("portal_ng_robot_feedback")) : { liked: [], disliked: [] },
+    robotGuidelines: localStorage.getItem("portal_ng_robot_guidelines") || defaultGuidelines,
+    isAutoPilot: localStorage.getItem("portal_ng_autopilot") === "true",
+    authors: localStorage.getItem("portal_ng_authors") ? JSON.parse(localStorage.getItem("portal_ng_authors")) : [
+      { name: "Mariana Alencar", role: "Analista de Política em Brasília", email: "mariana@portalng.com.br", articles: 124 },
+      { name: "João Pedro Amapá", role: "Correspondente Regional em Macapá", email: "joao@portalng.com.br", articles: 89 },
+      { name: "Camila Hoffmann", role: "Correspondente na Serra Gaúcha", email: "camila@portalng.com.br", articles: 56 },
+      { name: "Gabriel Siqueira", role: "Crítico de Cinema & Cultura Pop", email: "gabriel@portalng.com.br", articles: 42 }
+    ]
+  };
 
-  // Social Media Modal State
+  const [settings, setSettings, isSettingsLoading] = useFirebaseDoc("settings", "global", fallbackSettings);
+
+  const robotUrls = settings.robotUrls;
+  const setRobotUrls = (val) => setSettings(prev => ({ ...prev, robotUrls: typeof val === "function" ? val(prev.robotUrls) : val }));
+
+  const robotGeminiKey = settings.robotGeminiKey;
+  const setRobotGeminiKey = (val) => setSettings(prev => ({ ...prev, robotGeminiKey: typeof val === "function" ? val(prev.robotGeminiKey) : val }));
+
+  const robotOpenAIKey = settings.robotOpenAIKey;
+  const setRobotOpenAIKey = (val) => setSettings(prev => ({ ...prev, robotOpenAIKey: typeof val === "function" ? val(prev.robotOpenAIKey) : val }));
+
+  const robotClaudeKey = settings.robotClaudeKey;
+  const setRobotClaudeKey = (val) => setSettings(prev => ({ ...prev, robotClaudeKey: typeof val === "function" ? val(prev.robotClaudeKey) : val }));
+
+  const metaToken = settings.metaToken;
+  const setMetaToken = (val) => setSettings(prev => ({ ...prev, metaToken: typeof val === "function" ? val(prev.metaToken) : val }));
+
+  const metaFbPageId = settings.metaFbPageId;
+  const setMetaFbPageId = (val) => setSettings(prev => ({ ...prev, metaFbPageId: typeof val === "function" ? val(prev.metaFbPageId) : val }));
+
+  const metaIgAccountId = settings.metaIgAccountId;
+  const setMetaIgAccountId = (val) => setSettings(prev => ({ ...prev, metaIgAccountId: typeof val === "function" ? val(prev.metaIgAccountId) : val }));
+
+  const imgbbKey = settings.imgbbKey;
+  const setImgbbKey = (val) => setSettings(prev => ({ ...prev, imgbbKey: typeof val === "function" ? val(prev.imgbbKey) : val }));
+
+  const robotFeedback = settings.robotFeedback;
+  const setRobotFeedback = (val) => setSettings(prev => ({ ...prev, robotFeedback: typeof val === "function" ? val(prev.robotFeedback) : val }));
+
+  const robotGuidelines = settings.robotGuidelines;
+  const setRobotGuidelines = (val) => setSettings(prev => ({ ...prev, robotGuidelines: typeof val === "function" ? val(prev.robotGuidelines) : val }));
+
+  const isAutoPilot = settings.isAutoPilot;
+  const setIsAutoPilot = (val) => setSettings(prev => ({ ...prev, isAutoPilot: typeof val === "function" ? val(prev.isAutoPilot) : val }));
+
+  const authors = settings.authors;
+  const setAuthors = (val) => setSettings(prev => ({ ...prev, authors: typeof val === "function" ? val(prev.authors) : val }));
+
+
+  const handleFeedback = (draft, type) => {
+    setRobotFeedback(prev => {
+      const title = draft.metadata?.titulo_original || draft.title;
+      const newState = { ...prev };
+      
+      // Limit to last 15 examples to avoid prompt overflow
+      if (type === "like") {
+        if (!newState.liked.includes(title)) newState.liked = [title, ...newState.liked].slice(0, 15);
+        newState.disliked = newState.disliked.filter(t => t !== title);
+      } else if (type === "dislike") {
+        if (!newState.disliked.includes(title)) newState.disliked = [title, ...newState.disliked].slice(0, 15);
+        newState.liked = newState.liked.filter(t => t !== title);
+      }
+      
+      return newState;
+    });
+
+    setDraftData(prev => {
+      const drafts = [...prev];
+      const index = drafts.findIndex(d => d.id === draft.id);
+      if (index > -1) {
+        const [moved] = drafts.splice(index, 1);
+        if (type === "like") {
+          drafts.unshift(moved);
+        } else {
+          drafts.push(moved);
+        }
+      }
+      return drafts;
+    });
+  };
+
   const [socialModalArticle, setSocialModalArticle] = useState(null);
-
-
-
-  React.useEffect(() => {
-    localStorage.setItem('portal_ng_robot_guidelines', robotGuidelines);
-  }, [robotGuidelines]);
-
   const [isRobotRunning, setIsRobotRunning] = useState(false);
-  const [robotStatus, setRobotStatus] = useState('');
+  const [robotStatus, setRobotStatus] = useState("");
   const [robotProgress, setRobotProgress] = useState(null);
   
   const [robotStartDate, setRobotStartDate] = useState(() => {
     const d = new Date();
-    return d.toISOString().split('T')[0];
+    return d.toISOString().split("T")[0];
   });
   const [robotStartTime, setRobotStartTime] = useState(() => {
     const d = new Date();
     return d.toTimeString().substring(0,5);
   });
-  const [robotCategory, setRobotCategory] = useState('todas');
+  const [robotCategory, setRobotCategory] = useState("todas");
   
-  const [robotActiveTab, setRobotActiveTab] = useState('curadora');
-  const [newPortalUrl, setNewPortalUrl] = useState('');
+  const [robotActiveTab, setRobotActiveTab] = useState("curadora");
+  const [newPortalUrl, setNewPortalUrl] = useState("");
 
   const handleAddPortal = () => {
-    if (newPortalUrl && newPortalUrl.includes('http')) {
-      const current = robotUrls ? robotUrls + '\n' : '';
+    if (newPortalUrl && newPortalUrl.includes("http")) {
+      const current = robotUrls ? robotUrls + "\n" : "";
       setRobotUrls(current + newPortalUrl);
-      setNewPortalUrl('');
+      setNewPortalUrl("");
     }
   };
 
   const handleRemovePortal = (index) => {
-    const urls = robotUrls.split('\n').filter(u => u.trim());
+    const urls = robotUrls.split("\n").filter(u => u.trim());
     urls.splice(index, 1);
-    setRobotUrls(urls.join('\n'));
+    setRobotUrls(urls.join("\n"));
   };
 
-  const [isAutoPilot, setIsAutoPilot] = useState(() => {
-    return localStorage.getItem('portal_ng_autopilot') === 'true';
-  });
-  const [autoPilotHours, setAutoPilotHours] = useState(1); // 1, 2, 4, 8
-
-  React.useEffect(() => {
-    localStorage.setItem('portal_ng_autopilot', isAutoPilot ? 'true' : 'false');
-  }, [isAutoPilot]);
+  const [autoPilotHours, setAutoPilotHours] = useState(1);
 
   React.useEffect(() => {
     let intervalId = null;
@@ -296,13 +285,12 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       if (intervalId) clearInterval(intervalId);
     };
   }, [isAutoPilot, isRobotRunning, autoPilotHours]);
-  
-  // Daily Usage Tracking
+
   const dailyUsageLimit = 1500;
   const [dailyUsage, setDailyUsage] = useState(() => {
     try {
-      const storedStr = localStorage.getItem('portal_ng_daily_usage');
-      const today = new Date().toISOString().split('T')[0];
+      const storedStr = localStorage.getItem("portal_ng_daily_usage");
+      const today = new Date().toISOString().split("T")[0];
       if (storedStr) {
         const stored = JSON.parse(storedStr);
         if (stored.date === today) return stored.count;
@@ -312,25 +300,6 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       return 0;
     }
   });
-
-  // Authors state
-  const [authors, setAuthors] = useState(() => {
-    try {
-      const saved = localStorage.getItem('portal_ng_authors');
-      return saved ? JSON.parse(saved) : [
-        { name: "Mariana Alencar", role: "Analista de Política em Brasília", email: "mariana@portalng.com.br", articles: 124 },
-        { name: "João Pedro Amapá", role: "Correspondente Regional em Macapá", email: "joao@portalng.com.br", articles: 89 },
-        { name: "Camila Hoffmann", role: "Correspondente na Serra Gaúcha", email: "camila@portalng.com.br", articles: 56 },
-        { name: "Gabriel Siqueira", role: "Crítico de Cinema & Cultura Pop", email: "gabriel@portalng.com.br", articles: 42 }
-      ];
-    } catch {
-      return [];
-    }
-  });
-
-  React.useEffect(() => {
-    localStorage.setItem('portal_ng_authors', JSON.stringify(authors));
-  }, [authors]);
 
   const [showAuthorForm, setShowAuthorForm] = useState(false);
   const [authorForm, setAuthorForm] = useState({ name: '', role: '', email: '' });
