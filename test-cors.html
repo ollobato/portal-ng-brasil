@@ -1,0 +1,8 @@
+<!DOCTYPE html>
+<html><body><script>
+fetch('https://api.openai.com/v1/chat/completions', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer sk-proj-invalid' },
+  body: JSON.stringify({model:'gpt-3.5-turbo',messages:[{role:'user',content:'hi'}]})
+}).then(r=>r.json()).then(console.log).catch(console.error);
+</script></body></html>

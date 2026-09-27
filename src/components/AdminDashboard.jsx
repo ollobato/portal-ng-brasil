@@ -4,6 +4,7 @@ import { LogOut, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Set
 import Editor from 'react-simple-wysiwyg';
 import SocialPostGenerator from './SocialPostGenerator';
 import { shareToWhatsApp } from '../utils/socialExporter';
+import { useFirebaseSync } from '../hooks/useFirebaseSync';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -33,19 +34,13 @@ class ErrorBoundary extends Component {
 export default function AdminDashboard({ onLogout, newsData, setNewsData, banners, setBanners }) {
   const [activeTab, setActiveTab] = useState('insights');
 
-  // Drafts state for approval queue
-  const [draftData, setDraftData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('portal_ng_drafts');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  React.useEffect(() => {
-    localStorage.setItem('portal_ng_drafts', JSON.stringify(draftData));
-  }, [draftData]);
+  // Drafts state for approval queue (synced with Firebase)
+  const [draftDataRaw, setDraftData] = useFirebaseSync('drafts', []);
+  const draftData = draftDataRaw.map(item => ({
+    ...item,
+    praca: typeof item.praca === 'string' ? item.praca.replace(/^Praça\s+/i, '') : item.praca,
+    title: typeof item.title === 'string' ? item.title.replace(/^Praça\s+/i, '') : item.title
+  })).sort((a, b) => b.id - a.id);
 
   // Form states
   const [showForm, setShowForm] = useState(false);
@@ -78,6 +73,12 @@ export default function AdminDashboard({ onLogout, newsData, setNewsData, banner
     return localStorage.getItem('portal_ng_claude_key') || '';
   });
   
+  // Meta & ImgBB API Keys
+  const [metaToken, setMetaToken] = useState(() => localStorage.getItem('portal_ng_meta_token') || '');
+  const [metaFbPageId, setMetaFbPageId] = useState(() => localStorage.getItem('portal_ng_meta_fb_page_id') || '');
+  const [metaIgAccountId, setMetaIgAccountId] = useState(() => localStorage.getItem('portal_ng_meta_ig_account_id') || '');
+  const [imgbbKey, setImgbbKey] = useState(() => localStorage.getItem('portal_ng_imgbb_key') || '');
+
   
   const [robotFeedback, setRobotFeedback] = useState(() => {
     const saved = localStorage.getItem('portal_ng_robot_feedback');
@@ -132,6 +133,13 @@ export default function AdminDashboard({ onLogout, newsData, setNewsData, banner
   React.useEffect(() => {
     localStorage.setItem('portal_ng_claude_key', robotClaudeKey);
   }, [robotClaudeKey]);
+
+  React.useEffect(() => {
+    localStorage.setItem('portal_ng_meta_token', metaToken);
+    localStorage.setItem('portal_ng_meta_fb_page_id', metaFbPageId);
+    localStorage.setItem('portal_ng_meta_ig_account_id', metaIgAccountId);
+    localStorage.setItem('portal_ng_imgbb_key', imgbbKey);
+  }, [metaToken, metaFbPageId, metaIgAccountId, imgbbKey]);
 
   const defaultGuidelines = `A estruturação do Portal NG Brasil como um veículo de comunicação de viés conservador (centro-direita), com a sofisticação da Forbes e o dinamismo da CNN, exige um posicionamento de marca que transmita autoridade inquestionável. O segredo para não tornar a linha ideológica "escancarada" ou panfletária é ancorar o portal estritamente na qualidade técnica da informação, nos princípios éticos do jornalismo e na estética de alto valor.
 
@@ -911,7 +919,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
             <div className={formActiveTab === 'social' ? 'block' : 'hidden'}>
               <div className="max-w-4xl mx-auto">
-                <SocialPostGenerator inline={true} article={formData} />
+                <SocialPostGenerator inline={true} article={formData} metaToken={metaToken} metaFbPageId={metaFbPageId} metaIgAccountId={metaIgAccountId} imgbbKey={imgbbKey} />
               </div>
             </div>
           </div>
@@ -1390,6 +1398,33 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                   </div>
                 </div>
               </div>
+
+              <div className="mt-8 border-t border-slate-200 pt-6">
+                <h4 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Share2 className="w-4 h-4 text-slate-500" /> Integração de Redes Sociais (Meta & ImgBB)</h4>
+                <p className="text-xs text-slate-500 mb-6">Insira as credenciais para postagem automática no Facebook e Instagram. O ImgBB é necessário para hospedar temporariamente a imagem para a API do Instagram.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Token de Acesso (Meta)</label>
+                    <input type="password" value={metaToken} onChange={e => setMetaToken(e.target.value)} placeholder="EAAG..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Chave API ImgBB</label>
+                    <input type="password" value={imgbbKey} onChange={e => setImgbbKey(e.target.value)} placeholder="0d6b..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">ID da Página (Facebook)</label>
+                    <input type="text" value={metaFbPageId} onChange={e => setMetaFbPageId(e.target.value)} placeholder="123456789..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">ID da Conta Comercial (Instagram)</label>
+                    <input type="text" value={metaIgAccountId} onChange={e => setMetaIgAccountId(e.target.value)} placeholder="987654321..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                  </div>
+                </div>
+                <div className="mt-4 flex justify-end">
+                   <button type="button" onClick={() => alert('Credenciais de Redes Sociais salvas com sucesso!')} className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-md transition-colors">Salvar Credenciais</button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1616,11 +1651,14 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           {activeTab === 'aprovacao' && renderApprovals()}
         </div>
 
-        {/* Social Media Card Modal */}
         {socialModalArticle && (
           <SocialPostGenerator 
             article={socialModalArticle} 
             onClose={() => setSocialModalArticle(null)} 
+            metaToken={metaToken}
+            metaFbPageId={metaFbPageId}
+            metaIgAccountId={metaIgAccountId}
+            imgbbKey={imgbbKey}
           />
         )}
 

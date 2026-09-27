@@ -1,15 +1,29 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
 export default function Login({ onLogin, onNavigateHome }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulação simples de login para MVP
+    setError('');
+    
     if (email && password) {
-      onLogin();
+      setIsLoading(true);
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        onLogin();
+      } catch (err) {
+        console.error("Login error:", err);
+        setError('E-mail ou senha incorretos. Tente novamente.');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -96,7 +110,7 @@ export default function Login({ onLogin, onNavigateHome }) {
               <div className="text-sm">
                 <button 
                   type="button"
-                  onClick={() => alert('Para redefinir a senha, entre em contato com o departamento de RH ou TI da redação.')}
+                  onClick={() => alert('Para redefinir a senha, entre em contato com o administrador do sistema.')}
                   className="font-semibold text-[#006644] hover:text-[#004d33] bg-transparent border-0"
                 >
                   Esqueceu a senha?
@@ -104,12 +118,23 @@ export default function Login({ onLogin, onNavigateHome }) {
               </div>
             </div>
 
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-md">
+                {error}
+              </div>
+            )}
+
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-[#d40a38] hover:bg-red-700 transition-colors"
+                disabled={isLoading}
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-[#d40a38] hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed items-center"
               >
-                Acessar Painel <ArrowRight className="ml-2 w-4 h-4" />
+                {isLoading ? (
+                  <><Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" /> Autenticando...</>
+                ) : (
+                  <>Acessar Painel <ArrowRight className="ml-2 w-4 h-4" /></>
+                )}
               </button>
             </div>
           </form>

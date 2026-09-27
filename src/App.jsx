@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './lib/firebase';
+import { useFirebaseSync, migrateLocalStorageToFirebase } from './hooks/useFirebaseSync';
 import TickerBar from './components/TickerBar';
 import Header from './components/Header';
 import HeroSection from './components/HeroSection';
@@ -21,55 +24,37 @@ import {
   regionalPracas 
 } from './data/newsData';
 
-import { Landmark, Compass, Film, SearchX, Cpu, HeartPulse, Newspaper } from 'lucide-react';
+import { Landmark, Compass, Film, SearchX, Cpu, HeartPulse, Newspaper, Loader2 } from 'lucide-react';
 
 export default function App() {
-  // Global News State (Elevated to App.jsx for Admin manipulation)
-  const [newsData, setNewsData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('portal_ng_news');
-      const data = saved ? JSON.parse(saved) : initialNews;
-      return data.map(item => ({
-        ...item,
-        praca: typeof item.praca === 'string' ? item.praca.replace(/^Praça\s+/i, '') : item.praca,
-        title: typeof item.title === 'string' ? item.title.replace(/^Praça\s+/i, '') : item.title
-      }));
-    } catch {
-      return initialNews;
-    }
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-  // Global Banners State
-  const [banners, setBanners] = useState(() => {
-    try {
-      // Try to load the new array format first
-      const saved = localStorage.getItem('portal_ng_banners');
-      if (saved) return JSON.parse(saved);
-
-      // Fallback: migrate from old single banner config if exists
-      const oldSaved = localStorage.getItem('portal_ng_banner');
-      if (oldSaved) {
-        const oldBanner = JSON.parse(oldSaved);
-        if (oldBanner.image || oldBanner.active) {
-          return [{ id: Date.now(), active: oldBanner.active, image: oldBanner.image, link: oldBanner.link }];
-        }
+  // Sync auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsLoggedIn(true);
+        // On successful login, trigger migration if needed
+        migrateLocalStorageToFirebase();
+      } else {
+        setIsLoggedIn(false);
       }
+      setIsAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
-      return [{ id: Date.now(), active: false, image: '', link: '' }];
-    } catch {
-      return [{ id: Date.now(), active: false, image: '', link: '' }];
-    }
-  });
+  // Sync News & Banners with Firebase
+  const [newsDataRaw, setNewsData, isNewsLoading] = useFirebaseSync('news', initialNews);
+  const [banners, setBanners, isBannersLoading] = useFirebaseSync('banners', [{ id: Date.now(), active: false, image: '', link: '' }]);
 
-  // Save news to localStorage to keep Admin changes across reloads
-  useEffect(() => {
-    localStorage.setItem('portal_ng_news', JSON.stringify(newsData));
-  }, [newsData]);
-
-  // Save banners config
-  useEffect(() => {
-    localStorage.setItem('portal_ng_banners', JSON.stringify(banners));
-  }, [banners]);
+  // Apply fallback formatting (legacy logic)
+  const newsData = newsDataRaw.map(item => ({
+    ...item,
+    praca: typeof item.praca === 'string' ? item.praca.replace(/^Praça\s+/i, '') : item.praca,
+    title: typeof item.title === 'string' ? item.title.replace(/^Praça\s+/i, '') : item.title
+  })).sort((a, b) => b.id - a.id); // Default sort descending by ID/Date
 
   // Roteamento Simples com persistência para evitar login toda hora
   const [currentView, setCurrentView] = useState(() => {
@@ -263,14 +248,35 @@ export default function App() {
   const displayDailyViews = totalViews > 0 ? Number(dailyViews).toLocaleString('pt-BR') : '0';
 
   // Renderização Condicional de Rotas
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+        <Loader2 className="w-12 h-12 text-[#006644] animate-spin mb-4" />
+        <p className="text-slate-600 font-medium font-heading">Carregando segurança do Portal NG...</p>
+      </div>
+    );
+  }
+
   if (currentView === 'login') {
+    if (isLoggedIn) {
+      setCurrentView('admin');
+      return null; // Will re-render immediately
+    }
     return <Login onLogin={() => setCurrentView('admin')} onNavigateHome={() => setCurrentView('portal')} />;
   }
 
   if (currentView === 'admin') {
+    if (!isLoggedIn) {
+      setCurrentView('login');
+      return null;
+    }
+
     return (
       <AdminDashboard 
-        onLogout={() => setCurrentView('portal')} 
+        onLogout={async () => {
+          await signOut(auth);
+          setCurrentView('portal');
+        }} 
         newsData={newsData}
         setNewsData={setNewsData}
         banners={banners}
