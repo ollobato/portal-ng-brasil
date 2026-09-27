@@ -527,11 +527,11 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                      await wait(15000);
                      return await callAI(prompt, retryCount + 1);
                  }
-                 if (geminiRes.status === 404 && modelName === 'gemini-1.5-flash') {
+                 const errText = await geminiRes.text();
+                 if (modelName === 'gemini-1.5-flash' && (geminiRes.status === 404 || errText.includes('is not found'))) {
                      // Fallback to older gemini-pro if 1.5 flash is not available on this API key/region
                      return await attemptGemini('gemini-pro');
                  }
-                 const errText = await geminiRes.text();
                  throw new Error(`Gemini Falhou (${modelName}): ` + errText);
              }
              const geminiData = await geminiRes.json();
