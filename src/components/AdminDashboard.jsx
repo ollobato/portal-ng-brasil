@@ -508,9 +508,12 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         news: { current: 0, total: MAX_PER_SESSION }
       });
 
-      let errorMessages = [];
-      const callAI = async (prompt) => {
+      const callAI = async (prompt, retryCount = 0) => {
+         let errorMessages = [];
          let generatedText = null;
+         
+         const wait = (ms) => new Promise(r => setTimeout(r, ms));
+         
          if (robotGeminiKey.trim()) {
            try {
              const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${robotGeminiKey.trim()}`, {
@@ -518,11 +521,20 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                headers: { 'Content-Type': 'application/json' },
                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
              });
-             if (!geminiRes.ok) throw new Error("Gemini Falhou");
+             if (!geminiRes.ok) {
+                 if (geminiRes.status === 429 && retryCount < 2) {
+                     setRobotStatus("Limite da API atingido. Aguardando 15s para tentar novamente...");
+                     await wait(15000);
+                     return await callAI(prompt, retryCount + 1);
+                 }
+                 const errText = await geminiRes.text();
+                 throw new Error("Gemini Falhou: " + errText);
+             }
              const geminiData = await geminiRes.json();
              generatedText = geminiData.candidates[0].content.parts[0].text;
-           } catch (e) { errorMessages.push("Gemini: "+e.message); }
+           } catch (e) { errorMessages.push(e.message); }
          }
+         
          if (!generatedText && robotOpenAIKey.trim()) {
            try {
              const openAIRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -530,11 +542,20 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${robotOpenAIKey.trim()}` },
                body: JSON.stringify({ model: 'gpt-4o-mini', response_format: { type: "json_object" }, messages: [{ role: 'user', content: prompt }] })
              });
-             if (!openAIRes.ok) throw new Error("ChatGPT Falhou");
+             if (!openAIRes.ok) {
+                 if (openAIRes.status === 429 && retryCount < 2) {
+                     setRobotStatus("Limite do ChatGPT atingido. Aguardando 15s...");
+                     await wait(15000);
+                     return await callAI(prompt, retryCount + 1);
+                 }
+                 const errText = await openAIRes.text();
+                 throw new Error("ChatGPT Falhou: " + errText);
+             }
              const openAIData = await openAIRes.json();
              generatedText = openAIData.choices[0].message.content;
-           } catch (e) { errorMessages.push("ChatGPT: "+e.message); }
+           } catch (e) { errorMessages.push(e.message); }
          }
+         
          if (!generatedText && robotClaudeKey.trim()) {
            try {
              const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -542,12 +563,20 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                headers: { 'Content-Type': 'application/json', 'x-api-key': robotClaudeKey.trim(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
                body: JSON.stringify({ model: 'claude-3-haiku-20240307', max_tokens: 4096, messages: [{ role: 'user', content: prompt }] })
              });
-             if (!claudeRes.ok) throw new Error("Claude Falhou");
+             if (!claudeRes.ok) {
+                 if (claudeRes.status === 429 && retryCount < 2) {
+                     setRobotStatus("Limite do Claude atingido. Aguardando 15s...");
+                     await wait(15000);
+                     return await callAI(prompt, retryCount + 1);
+                 }
+                 const errText = await claudeRes.text();
+                 throw new Error("Claude Falhou: " + errText);
+             }
              const claudeData = await claudeRes.json();
              generatedText = claudeData.content[0].text;
-           } catch (e) { errorMessages.push("Claude: "+e.message); }
+           } catch (e) { errorMessages.push(e.message); }
          }
-         if (!generatedText) throw new Error("Todas as APIs falharam: " + errorMessages.join(" | "));
+         if (!generatedText) throw new Error(errorMessages.join(" | "));
          return generatedText;
       };
 
