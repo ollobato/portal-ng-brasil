@@ -515,23 +515,30 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
          const wait = (ms) => new Promise(r => setTimeout(r, ms));
          
          if (robotGeminiKey.trim()) {
-           try {
-             const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${robotGeminiKey.trim()}`, {
+           const attemptGemini = async (modelName) => {
+             const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${robotGeminiKey.trim()}`, {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
              });
              if (!geminiRes.ok) {
                  if (geminiRes.status === 429 && retryCount < 2) {
-                     setRobotStatus("Limite da API atingido. Aguardando 15s para tentar novamente...");
+                     setRobotStatus(`Limite da API atingido (${modelName}). Aguardando 15s...`);
                      await wait(15000);
                      return await callAI(prompt, retryCount + 1);
                  }
+                 if (geminiRes.status === 404 && modelName === 'gemini-1.5-flash') {
+                     // Fallback to older gemini-pro if 1.5 flash is not available on this API key/region
+                     return await attemptGemini('gemini-pro');
+                 }
                  const errText = await geminiRes.text();
-                 throw new Error("Gemini Falhou: " + errText);
+                 throw new Error(`Gemini Falhou (${modelName}): ` + errText);
              }
              const geminiData = await geminiRes.json();
-             generatedText = geminiData.candidates[0].content.parts[0].text;
+             return geminiData.candidates[0].content.parts[0].text;
+           };
+           try {
+             generatedText = await attemptGemini('gemini-1.5-flash');
            } catch (e) { errorMessages.push(e.message); }
          }
          
