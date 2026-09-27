@@ -370,7 +370,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       }
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Erro ao enviar imagem. Tente uma imagem diferente.");
+      showToast("Erro ao enviar imagem. Tente uma imagem diferente.", true);
     } finally {
       setIsUploadingFiles(prev => ({ ...prev, [field]: false }));
     }
@@ -388,7 +388,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       setLocalBanners(prev => prev.map(b => b.id === bannerId ? { ...b, image: base64Url } : b));
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Erro ao enviar imagem do banner.");
+      showToast("Erro ao enviar imagem do banner.", true);
     } finally {
       setIsUploadingFiles(prev => ({ ...prev, [`banner_${bannerId}`]: false }));
     }
@@ -456,7 +456,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   const runRobotPipeline = async (e) => {
     e.preventDefault();
     if (!robotUrls.trim() || (!robotGeminiKey.trim() && !robotOpenAIKey.trim() && !robotClaudeKey.trim())) {
-      alert("Por favor, insira os links dos portais e pelo menos uma chave de IA (Gemini, ChatGPT ou Claude).");
+      showToast("Por favor, insira os links dos portais e pelo menos uma chave de IA (Gemini, ChatGPT ou Claude).", true);
       return;
     }
     
@@ -801,7 +801,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       }, 2000);
 
     } catch (error) {
-      alert("Erro na Automação: " + error.message);
+      showToast("Erro na Automação: " + error.message, true);
       setIsRobotRunning(false);
       setRobotStatus('');
       setRobotProgress(null);
@@ -1160,7 +1160,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   const renderAutores = () => {
     const handleSaveAuthor = (e) => {
       e.preventDefault();
-      alert(`Convite enviado com sucesso para ${authorForm.email}!`);
+      showToast(`Convite enviado com sucesso para ${authorForm.email}!`);
       setAuthors([{ ...authorForm, articles: 0 }, ...authors]);
       setShowAuthorForm(false);
       setAuthorForm({ name: '', role: '', email: '' });
@@ -1232,7 +1232,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   const renderConfiguracoes = () => {
     const handleSaveConfig = (e) => {
       e.preventDefault();
-      alert("Configurações salvas com sucesso!");
+      showToast("Configurações salvas com sucesso!");
     };
 
     return (
@@ -1290,7 +1290,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
     const handleSaveBanners = () => {
       setBanners(localBanners); // Triggers Firebase sync
-      alert("Banners salvos e publicados com sucesso!");
+      showToast("Banners salvos e publicados com sucesso!");
     };
 
     return (
@@ -1526,7 +1526,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
               <div className="flex justify-end mt-4">
                 <button 
                   type="button" 
-                  onClick={() => alert("✅ Diretrizes editoriais e regras do robô salvas com sucesso na nuvem!")}
+                  onClick={() => showToast("✅ Diretrizes editoriais e regras do robô salvas com sucesso na nuvem!")}
                   className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg text-sm hover:bg-indigo-700 transition-colors"
                 >
                   Salvar Diretrizes
@@ -1608,21 +1608,21 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Google Gemini</label>
                   <div className="flex items-center gap-2">
                     <input type="password" value={robotGeminiKey} onChange={e => setRobotGeminiKey(e.target.value)} placeholder="AIzaSy..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-                    <button type="button" onClick={() => alert('Chave do Gemini salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
+                    <button type="button" onClick={() => showToast('Chave do Gemini salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">ChatGPT (OpenAI)</label>
                   <div className="flex items-center gap-2">
                     <input type="password" value={robotOpenAIKey} onChange={e => setRobotOpenAIKey(e.target.value)} placeholder="sk-proj-..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-                    <button type="button" onClick={() => alert('Chave do ChatGPT salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
+                    <button type="button" onClick={() => showToast('Chave do ChatGPT salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Claude (Anthropic)</label>
                   <div className="flex items-center gap-2">
                     <input type="password" value={robotClaudeKey} onChange={e => setRobotClaudeKey(e.target.value)} placeholder="sk-ant-..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-                    <button type="button" onClick={() => alert('Chave do Claude salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
+                    <button type="button" onClick={() => showToast('Chave do Claude salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
                   </div>
                 </div>
               </div>
@@ -1650,7 +1650,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                   </div>
                 </div>
                 <div className="mt-4 flex justify-end">
-                   <button type="button" onClick={() => alert('Credenciais de Redes Sociais salvas com sucesso!')} className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-md transition-colors">Salvar Credenciais</button>
+                   <button type="button" onClick={() => showToast('Credenciais de Redes Sociais salvas com sucesso!')} className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-md transition-colors">Salvar Credenciais</button>
                 </div>
               </div>
             </div>
