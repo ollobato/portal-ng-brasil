@@ -558,27 +558,42 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         setRobotProgress(p => ({ ...p, portals: { current: i + 1, total: urls.length } }));
         setRobotStatus(`Lendo portal: ${targetUrl}...`);
         
-        let pageHtml = "";
+        let pageText = "";
         try {
-          const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-          if (isLocalhost) {
-            const res = await fetch(`/api/scrape?url=${encodeURIComponent(targetUrl)}`);
-            if (res.ok) pageHtml = await res.text();
+          // 1. Tentar usar Jina AI Reader (Excelente para contornar Cloudflare e já retorna texto limpo)
+          let res = await fetch(`https://r.jina.ai/${targetUrl}`);
+          if (res.ok) {
+            pageText = await res.text();
           } else {
-            let res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-            if (res.ok) {
-              pageHtml = await res.text();
+            // 2. Fallback para proxies tradicionais
+            let pageHtml = "";
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            if (isLocalhost) {
+              const resLocal = await fetch(`/api/scrape?url=${encodeURIComponent(targetUrl)}`);
+              if (resLocal.ok) pageHtml = await resLocal.text();
             } else {
-              res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
-              if (res.ok) {
-                pageHtml = await res.text();
+              let resCors = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+              if (resCors.ok) {
+                pageHtml = await resCors.text();
               } else {
-                res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
-                if (res.ok) pageHtml = await res.text();
+                let resAll = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+                if (resAll.ok) {
+                  pageHtml = await resAll.text();
+                } else {
+                  let resCode = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
+                  if (resCode.ok) pageHtml = await resCode.text();
+                }
               }
             }
+            if (!pageHtml) throw new Error("A conexão com os 4 proxies falhou.");
+            
+            // Fazer o parse apenas se for HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(pageHtml, 'text/html');
+            const scripts = doc.querySelectorAll('script, style, noscript, nav, footer, header, iframe');
+            scripts.forEach(s => s.remove());
+            pageText = doc.body.innerText.replace(/\s+/g, ' ').trim();
           }
-          if (!pageHtml) throw new Error("A conexão com os 3 proxies falhou.");
         } catch (err) {
           console.warn(`Não foi possível acessar ${targetUrl}. Pulando...`, err);
           setRobotStatus(`Falha de conexão com ${targetUrl}. Tentando próximo...`);
@@ -586,11 +601,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
           continue;
         }
 
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(pageHtml, 'text/html');
-        const scripts = doc.querySelectorAll('script, style, noscript, nav, footer, header, iframe');
-        scripts.forEach(s => s.remove());
-        const pageText = doc.body.innerText.replace(/\s+/g, ' ').trim().slice(0, 12000); 
+        // Limitar tamanho para não estourar o limite de tokens da IA
+        pageText = pageText.slice(0, 12000);
         
         if (!pageText || pageText.length < 100) {
           console.warn(`Portal ${targetUrl} retornou texto vazio ou bloqueado. Pulando...`);
