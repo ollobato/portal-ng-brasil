@@ -203,6 +203,15 @@ export default function App() {
         }
       });
     }
+
+    // Google Analytics Virtual Page View Tracking
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'page_view', {
+        page_title: currentTitle,
+        page_location: currentUrl,
+        page_path: selectedArticle ? `/materia/${selectedArticle.id}` : (currentView === 'admin' ? '/admin' : '/')
+      });
+    }
   }, [selectedArticle, activeCategory, searchQuery, currentView]);
 
   // Persist bookmarks
