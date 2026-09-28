@@ -8,6 +8,66 @@ import { useFirebaseSync, useFirebaseDoc } from '../hooks/useFirebaseSync';
 import { storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
+const compressImageAndUploadToStorage = async (file) => {
+  return new Promise((resolve, reject) => {
+    try {
+      if (!file.type.startsWith('image/')) {
+        reject(new Error("Not an image"));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = async () => {
+          try {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const max_size = 2560; 
+            
+            if (width > max_size || height > max_size) {
+              if (width > height) {
+                height *= max_size / width;
+                width = max_size;
+              } else {
+                width *= max_size / height;
+                height = max_size;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            canvas.toBlob(async (blob) => {
+                if (!blob) return reject("Failed to create blob");
+                try {
+                    
+                    
+                    const fileRef = ref(storage, `images/${Date.now()}_${file.name}`);
+                    await uploadBytes(fileRef, blob);
+                    const url = await getDownloadURL(fileRef);
+                    resolve(url);
+                } catch (e) {
+                    reject(e);
+                }
+            }, 'image/jpeg', 0.95);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = () => reject(new Error("Image load error"));
+        img.src = event.target.result;
+      };
+      reader.onerror = () => reject(new Error("File read error"));
+      reader.readAsDataURL(file);
+    } catch (e) {
+      reject(e);
+    }
+  });
+};
+
 const compressImageToBase64 = (file) => {
   return new Promise((resolve) => {
     try {
@@ -352,7 +412,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     
     setIsUploadingFiles(prev => ({ ...prev, [field]: true }));
     try {
-      const base64Url = await compressImageToBase64(file);
+      const base64Url = await compressImageAndUploadToStorage(file);
       if (!base64Url) throw new Error("Falha na conversão da imagem");
       
       if (field === 'cover') {
@@ -377,7 +437,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     
     setIsUploadingFiles(prev => ({ ...prev, [`banner_${bannerId}`]: true }));
     try {
-      const base64Url = await compressImageToBase64(file);
+      const base64Url = await compressImageAndUploadToStorage(file);
       if (!base64Url) throw new Error("Falha na conversão da imagem");
       
       setLocalBanners(prev => prev.map(b => b.id === bannerId ? { ...b, image: base64Url } : b));
