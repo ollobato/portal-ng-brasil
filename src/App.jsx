@@ -111,7 +111,7 @@ export default function App() {
   // Handle closing an article
   const handleCloseArticle = () => {
     setSelectedArticle(null);
-    if (activeCategory !== all) {
+    if (activeCategory !== "all") {
       navigate(`/${activeCategory}`);
     } else {
       navigate("/");
