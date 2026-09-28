@@ -42,14 +42,19 @@ const compressImageAndUploadToStorage = async (file) => {
             
             canvas.toBlob(async (blob) => {
                 if (!blob) return reject("Failed to create blob");
+                
+                const timeoutId = setTimeout(() => {
+                  reject(new Error("Timeout: O envio da imagem demorou muito. Verifique as regras (Rules) e o CORS do seu Firebase Storage."));
+                }, 15000);
+
                 try {
-                    
-                    
                     const fileRef = ref(storage, `images/${Date.now()}_${file.name}`);
                     await uploadBytes(fileRef, blob);
                     const url = await getDownloadURL(fileRef);
+                    clearTimeout(timeoutId);
                     resolve(url);
                 } catch (e) {
+                    clearTimeout(timeoutId);
                     reject(e);
                 }
             }, 'image/jpeg', 0.95);
