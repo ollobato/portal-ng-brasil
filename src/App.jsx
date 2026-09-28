@@ -94,37 +94,26 @@ export default function App() {
 
   // Sync URL with selected article for unique links
   useEffect(() => {
-    const handleUrlChange = () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      let materiaId = urlParams.get('materia');
+    let materiaId = new URLSearchParams(location.search).get('materia');
 
-      if (!materiaId) {
-        const pathParts = window.location.pathname.split('/');
-        const lastPart = pathParts[pathParts.length - 1];
-        if (lastPart && lastPart.includes('-news-')) {
-          const parts = lastPart.split('-');
-          materiaId = parts.slice(-2).join('-');
-        }
+    if (!materiaId) {
+      const pathParts = location.pathname.split('/');
+      const lastPart = pathParts[pathParts.length - 1];
+      if (lastPart && lastPart.includes('-news-')) {
+        const parts = lastPart.split('-');
+        materiaId = parts.slice(-2).join('-');
       }
-      
-      if (materiaId && !isNewsLoading) {
-        const found = newsData.find(n => String(n.id) === String(materiaId));
-        if (found) {
-          setSelectedArticle(found);
-          
-        }
-      } else if (!materiaId && selectedArticle) {
-        setSelectedArticle(null);
+    }
+    
+    if (materiaId && !isNewsLoading) {
+      const found = newsData.find(n => String(n.id) === String(materiaId));
+      if (found) {
+        setSelectedArticle(found);
       }
-    };
-
-    // Run on mount and when news data loads
-    handleUrlChange();
-
-    // Listen to browser back/forward buttons
-    window.addEventListener('popstate', handleUrlChange);
-    return () => window.removeEventListener('popstate', handleUrlChange);
-  }, [newsData, isNewsLoading]);
+    } else if (!materiaId && selectedArticle) {
+      setSelectedArticle(null);
+    }
+  }, [newsData, isNewsLoading, location.pathname, location.search]);
 
   // Handle opening an article and updating the URL
   const handleOpenArticle = async (article) => {
