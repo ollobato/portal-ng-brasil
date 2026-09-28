@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from './lib/firebase';
+import { auth, db } from './lib/firebase';
+import { doc, updateDoc, increment } from 'firebase/firestore';
 import { useFirebaseSync, migrateLocalStorageToFirebase } from './hooks/useFirebaseSync';
 import TickerBar from './components/TickerBar';
 import Header from './components/Header';
@@ -115,7 +116,13 @@ export default function App() {
   }, [newsData, isNewsLoading]);
 
   // Handle opening an article and updating the URL
-  const handleOpenArticle = (article) => {
+  const handleOpenArticle = async (article) => {
+    if (article.id) {
+      try {
+        const articleRef = doc(db, 'news', String(article.id));
+        await updateDoc(articleRef, { views: increment(1) });
+      } catch (err) { console.error("Error updating views", err); }
+    }
     setSelectedArticle(article);
     navigate(`/${article.category}/${generateSlug(article.title)}-${article.id}`);
   };
