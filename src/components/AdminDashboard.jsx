@@ -1198,7 +1198,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                 <th className="px-6 py-3">Editoria / Região</th>
                 <th className="px-6 py-3">Views <Eye className="w-3 h-3 inline ml-1" /></th>
                 <th className="px-6 py-3">Data</th>
-                <th className="px-6 py-3 text-right">Ações</th>
+                <th className="px-6 py-3 text-right sticky right-0 top-0 bg-white shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.1)] border-l border-slate-100 z-20">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1220,7 +1220,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                   <td className="px-6 py-4 text-sm text-slate-500">
                     {news.date}
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-4 text-right sticky right-0 bg-white shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.1)] border-l border-slate-100">
                     <button onClick={() => setSocialModalArticle(news)} className="text-slate-400 hover:text-indigo-600 mr-2 transition-colors inline-flex items-center gap-1 font-bold text-xs bg-indigo-50 px-2 py-1 rounded" title="Gerar Card Instagram (Canva)">
                       <Camera className="w-3.5 h-3.5 text-indigo-600" /> Insta
                     </button>
