@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './lib/firebase';
 import { useFirebaseSync, migrateLocalStorageToFirebase } from './hooks/useFirebaseSync';
@@ -88,7 +88,7 @@ export default function App() {
         const found = newsData.find(n => String(n.id) === String(materiaId));
         if (found) {
           setSelectedArticle(found);
-          setCurrentView('portal'); // Ensure we are not in admin if reading
+          
         }
       } else if (!materiaId && selectedArticle) {
         setSelectedArticle(null);
@@ -139,7 +139,7 @@ export default function App() {
     
     // Configurações base de Título
     let currentTitle = 'Portal NG Brasil | Notícias em Política, Turismo e Entretenimento';
-    if (currentView === 'admin') {
+    if (isAdminView) {
       currentTitle = 'Painel Admin | Portal NG Brasil';
     } else if (selectedArticle) {
       currentTitle = `${selectedArticle.title} | Portal NG Brasil`;
@@ -243,10 +243,10 @@ export default function App() {
       window.gtag('event', 'page_view', {
         page_title: currentTitle,
         page_location: currentUrl,
-        page_path: selectedArticle ? `/materia/${selectedArticle.id}` : (currentView === 'admin' ? '/admin' : '/')
+        page_path: selectedArticle ? `/materia/${selectedArticle.id}` : (isAdminView ? '/admin' : '/')
       });
     }
-  }, [selectedArticle, activeCategory, searchQuery, currentView]);
+  }, [selectedArticle, activeCategory, searchQuery]);
 
   // Persist bookmarks
   useEffect(() => {
@@ -305,25 +305,23 @@ export default function App() {
     );
   }
 
-  if (currentView === 'login') {
+  if (isLoginView) {
     if (isLoggedIn) {
-      setCurrentView('admin');
-      return null; // Will re-render immediately
+      return <Navigate to="/painel" replace />;
     }
-    return <Login onLogin={() => setCurrentView('admin')} onNavigateHome={() => setCurrentView('portal')} />;
+    return <Login onLogin={() => navigate('/painel')} onNavigateHome={() => navigate('/')} />;
   }
 
-  if (currentView === 'admin') {
+  if (isAdminView) {
     if (!isLoggedIn) {
-      setCurrentView('login');
-      return null;
+      return <Navigate to="/painel/login" replace />;
     }
 
     return (
       <AdminDashboard 
         onLogout={async () => {
           await signOut(auth);
-          setCurrentView('portal');
+          navigate('/');
         }} 
         newsData={newsData}
         setNewsData={setNewsData}
@@ -361,7 +359,7 @@ export default function App() {
         onOpenNewsletter={() => setIsNewsletterOpen(true)}
         selectedPraca={selectedPraca}
         setSelectedPraca={setSelectedPraca}
-        onNavigateLogin={() => setCurrentView('login')}
+        onNavigateLogin={() => navigate("/painel/login")}
       />
 
       {/* Ad Space (Sponsor placeholder or Actual Banners) */}
