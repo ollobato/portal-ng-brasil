@@ -30,10 +30,12 @@ import { Landmark, Compass, Film, SearchX, Cpu, HeartPulse, Newspaper, Loader2 }
 
 
 const generateSlug = (text) => {
+  if (!text) return '';
   return text.toString().toLowerCase().trim()
-    .replace(/[^ws-]/g, "")
-    .replace(/[s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
+    .replace(/[^a-z0-9\s-]/g, "") // remove special chars
+    .replace(/[\s_-]+/g, "-") // replace spaces and underscores with dash
+    .replace(/^-+|-+$/g, ""); // remove leading/trailing dashes
 };
 
 export default function App() {
