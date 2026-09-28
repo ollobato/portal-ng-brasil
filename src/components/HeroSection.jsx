@@ -13,6 +13,7 @@ export default function HeroSection({
 
   const getBadgeClass = (category) => {
     switch(category) {
+      case 'policial': return 'badge-policial';
       case 'politica': return 'badge-politica';
       case 'turismo': return 'badge-turismo';
       case 'entretenimento': return 'badge-entretenimento';
@@ -74,7 +75,7 @@ export default function HeroSection({
                 <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {featuredNews.readTime}</span>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-title-blue leading-snug mb-3 group-hover:text-blue-700 transition-colors font-heading">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-title-blue leading-snug mb-3 group-hover:text-blue-700 transition-colors font-heading">
                 {featuredNews.title}
               </h1>
 

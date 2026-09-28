@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe, ArrowUp, Landmark, Compass, Film, ShieldCheck, Heart, Camera, Cpu, HeartPulse, Newspaper } from 'lucide-react';
+import { Globe, ArrowUp, Landmark, Compass, Film, ShieldCheck, Heart, Camera, Cpu, HeartPulse, Newspaper, ShieldAlert } from 'lucide-react';
 
 export default function Footer({ setActiveCategory, setSelectedPraca }) {
   const scrollToTop = () => {
@@ -30,7 +30,7 @@ export default function Footer({ setActiveCategory, setSelectedPraca }) {
             </div>
 
             <p className="text-sm text-slate-400 max-w-md leading-relaxed font-medium">
-              O Portal NG Brasil é um veículo independente de jornalismo digital dedicado a cobrir de forma ágil e inteligente as notícias sobre **Brasil, Política, Saúde, Tecnologia, Turismo e Entretenimento**.
+              O Portal NG Brasil é um veículo independente de jornalismo digital dedicado a cobrir de forma ágil e inteligente as notícias sobre **Brasil, Policial, Política, Saúde, Tecnologia, Turismo e Entretenimento**.
             </p>
 
             <div className="flex items-center gap-4 text-xs font-bold text-[#d40a38]">
@@ -56,6 +56,15 @@ export default function Footer({ setActiveCategory, setSelectedPraca }) {
                 >
                   <Newspaper className="w-4 h-4 text-emerald-500" />
                   <span>Brasil</span>
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => { setActiveCategory('policial'); scrollToTop(); }}
+                  className="hover:text-[#d40a38] flex items-center gap-2 transition-colors"
+                >
+                  <ShieldAlert className="w-4 h-4 text-red-500" />
+                  <span>Policial</span>
                 </button>
               </li>
               <li>

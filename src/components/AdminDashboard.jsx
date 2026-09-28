@@ -474,7 +474,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         category: formData.category,
         categoryLabel: formData.category.charAt(0).toUpperCase() + formData.category.slice(1),
         praca: formData.praca,
-        image: formData.image || `https://image.pollinations.ai/prompt/${encodeURIComponent("News photo about " + formData.title + ", realistic, high quality, professional photography")}?width=1200&height=1200&nologo=true`,
+        image: formData.image || "",
         content: formData.content,
       };
 
@@ -500,7 +500,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         },
         date: dateStr,
         readTime: "3 min de leitura",
-        image: formData.image || `https://image.pollinations.ai/prompt/${encodeURIComponent("News photo about " + formData.title + ", realistic, high quality, professional photography")}?width=1200&height=1200&nologo=true`,
+        image: formData.image || "",
         isFeatured: true, // Force to see it on home
         isTrending: false,
         views: 0,
@@ -849,7 +849,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                     author: { name: "IA Curadora", role: `Fonte: ${originDomain}`, avatar: "https://images.unsplash.com/photo-1616161560417-66d4aba5ce44?w=150&auto=format&fit=crop&q=80" },
                     date: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
                     readTime: "3 min de leitura",
-                    image: `https://image.pollinations.ai/prompt/${encodeURIComponent("News photo about " + draftObj.title + ", realistic, high quality, professional photography")}?width=1200&height=1200&nologo=true`,
+                    image: draftObj.image || "",
                     content: metaHtml + draftObj.content,
                     metadata: meta
                  };
@@ -1101,6 +1101,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Editoria</label>
                 <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm">
                   <option value="geral">Geral</option>
+                  <option value="policial">Policial</option>
                   <option value="politica">Política</option>
                   <option value="economia">Economia</option>
                   <option value="turismo">Turismo</option>
@@ -1129,7 +1130,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Imagem de Capa (Upload)</label>
               <label className="flex items-center justify-center w-full bg-[#040f1d] hover:bg-slate-800 text-white px-4 py-2.5 rounded-md text-sm font-bold cursor-pointer transition-colors relative mb-2">
-                {isUploadingFiles['cover'] ? 'Enviando Imagem...' : 'Fazer Upload da Capa'}
+                {isUploadingFiles['cover'] ? 'Enviando Imagem...' : (formData.image ? '✓ Imagem Recebida (Clique para Trocar)' : 'Fazer Upload da Capa')}
                 <input 
                   type="file" 
                   accept="image/*" 
@@ -1573,6 +1574,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                   <select value={robotCategory} onChange={e => setRobotCategory(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm">
                     <option value="todas">Todas as Categorias</option>
                     <option value="geral">Geral</option>
+                    <option value="policial">Policial</option>
                     <option value="politica">Política</option>
                     <option value="economia">Economia</option>
                     <option value="turismo">Turismo</option>

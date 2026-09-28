@@ -22,6 +22,7 @@ export default function ArticleModal({
 
   const getBadgeClass = (cat) => {
     switch(cat) {
+      case 'policial': return 'badge-policial';
       case 'politica': return 'badge-politica';
       case 'turismo': return 'badge-turismo';
       case 'entretenimento': return 'badge-entretenimento';
@@ -119,7 +120,7 @@ export default function ArticleModal({
               </span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black font-heading text-title-blue leading-tight mb-4">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold font-heading text-title-blue leading-tight mb-4">
               {article.title}
             </h1>
 

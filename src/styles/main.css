@@ -96,6 +96,12 @@
 }
 
 /* Category Badges */
+.badge-policial {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
 .badge-politica {
   background-color: #f0f9ff;
   color: #0284c7;

@@ -16,6 +16,7 @@ export default function CategorySection({
 
   const getBadgeClass = (cat) => {
     switch(cat) {
+      case 'policial': return 'badge-policial';
       case 'politica': return 'badge-politica';
       case 'turismo': return 'badge-turismo';
       case 'entretenimento': return 'badge-entretenimento';
@@ -25,6 +26,7 @@ export default function CategorySection({
 
   const getCategoryBorder = (cat) => {
     switch(cat) {
+      case 'policial': return 'border-red-600';
       case 'politica': return 'border-sky-600';
       case 'turismo': return 'border-[#006644]';
       case 'entretenimento': return 'border-amber-500';

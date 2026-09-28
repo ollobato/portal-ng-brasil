@@ -26,7 +26,7 @@ import {
   regionalPracas 
 } from './data/newsData';
 
-import { Landmark, Compass, Film, SearchX, Cpu, HeartPulse, Newspaper, Loader2 } from 'lucide-react';
+import { Landmark, Compass, Film, SearchX, Cpu, HeartPulse, Newspaper, Loader2, ShieldAlert } from 'lucide-react';
 
 
 const generateSlug = (text) => {
@@ -311,6 +311,7 @@ export default function App() {
   const featuredNews = filteredNews.find(n => n.isFeatured) || filteredNews[0];
   const trendingNews = filteredNews.filter(n => n.id !== featuredNews?.id);
 
+  const policialArticles = filteredNews.filter(n => n.category === 'policial');
   const politicaArticles = filteredNews.filter(n => n.category === 'politica');
   const turismoArticles = filteredNews.filter(n => n.category === 'turismo');
   const entretenimentoArticles = filteredNews.filter(n => n.category === 'entretenimento');
@@ -508,9 +509,23 @@ export default function App() {
                   <CategorySection 
                     categoryKey="brasil"
                     title="Brasil & Cotidiano"
-                    subtitle="Acontecimentos em tempo real, economia, educação, polícia e o dia a dia do brasileiro."
+                    subtitle="Acontecimentos em tempo real, economia, educação e o dia a dia do brasileiro."
                     icon={Newspaper}
                     articles={brasilArticles}
+                    onSelectArticle={handleOpenArticle}
+                    onToggleBookmark={toggleBookmark}
+                    isBookmarked={isBookmarked}
+                  />
+                )}
+
+                {/* Category Section: Policial */}
+                {(activeCategory === 'all' || activeCategory === 'policial') && policialArticles.length > 0 && (
+                  <CategorySection 
+                    categoryKey="policial"
+                    title="Policial & Segurança"
+                    subtitle="Ocorrências policiais, operações de segurança pública, investigações e prestação de serviço."
+                    icon={ShieldAlert}
+                    articles={policialArticles}
                     onSelectArticle={handleOpenArticle}
                     onToggleBookmark={toggleBookmark}
                     isBookmarked={isBookmarked}

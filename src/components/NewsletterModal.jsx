@@ -6,6 +6,7 @@ export default function NewsletterModal({ onClose }) {
   const [subscribed, setSubscribed] = useState(false);
   const [topics, setTopics] = useState({
     brasil: true,
+    policial: true,
     politica: true,
     tecnologia: true,
     saude: false,
@@ -60,6 +61,7 @@ export default function NewsletterModal({ onClose }) {
                 <div className="flex items-center gap-2 flex-wrap">
                   {[
                     { id: 'brasil', label: '📰 Brasil' },
+                    { id: 'policial', label: '🚨 Policial' },
                     { id: 'politica', label: '🏛️ Política' },
                     { id: 'tecnologia', label: '💻 Tecnologia' },
                     { id: 'saude', label: '❤️ Saúde' },

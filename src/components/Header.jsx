@@ -1,6 +1,6 @@
 import React from 'react';
 import { trackEvent } from '../utils/analytics';
-import { Search, Mail, Compass, Landmark, Film, Globe, Filter, Sparkles, UserCircle, Cpu, HeartPulse, Newspaper } from 'lucide-react';
+import { Search, Mail, Compass, Landmark, Film, Globe, Filter, Sparkles, UserCircle, Cpu, HeartPulse, Newspaper, ShieldAlert } from 'lucide-react';
 
 export default function Header({ 
   activeCategory, 
@@ -15,6 +15,7 @@ export default function Header({
   const navItems = [
     { id: 'all', label: 'Início', icon: Globe },
     { id: 'brasil', label: 'Brasil', icon: Newspaper, color: 'text-emerald-500' },
+    { id: 'policial', label: 'Policial', icon: ShieldAlert, color: 'text-red-600' },
     { id: 'politica', label: 'Política', icon: Landmark, color: 'text-sky-500' },
     { id: 'tecnologia', label: 'Tecnologia', icon: Cpu, color: 'text-purple-500' },
     { id: 'saude', label: 'Saúde', icon: HeartPulse, color: 'text-rose-500' },
