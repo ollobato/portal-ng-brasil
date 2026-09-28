@@ -159,12 +159,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     robotFeedback: localStorage.getItem("portal_ng_robot_feedback") ? JSON.parse(localStorage.getItem("portal_ng_robot_feedback")) : { liked: [], disliked: [] },
     robotGuidelines: localStorage.getItem("portal_ng_robot_guidelines") || defaultGuidelines,
     isAutoPilot: localStorage.getItem("portal_ng_autopilot") === "true",
-    authors: localStorage.getItem("portal_ng_authors") ? JSON.parse(localStorage.getItem("portal_ng_authors")) : [
-      { name: "Mariana Alencar", role: "Analista de Política em Brasília", email: "mariana@portalng.com.br", articles: 124 },
-      { name: "João Pedro Amapá", role: "Correspondente Regional em Macapá", email: "joao@portalng.com.br", articles: 89 },
-      { name: "Camila Hoffmann", role: "Correspondente na Serra Gaúcha", email: "camila@portalng.com.br", articles: 56 },
-      { name: "Gabriel Siqueira", role: "Crítico de Cinema & Cultura Pop", email: "gabriel@portalng.com.br", articles: 42 }
-    ]
+    authors: []
   };
 
   const [settings, setSettings, isSettingsLoading] = useFirebaseDoc("settings", "global", fallbackSettings);
@@ -1158,12 +1153,33 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
   };
 
   const renderAutores = () => {
-    const handleSaveAuthor = (e) => {
+    const handleSaveAuthor = async (e) => {
       e.preventDefault();
-      showToast(`Convite enviado com sucesso para ${authorForm.email}!`);
-      setAuthors([{ ...authorForm, articles: 0 }, ...authors]);
-      setShowAuthorForm(false);
-      setAuthorForm({ name: '', role: '', email: '' });
+      try {
+        // Criar uma instância secundária do Firebase para não deslogar o Admin
+        const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp" + Date.now());
+        const secondaryAuth = getAuth(secondaryApp);
+        
+        await createUserWithEmailAndPassword(secondaryAuth, authorForm.email, "portalng2026");
+        await authSignOut(secondaryAuth);
+        
+        showToast(`Autor criado! A senha padrão é: portalng2026`);
+        setAuthors([{ ...authorForm, articles: 0 }, ...authors]);
+        setShowAuthorForm(false);
+        setAuthorForm({ name: "", role: "", email: "" });
+      } catch (error) {
+        if (error.code === "auth/email-already-in-use") {
+          showToast("Este e-mail já tem acesso ao painel.", true);
+          // Mesmo se já existir na Auth, adiciona na lista visual se não tiver
+          if (!authors.find(a => a.email === authorForm.email)) {
+            setAuthors([{ ...authorForm, articles: 0 }, ...authors]);
+            setShowAuthorForm(false);
+            setAuthorForm({ name: "", role: "", email: "" });
+          }
+        } else {
+          showToast("Erro ao criar autor: " + error.message, true);
+        }
+      }
     };
 
     if (showAuthorForm) {
