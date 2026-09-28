@@ -1,6 +1,6 @@
 import React, { Component, useState } from 'react';
 import { trackEvent } from '../utils/analytics';
-import { LogOut, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera , Loader2, Save } from 'lucide-react';
+import { LogOut, AlertCircle, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera , Loader2, Save } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
 import SocialPostGenerator from './SocialPostGenerator';
 import { shareToWhatsApp } from '../utils/socialExporter';
@@ -151,6 +151,14 @@ class ErrorBoundary extends Component {
 
 export default function AdminDashboard({ onLogout, newsData, setNewsData, banners, setBanners }) {
   const [activeTab, setActiveTab] = useState('insights');
+  const [toastMessage, setToastMessage] = useState(null);
+  const [toastError, setToastError] = useState(false);
+  const showToast = (message, isError = false) => {
+    setToastMessage(message);
+    setToastError(isError);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const [localBanners, setLocalBanners] = useState(banners || []);
   
   // Sync local banners when props change (initial load)
@@ -1996,6 +2004,12 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       </main>
 
       </div>
+        {toastMessage && (
+          <div className={`fixed bottom-4 right-4 ${toastError ? 'bg-red-600' : 'bg-emerald-600'} text-white px-6 py-3 rounded-lg shadow-xl text-sm font-bold animate-in fade-in slide-in-from-bottom-4 z-[9999] flex items-center gap-2`}>
+            {toastError ? <AlertCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+            {toastMessage}
+          </div>
+        )}
     </ErrorBoundary>
   );
 }

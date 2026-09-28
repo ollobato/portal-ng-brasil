@@ -37,7 +37,7 @@ const generateSlug = (text) => {
 };
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   // Sync auth state
@@ -48,7 +48,7 @@ export default function App() {
         // On successful login, trigger migration if needed
         migrateLocalStorageToFirebase();
       } else {
-        setIsLoggedIn(false);
+        // setIsLoggedIn(false);
       }
       setIsAuthLoading(false);
     });
