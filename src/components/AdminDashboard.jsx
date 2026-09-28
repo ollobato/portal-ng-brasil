@@ -1077,7 +1077,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
             <div className={formActiveTab === 'social' ? 'block' : 'hidden'}>
               <div className="max-w-4xl mx-auto">
-                <SocialPostGenerator inline={true} article={formData} metaToken={metaToken} metaFbPageId={metaFbPageId} metaIgAccountId={metaIgAccountId} imgbbKey={imgbbKey} />
+                <SocialPostGenerator showToast={showToast} inline={true} article={formData} metaToken={metaToken} metaFbPageId={metaFbPageId} metaIgAccountId={metaIgAccountId} imgbbKey={imgbbKey} />
               </div>
             </div>
           </div>
@@ -1896,7 +1896,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         </div>
 
         {socialModalArticle && (
-          <SocialPostGenerator 
+          <SocialPostGenerator showToast={showToast} 
             article={socialModalArticle} 
             onClose={() => setSocialModalArticle(null)} 
             metaToken={metaToken}

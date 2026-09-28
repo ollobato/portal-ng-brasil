@@ -57,6 +57,17 @@ export default function App() {
   // Sync News & Banners with Firebase
   const [newsDataRaw, setNewsData, isNewsLoading] = useFirebaseSync('news', initialNews);
   const [banners, setBanners, isBannersLoading] = useFirebaseSync('banners', [{ id: Date.now(), active: false, image: '', link: '' }]);
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+
+  const activeBanners = banners.filter(b => b.active && b.image);
+
+  useEffect(() => {
+    if (activeBanners.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveBannerIndex(prev => (prev + 1) % activeBanners.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [activeBanners.length]);
 
   // Apply fallback formatting (legacy logic)
   const newsData = newsDataRaw.map(item => ({

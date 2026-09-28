@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Download, Copy, Share2, Image as ImageIcon, Sparkles, Check, RefreshCw, Upload, Send } from 'lucide-react';
 import { formatInstagramCaption, formatWhatsAppMessage, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
 
-export default function SocialPostGenerator({ article, onClose, inline = false, metaToken, metaFbPageId, metaIgAccountId, imgbbKey }) {
+export default function SocialPostGenerator({showToast,  article, onClose, inline = false, metaToken, metaFbPageId, metaIgAccountId, imgbbKey }) {
   const canvasRef = useRef(null);
   
   const [aspectRatio, setAspectRatio] = useState('4:5'); 
@@ -279,7 +279,7 @@ export default function SocialPostGenerator({ article, onClose, inline = false, 
 
   const handlePostToMeta = async () => {
     if (!metaToken || !imgbbKey) {
-      alert("Por favor, configure as credenciais do Meta e ImgBB na aba de Configurações.");
+      showToast ? showToast("Configure as credenciais do Meta e ImgBB nas Configurações.", true) : alert("Configure as credenciais do Meta e ImgBB nas Configurações.");
       return;
     }
     
@@ -342,10 +342,10 @@ export default function SocialPostGenerator({ article, onClose, inline = false, 
         if (igPublishData.error) throw new Error("Erro no Instagram (Publish): " + igPublishData.error.message);
       }
 
-      alert("Postado com sucesso!");
+      showToast ? showToast("Postado no Instagram com sucesso!") : alert("Postado com sucesso!");
     } catch (err) {
       console.error(err);
-      alert("Erro ao postar: " + err.message);
+      showToast ? showToast("Erro ao postar: " + err.message, true) : alert("Erro ao postar: " + err.message);
     } finally {
       setIsPosting(false);
       setPostStatus('');

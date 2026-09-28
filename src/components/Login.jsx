@@ -111,7 +111,7 @@ export default function Login({ onLogin, onNavigateHome }) {
               <div className="text-sm">
                 <button 
                   type="button"
-                  onClick={() => alert('Para redefinir a senha, entre em contato com o administrador do sistema.')}
+                  onClick={() => setError('Para redefinir a senha, entre em contato com o administrador do sistema.')}
                   className="font-semibold text-[#006644] hover:text-[#004d33] bg-transparent border-0"
                 >
                   Esqueceu a senha?
