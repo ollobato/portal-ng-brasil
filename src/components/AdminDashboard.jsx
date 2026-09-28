@@ -1129,19 +1129,29 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Imagem de Capa (Upload)</label>
-              <label className="flex items-center justify-center w-full bg-[#040f1d] hover:bg-slate-800 text-white px-4 py-2.5 rounded-md text-sm font-bold cursor-pointer transition-colors relative mb-2">
+              <label className={`flex items-center justify-center w-full ${formData.image ? 'bg-green-600 hover:bg-green-700' : 'bg-[#040f1d] hover:bg-slate-800'} text-white px-4 py-2.5 rounded-md text-sm font-bold cursor-pointer transition-colors relative mb-2`}>
                 {isUploadingFiles['cover'] ? 'Enviando Imagem...' : (formData.image ? '✓ Imagem Recebida (Clique para Trocar)' : 'Fazer Upload da Capa')}
                 <input 
                   type="file" 
                   accept="image/*" 
                   onChange={(e) => handleImageUpload(e, 'cover')} 
+                  onClick={(e) => { e.target.value = null }}
                   className="hidden" 
                   disabled={isUploadingFiles['cover']}
                 />
               </label>
               {formData.image && (
-                <div className="w-32 h-20 rounded-md overflow-hidden bg-slate-100">
-                  <img src={formData.image} alt="Preview da Capa" className="w-full h-full object-cover" />
+                <div className="flex items-end gap-3 mt-2 mb-4">
+                  <div className="w-32 h-20 rounded-md overflow-hidden bg-slate-100 border border-slate-200">
+                    <img src={formData.image} alt="Preview da Capa" className="w-full h-full object-cover" />
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, image: '' }))} 
+                    className="text-xs font-bold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-md transition-colors border border-red-100 mb-1"
+                  >
+                    Remover Imagem
+                  </button>
                 </div>
               )}
             </div>
