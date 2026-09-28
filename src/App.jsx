@@ -96,7 +96,16 @@ export default function App() {
   useEffect(() => {
     const handleUrlChange = () => {
       const urlParams = new URLSearchParams(window.location.search);
-      const materiaId = urlParams.get('materia');
+      let materiaId = urlParams.get('materia');
+
+      if (!materiaId) {
+        const pathParts = window.location.pathname.split('/');
+        const lastPart = pathParts[pathParts.length - 1];
+        if (lastPart && lastPart.includes('-news-')) {
+          const parts = lastPart.split('-');
+          materiaId = parts.slice(-2).join('-');
+        }
+      }
       
       if (materiaId && !isNewsLoading) {
         const found = newsData.find(n => String(n.id) === String(materiaId));
