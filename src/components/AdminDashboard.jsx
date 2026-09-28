@@ -937,7 +937,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
             <span className="text-sm font-bold uppercase tracking-wider text-red-200">Em tempo real</span>
             <div className="text-4xl font-black mt-2 flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-red-400 animate-pulse"></span>
-              1.248
+              0
             </div>
             <p className="text-xs text-red-100 mt-1">leitores ativos agora</p>
           </div>
