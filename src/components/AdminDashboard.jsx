@@ -508,6 +508,20 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     setFormData({ title: '', subtitle: '', category: 'politica', praca: 'Nacional', image: '', content: '' });
   };
 
+  
+  const fetchWithTimeout = async (url, options = {}, timeoutMs = 12000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(id);
+      return response;
+    } catch (err) {
+      clearTimeout(id);
+      throw err;
+    }
+  };
+
   const runRobotPipeline = async (e) => {
     e.preventDefault();
     if (!robotUrls.trim() || (!robotGeminiKey.trim() && !robotOpenAIKey.trim() && !robotClaudeKey.trim())) {
@@ -621,40 +635,52 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       for (let i = 0; i < urls.length; i++) {
         if (totalGeneratedThisSession >= MAX_PER_SESSION) break;
 
-        const targetUrl = urls[i];
+        let targetUrl = urls[i];
+        if (!targetUrl.startsWith('http')) targetUrl = 'https://' + targetUrl;
         setRobotProgress(p => ({ ...p, portals: { current: i + 1, total: urls.length } }));
         setRobotStatus(`Lendo portal: ${targetUrl}...`);
         
         let pageText = "";
+        
         try {
-          // 1. Tentar usar Jina AI Reader (Excelente para contornar Cloudflare e já retorna texto limpo)
-          let res = await fetch(`https://r.jina.ai/${targetUrl}`);
-          if (res.ok) {
-            pageText = await res.text();
-          } else {
-            // 2. Fallback para proxies tradicionais
+          let jinaSuccess = false;
+          try {
+            let res = await fetchWithTimeout(`https://r.jina.ai/${targetUrl}`);
+            if (res.ok) {
+              const text = await res.text();
+              if (!text.toLowerCase().includes("<html") && !text.toLowerCase().includes("<!doctype html>")) {
+                 pageText = text;
+                 jinaSuccess = true;
+              }
+            }
+          } catch(e) { console.warn("Jina error", e); }
+          
+          if (!jinaSuccess) {
             let pageHtml = "";
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             if (isLocalhost) {
               const resLocal = await fetch(`/api/scrape?url=${encodeURIComponent(targetUrl)}`);
               if (resLocal.ok) pageHtml = await resLocal.text();
             } else {
-              let resCors = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-              if (resCors.ok) {
-                pageHtml = await resCors.text();
-              } else {
-                let resAll = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
-                if (resAll.ok) {
-                  pageHtml = await resAll.text();
-                } else {
-                  let resCode = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
+              try {
+                let resCors = await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+                if (resCors.ok) pageHtml = await resCors.text();
+              } catch(e) {}
+              if (!pageHtml) {
+                try {
+                  let resAll = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+                  if (resAll.ok) pageHtml = await resAll.text();
+                } catch(e) {}
+              }
+              if (!pageHtml) {
+                try {
+                  let resCode = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
                   if (resCode.ok) pageHtml = await resCode.text();
-                }
+                } catch(e) {}
               }
             }
             if (!pageHtml) throw new Error("A conexão com os 4 proxies falhou.");
             
-            // Fazer o parse apenas se for HTML
             const parser = new DOMParser();
             const doc = parser.parseFromString(pageHtml, 'text/html');
             const scripts = doc.querySelectorAll('script, style, noscript, nav, footer, header, iframe');
@@ -662,6 +688,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
             pageText = doc.body.innerText.replace(/\s+/g, ' ').trim();
           }
         } catch (err) {
+
           console.warn(`Não foi possível acessar ${targetUrl}. Pulando...`, err);
           setRobotStatus(`Falha de conexão com ${targetUrl}. Tentando próximo...`);
           await new Promise(r => setTimeout(r, 2000));
