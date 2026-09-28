@@ -1,6 +1,6 @@
 import React, { Component, useState } from 'react';
 import { trackEvent } from '../utils/analytics';
-import { LogOut, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera } from 'lucide-react';
+import { LogOut, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera , Loader2, Save } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
 import SocialPostGenerator from './SocialPostGenerator';
 import { shareToWhatsApp } from '../utils/socialExporter';
@@ -1305,8 +1305,12 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     };
 
     const handleSaveBanners = () => {
-      setBanners(localBanners); // Triggers Firebase sync
-      showToast("Banners salvos e publicados com sucesso!");
+      setIsSavingBanners(true);
+      setTimeout(() => {
+        setBanners(localBanners); // Triggers Firebase sync
+        showToast("Banners salvos e publicados com sucesso!");
+        setIsSavingBanners(false);
+      }, 600);
     };
 
     return (

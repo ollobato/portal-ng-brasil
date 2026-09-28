@@ -374,27 +374,44 @@ export default function App() {
       />
 
       {/* Ad Space (Sponsor placeholder or Actual Banners) */}
-      <div className="w-full bg-slate-50 border-b border-slate-200 py-4 px-4 flex flex-col items-center gap-4">
-        {banners.filter(b => b.active && b.image).length > 0 ? (
-          banners.filter(b => b.active && b.image).map((banner, index) => (
-            <a 
-              key={banner.id || index}
-              href={banner.link || '#'} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="w-full w-full max-w-7xl h-[90px] md:h-[120px] rounded-xl flex items-center justify-center overflow-hidden hover:opacity-90 transition-opacity shrink-0"
-              title="Clique para saber mais"
-            >
-              <img 
-                src={banner.image} 
-                alt={`Banner de Patrocínio ${index + 1}`} 
-                className="w-full h-full object-cover" 
-              />
-            </a>
-          ))
+      <div className="w-full bg-slate-50 border-b border-slate-200 py-4 px-4 flex flex-col items-center gap-4 overflow-hidden relative">
+        {activeBanners.length > 0 ? (
+          <div className="w-full max-w-7xl relative">
+            <div className="flex transition-transform duration-700 ease-in-out w-full" style={{ transform: `translateX(-${activeBannerIndex * 100}%)` }}>
+              {activeBanners.map((banner, index) => (
+                <div key={banner.id || index} className="w-full shrink-0 flex justify-center px-2">
+                  <a 
+                    href={banner.link || "#"} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-full h-[90px] md:h-[120px] rounded-xl flex items-center justify-center overflow-hidden hover:opacity-90 transition-opacity"
+                    title="Clique para saber mais"
+                  >
+                    <img 
+                      src={banner.image} 
+                      alt={`Banner de Patrocínio ${index + 1}`} 
+                      className="w-full h-full object-cover" 
+                    />
+                  </a>
+                </div>
+              ))}
+            </div>
+            {/* Dots */}
+            {activeBanners.length > 1 && (
+              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                {activeBanners.map((_, i) => (
+                  <button 
+                    key={i} 
+                    onClick={() => setActiveBannerIndex(i)}
+                    className={`w-2 h-2 rounded-full transition-colors ${i === activeBannerIndex ? "bg-[#006644]" : "bg-slate-300"}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         ) : (
           <div 
-            className="w-full w-full max-w-7xl h-[90px] md:h-[120px] bg-slate-200 border-2 border-slate-300 border-dashed rounded-xl flex items-center justify-center overflow-hidden relative group cursor-pointer hover:bg-slate-300 transition-colors"
+            className="w-full max-w-7xl h-[90px] md:h-[120px] bg-slate-200 border-2 border-slate-300 border-dashed rounded-xl flex items-center justify-center overflow-hidden relative group cursor-pointer hover:bg-slate-300 transition-colors"
             title="Espaço para Banner"
           >
             <div className="text-slate-400 font-bold uppercase tracking-widest text-xs opacity-50 group-hover:opacity-80 transition-opacity">
