@@ -26,6 +26,14 @@ import {
 
 import { Landmark, Compass, Film, SearchX, Cpu, HeartPulse, Newspaper, Loader2 } from 'lucide-react';
 
+
+const generateSlug = (text) => {
+  return text.toString().toLowerCase().trim()
+    .replace(/[^ws-]/g, "")
+    .replace(/[s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
+
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -57,13 +65,12 @@ export default function App() {
   })).sort((a, b) => b.id - a.id); // Default sort descending by ID/Date
 
   // Roteamento Simples com persistência para evitar login toda hora
-  const [currentView, setCurrentView] = useState(() => {
-    return localStorage.getItem('portal_ng_view') || 'portal';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('portal_ng_view', currentView);
-  }, [currentView]);
+  
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminView = location.pathname.startsWith("/painel") && location.pathname !== "/painel/login";
+  const isLoginView = location.pathname === "/painel/login";
+  
 
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedPraca, setSelectedPraca] = useState('Todas');
@@ -98,13 +105,17 @@ export default function App() {
   // Handle opening an article and updating the URL
   const handleOpenArticle = (article) => {
     setSelectedArticle(article);
-    window.history.pushState({}, '', `?materia=${article.id}`);
+    navigate(`/${article.category}/${generateSlug(article.title)}-${article.id}`);
   };
 
   // Handle closing an article
   const handleCloseArticle = () => {
     setSelectedArticle(null);
-    window.history.pushState({}, '', window.location.pathname);
+    if (activeCategory !== all) {
+      navigate(`/${activeCategory}`);
+    } else {
+      navigate("/");
+    }
   };
   
   // Bookmarks (saved articles)
@@ -340,7 +351,10 @@ export default function App() {
       {/* Main Brand Header & Navigation */}
       <Header 
         activeCategory={activeCategory}
-        setActiveCategory={setActiveCategory}
+        setActiveCategory={(cat) => {
+          setActiveCategory(cat);
+          navigate(cat === "all" ? "/" : `/${cat}`);
+        }}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onOpenNewsletter={() => setIsNewsletterOpen(true)}
@@ -358,7 +372,7 @@ export default function App() {
               href={banner.link || '#'} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="w-full max-w-[728px] h-[90px] md:h-[120px] rounded-xl flex items-center justify-center overflow-hidden hover:opacity-90 transition-opacity shrink-0"
+              className="w-full w-full max-w-7xl h-[90px] md:h-[120px] rounded-xl flex items-center justify-center overflow-hidden hover:opacity-90 transition-opacity shrink-0"
               title="Clique para saber mais"
             >
               <img 
@@ -370,7 +384,7 @@ export default function App() {
           ))
         ) : (
           <div 
-            className="w-full max-w-[728px] h-[90px] md:h-[120px] bg-slate-200 border-2 border-slate-300 border-dashed rounded-xl flex items-center justify-center overflow-hidden relative group cursor-pointer hover:bg-slate-300 transition-colors"
+            className="w-full w-full max-w-7xl h-[90px] md:h-[120px] bg-slate-200 border-2 border-slate-300 border-dashed rounded-xl flex items-center justify-center overflow-hidden relative group cursor-pointer hover:bg-slate-300 transition-colors"
             title="Espaço para Banner"
           >
             <div className="text-slate-400 font-bold uppercase tracking-widest text-xs opacity-50 group-hover:opacity-80 transition-opacity">
@@ -536,7 +550,10 @@ export default function App() {
 
       {/* Footer */}
       <Footer 
-        setActiveCategory={setActiveCategory}
+        setActiveCategory={(cat) => {
+          setActiveCategory(cat);
+          navigate(cat === "all" ? "/" : `/${cat}`);
+        }}
         setSelectedPraca={setSelectedPraca}
       />
 
