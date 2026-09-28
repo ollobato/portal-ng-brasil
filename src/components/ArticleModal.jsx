@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { trackEvent } from '../utils/analytics';
 import { 
   X, Bookmark, Share2, Volume2, VolumeX, Clock, Calendar, 
