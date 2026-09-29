@@ -43,20 +43,7 @@ const compressImageAndUploadToStorage = async (file) => {
             canvas.toBlob(async (blob) => {
                 if (!blob) return reject("Failed to create blob");
                 
-                const timeoutId = setTimeout(() => {
-                  reject(new Error("Timeout: O envio da imagem demorou muito. Verifique as regras (Rules) e o CORS do seu Firebase Storage."));
-                }, 15000);
-
-                try {
-                    const fileRef = ref(storage, `images/${Date.now()}_${file.name}`);
-                    await uploadBytes(fileRef, blob);
-                    const url = await getDownloadURL(fileRef);
-                    clearTimeout(timeoutId);
-                    resolve(url);
-                } catch (e) {
-                    console.warn("Firebase Storage failed, falling back to base64", e);
-                    clearTimeout(timeoutId);
-                    
+                const doFallback = () => {
                     const smallCanvas = document.createElement('canvas');
                     let sWidth = img.width;
                     let sHeight = img.height;
@@ -74,6 +61,27 @@ const compressImageAndUploadToStorage = async (file) => {
                     smallCanvas.height = sHeight;
                     smallCanvas.getContext('2d').drawImage(img, 0, 0, sWidth, sHeight);
                     resolve(smallCanvas.toDataURL('image/jpeg', 0.6));
+                };
+
+                let timeoutHit = false;
+                const timeoutId = setTimeout(() => {
+                  timeoutHit = true;
+                  console.warn("Firebase Storage timeout, falling back to base64");
+                  doFallback();
+                }, 4000);
+
+                try {
+                    const fileRef = ref(storage, `images/${Date.now()}_${file.name}`);
+                    await uploadBytes(fileRef, blob);
+                    const url = await getDownloadURL(fileRef);
+                    clearTimeout(timeoutId);
+                    if (!timeoutHit) resolve(url);
+                } catch (e) {
+                    clearTimeout(timeoutId);
+                    if (!timeoutHit) {
+                        console.warn("Firebase Storage failed, falling back to base64", e);
+                        doFallback();
+                    }
                 }
             }, 'image/jpeg', 0.95);
           } catch (err) {
@@ -508,6 +516,14 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         image: formData.image || "",
         content: formData.content,
       };
+
+      if (!updatedArticle.author) {
+        updatedArticle.author = {
+          name: "Você (Editor NG)",
+          role: "Redação Principal",
+          avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80"
+        };
+      }
 
       if (editingIsDraft) {
         setDraftData(draftData.filter(n => n.id !== editingId));
