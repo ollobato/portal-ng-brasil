@@ -583,40 +583,44 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
         })
       });
 
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
-      const data = await res.json();
-      
+      const rawText = await res.text();
       let text = '';
-      let responseObj = data;
-
-      // Se a resposta for um array, procuramos o objeto que contém a resposta final
-      if (Array.isArray(data)) {
-         const messageObj = data.find(item => item.content || item.output_text || item.choices || item.text);
-         if (messageObj) {
-            responseObj = messageObj;
-         } else {
-            responseObj = data[data.length - 1]; // Fallback para o último elemento
-         }
-      }
-
-      if (responseObj.content && Array.isArray(responseObj.content) && responseObj.content[0] && responseObj.content[0].text) {
-         text = responseObj.content[0].text;
-      } else if (responseObj.choices && responseObj.choices[0] && responseObj.choices[0].message) {
-         text = responseObj.choices[0].message.content;
-      } else if (responseObj.output_text) {
-         text = responseObj.output_text;
-      } else if (responseObj.output && responseObj.output[0] && responseObj.output[0].text) {
-         text = responseObj.output[0].text;
-      } else if (responseObj.text) {
-         text = responseObj.text;
-      } else {
-         throw new Error("Formato desconhecido: " + JSON.stringify(data));
+      
+      // Tenta parsear como JSON lines ou JSON normal
+      const lines = rawText.split('\n').filter(l => l.trim());
+      let parsedObjects = [];
+      
+      for (const line of lines) {
+         try { parsedObjects.push(JSON.parse(line)); } catch (e) {}
       }
       
-      if (typeof text !== 'string') {
-         throw new Error("O campo retornado não é texto (" + typeof text + "): " + JSON.stringify(data));
+      if (parsedObjects.length === 0) {
+         try { parsedObjects.push(JSON.parse(rawText)); } catch (e) {}
+      }
+      
+      for (const data of parsedObjects) {
+         let responseObj = data;
+         if (Array.isArray(data)) {
+            responseObj = data.find(item => item.content || item.output_text || item.choices || item.text) || data[data.length - 1];
+         }
+         
+         if (responseObj?.content && Array.isArray(responseObj.content) && responseObj.content[0]?.text) {
+            text = responseObj.content[0].text;
+         } else if (responseObj?.choices?.[0]?.message?.content) {
+            text = responseObj.choices[0].message.content;
+         } else if (responseObj?.output_text) {
+            text = responseObj.output_text;
+         } else if (responseObj?.output?.[0]?.text) {
+            text = responseObj.output[0].text;
+         } else if (responseObj?.text) {
+            text = responseObj.text;
+         }
+         
+         if (text && text.includes('"news"')) break;
+      }
+      
+      if (!text) {
+         throw new Error("Falha ao extrair texto. Resposta bruta: " + rawText.substring(0, 1000));
       }
       
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
