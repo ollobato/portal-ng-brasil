@@ -161,7 +161,7 @@ export default function AdminDashboard({ onLogout, newsData, setNewsData, banner
   const showToast = (message, isError = false) => {
     setToastMessage(message);
     setToastError(isError);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 12000);
   };
 
   const [localBanners, setLocalBanners] = useState(banners || []);
