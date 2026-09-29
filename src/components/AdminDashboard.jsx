@@ -616,7 +616,10 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
             text = responseObj.text;
          }
          
-         if (text && text.includes('"news"')) break;
+         if (text) {
+            if (typeof text !== 'string') text = JSON.stringify(text);
+            if (text.includes('"news"')) break;
+         }
       }
       
       if (!text) {
