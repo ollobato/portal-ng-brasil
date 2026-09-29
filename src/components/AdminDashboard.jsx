@@ -619,17 +619,38 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
       }
       
       for (const str of possibleStrings) {
-         if (str.includes('"news"') || str.includes('```json')) {
+         if (str.includes('"title"') && str.includes('"content"')) {
             text = str;
             break;
          }
       }
       
       if (!text) {
-         throw new Error("Falha ao extrair texto. Resposta bruta: " + rawText.substring(0, 1000));
+         throw new Error("Nenhuma notícia encontrada no formato correto. Resposta bruta: " + rawText.substring(0, 1000));
       }
       
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      // Encontra onde o JSON realmente começa e termina
+      const firstBrace = text.indexOf('{');
+      const firstBracket = text.indexOf('[');
+      const lastBrace = text.lastIndexOf('}');
+      const lastBracket = text.lastIndexOf(']');
+      
+      let startIndex = -1;
+      let endIndex = -1;
+      
+      if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+          startIndex = firstBrace;
+          endIndex = lastBrace;
+      } else if (firstBracket !== -1) {
+          startIndex = firstBracket;
+          endIndex = lastBracket;
+      }
+      
+      if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
+          text = text.substring(startIndex, endIndex + 1);
+      }
       
       let parsed = JSON.parse(text);
       if (typeof parsed === 'string') {
