@@ -671,7 +671,7 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
          setRobotActiveTab('curadora');
          setActiveTab('aprovacao');
       } else {
-         throw new Error("Nenhuma notícia encontrada no formato correto. Recebido: " + JSON.stringify(parsed).substring(0, 500));
+         throw new Error("Nenhuma notícia encontrada no formato correto. Recebido: " + rawText.substring(0, 500));
       }
       
     } catch (error) {
