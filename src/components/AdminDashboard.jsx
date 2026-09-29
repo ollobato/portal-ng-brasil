@@ -571,7 +571,7 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
   ]
 }`;
 
-      const res = await fetch('https://api.perplexity.ai/chat/completions', {
+      const res = await fetch('https://api.perplexity.ai/v1/responses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
