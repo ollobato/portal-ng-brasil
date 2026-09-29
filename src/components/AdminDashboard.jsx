@@ -225,6 +225,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     robotGeminiKey: localStorage.getItem("portal_ng_gemini_key") || "",
     robotOpenAIKey: localStorage.getItem("portal_ng_openai_key") || "",
     robotClaudeKey: localStorage.getItem("portal_ng_claude_key") || "",
+    robotPerplexityKey: localStorage.getItem("portal_ng_perplexity_key") || "",
     metaToken: localStorage.getItem("portal_ng_meta_token") || "",
     metaFbPageId: localStorage.getItem("portal_ng_meta_fb_page_id") || "",
     metaIgAccountId: localStorage.getItem("portal_ng_meta_ig_account_id") || "",
@@ -248,6 +249,9 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
   const robotClaudeKey = settings.robotClaudeKey;
   const setRobotClaudeKey = (val) => setSettings(prev => ({ ...prev, robotClaudeKey: typeof val === "function" ? val(prev.robotClaudeKey) : val }));
+
+  const robotPerplexityKey = settings.robotPerplexityKey;
+  const setRobotPerplexityKey = (val) => setSettings(prev => ({ ...prev, robotPerplexityKey: typeof val === "function" ? val(prev.robotPerplexityKey) : val }));
 
   const metaToken = settings.metaToken;
   const setMetaToken = (val) => setSettings(prev => ({ ...prev, metaToken: typeof val === "function" ? val(prev.metaToken) : val }));
@@ -532,6 +536,103 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     } catch (err) {
       clearTimeout(id);
       throw err;
+    }
+  };
+
+  const runPerplexitySearch = async (e) => {
+    e.preventDefault();
+    if (!robotPerplexityKey?.trim()) {
+      showToast("Por favor, insira a chave da API do Perplexity na aba 'Chaves API'.", true);
+      return;
+    }
+    
+    setIsRobotRunning(true);
+    setRobotStatus('Pesquisando na internet com Perplexity...');
+    
+    try {
+      const wait = (ms) => new Promise(r => setTimeout(r, ms));
+      const prompt = `Busque as 5 principais e mais recentes notícias de hoje sobre a categoria: ${robotCategory === 'todas' ? 'assuntos gerais do Brasil e do mundo' : robotCategory}.
+Aplique rigorosamente estas diretrizes editoriais ao escrever:
+${robotGuidelines}
+
+O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum texto antes ou depois:
+{
+  "news": [
+    {
+      "title": "Título impactante",
+      "subtitle": "Subtítulo explicativo",
+      "category": "policial | politica | geral | economia | turismo | esportes | entretenimento | tecnologia | saude | mundo",
+      "praca": "Local",
+      "content": "Conteúdo completo em HTML (com tags <p>, <h2>, <strong>) com no mínimo 4 parágrafos.",
+      "image": "URL_DE_UMA_IMAGEM_DA_NOTICIA_ENCONTRADA_OU_VAZIO",
+      "source": "Nome do Portal Original",
+      "url": "Link da notícia original"
+    }
+  ]
+}`;
+
+      const res = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${robotPerplexityKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: 'sonar-pro',
+          messages: [
+            { role: 'system', content: 'You are a professional journalist assistant that returns ONLY raw JSON without markdown formatting.' },
+            { role: 'user', content: prompt }
+          ]
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+      
+      const data = await res.json();
+      let text = data.choices[0].message.content;
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      const parsed = JSON.parse(text);
+      if (parsed.news && parsed.news.length > 0) {
+         let generatedCount = 0;
+         setRobotStatus('Salvando pautas geradas...');
+         for (const article of parsed.news) {
+            const draftObj = {
+              id: Date.now() + Math.floor(Math.random() * 10000),
+              title: article.title,
+              subtitle: article.subtitle,
+              category: article.category || 'geral',
+              praca: article.praca || 'Brasil',
+              content: article.content,
+              image: article.image || '',
+              date: new Date().toISOString(),
+              views: 0,
+              likes: 0,
+              comments: [],
+              isDraft: true,
+              aiGenerated: true,
+              source: article.source,
+              originalUrl: article.url
+            };
+            setDraftData(prev => [draftObj, ...prev]);
+            generatedCount++;
+            await wait(50);
+         }
+         showToast(`Perplexity gerou ${generatedCount} pautas com sucesso!`);
+         setRobotActiveTab('curadora');
+         setActiveTab('aprovacao');
+      } else {
+         throw new Error("Nenhuma notícia encontrada no formato correto.");
+      }
+      
+    } catch (error) {
+      console.error(error);
+      showToast("Erro no Perplexity: " + error.message, true);
+    } finally {
+      setIsRobotRunning(false);
+      setRobotStatus('');
     }
   };
 
@@ -1603,9 +1704,14 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
               </div>
 
               {!isRobotRunning && !robotStatus ? (
-                <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg transition-all mt-4">
-                  <Bot className="w-5 h-5" /> Iniciar Varredura de Notícias Agora
-                </button>
+                <div className="flex flex-col sm:flex-row gap-4 mt-4">
+                  <button type="submit" className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg transition-all">
+                    <Bot className="w-5 h-5" /> Varredura Completa (Gemini/ChatGPT/Claude)
+                  </button>
+                  <button type="button" onClick={runPerplexitySearch} className="flex-1 bg-slate-900 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:bg-black transition-all">
+                    <Search className="w-5 h-5" /> Pesquisar Direto com Perplexity
+                  </button>
+                </div>
               ) : (
                 <div className="w-full bg-indigo-50 border border-indigo-200 rounded-lg p-6 flex flex-col items-center justify-center gap-4 mt-4">
                   {robotProgress ? (
@@ -1731,7 +1837,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
               <h4 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Key className="w-4 h-4 text-slate-500" /> Configuração de Chaves (APIs)</h4>
               <p className="text-xs text-slate-500 mb-6">Insira a chave da IA de sua preferência. O robô usará a primeira disponível e pulará as vazias. As chaves de API ficam salvas apenas no seu navegador para segurança.</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Google Gemini</label>
                   <div className="flex items-center gap-2">
@@ -1751,6 +1857,13 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
                   <div className="flex items-center gap-2">
                     <input type="password" value={robotClaudeKey} onChange={e => setRobotClaudeKey(e.target.value)} placeholder="sk-ant-..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
                     <button type="button" onClick={() => showToast('Chave do Claude salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Perplexity API</label>
+                  <div className="flex items-center gap-2">
+                    <input type="password" value={robotPerplexityKey} onChange={e => setRobotPerplexityKey(e.target.value)} placeholder="pplx-..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    <button type="button" onClick={() => showToast('Chave do Perplexity salva no navegador com sucesso!')} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium rounded-md transition-colors">Salvar</button>
                   </div>
                 </div>
               </div>
