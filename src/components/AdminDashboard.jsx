@@ -589,16 +589,28 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
       const data = await res.json();
       
       let text = '';
-      if (data.content && Array.isArray(data.content) && data.content[0] && data.content[0].text) {
-         text = data.content[0].text;
-      } else if (data.choices && data.choices[0] && data.choices[0].message) {
-         text = data.choices[0].message.content;
-      } else if (data.output_text) {
-         text = data.output_text;
-      } else if (data.output && data.output[0] && data.output[0].text) {
-         text = data.output[0].text;
-      } else if (data.text) {
-         text = data.text;
+      let responseObj = data;
+
+      // Se a resposta for um array, procuramos o objeto que contém a resposta final
+      if (Array.isArray(data)) {
+         const messageObj = data.find(item => item.content || item.output_text || item.choices || item.text);
+         if (messageObj) {
+            responseObj = messageObj;
+         } else {
+            responseObj = data[data.length - 1]; // Fallback para o último elemento
+         }
+      }
+
+      if (responseObj.content && Array.isArray(responseObj.content) && responseObj.content[0] && responseObj.content[0].text) {
+         text = responseObj.content[0].text;
+      } else if (responseObj.choices && responseObj.choices[0] && responseObj.choices[0].message) {
+         text = responseObj.choices[0].message.content;
+      } else if (responseObj.output_text) {
+         text = responseObj.output_text;
+      } else if (responseObj.output && responseObj.output[0] && responseObj.output[0].text) {
+         text = responseObj.output[0].text;
+      } else if (responseObj.text) {
+         text = responseObj.text;
       } else {
          throw new Error("Formato desconhecido: " + JSON.stringify(data));
       }
