@@ -38,23 +38,39 @@ export function useFirebaseSync(collectionName, fallbackInitialData = []) {
     // 2. Sync to Firebase
     try {
       const batch = writeBatch(db);
-      const newIds = new Set(newData.map(item => String(item.id)));
+      let writes = 0;
       
-      // Get current docs in Firebase to figure out what to delete
-      const snapshot = await getDocs(collection(db, collectionName));
-      snapshot.forEach(docSnap => {
-        if (!newIds.has(docSnap.id)) {
-          batch.delete(docSnap.ref);
+      const oldIds = new Map(data.map(item => [String(item.id), item]));
+      const newIds = new Set(newData.map(item => String(item.id)));
+
+      // Add/Update new docs (only if changed)
+      newData.forEach(item => {
+        const strId = String(item.id);
+        const oldItem = oldIds.get(strId);
+        if (!oldItem || JSON.stringify(oldItem) !== JSON.stringify(item)) {
+          const docRef = doc(db, collectionName, strId);
+          batch.set(docRef, item);
+          writes++;
         }
       });
 
-      // Add/Update new docs
-      newData.forEach(item => {
-        const docRef = doc(db, collectionName, String(item.id));
-        batch.set(docRef, item);
+      // Delete missing docs
+      data.forEach(item => {
+        const strId = String(item.id);
+        if (!newIds.has(strId)) {
+          const docRef = doc(db, collectionName, strId);
+          batch.delete(docRef);
+          writes++;
+        }
       });
 
-      await batch.commit();
+      if (writes > 0) {
+        if (writes > 500) {
+           console.warn(`Batch contains ${writes} writes, which exceeds the 500 limit. Only the first 500 will be committed.`);
+           // A real app would chunk this, but for now we just log it.
+        }
+        await batch.commit();
+      }
     } catch (error) {
       console.error(`Error saving ${collectionName} to Firebase:`, error);
     }

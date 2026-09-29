@@ -56,9 +56,24 @@ const compressImageAndUploadToStorage = async (file) => {
                 } catch (e) {
                     console.warn("Firebase Storage failed, falling back to base64", e);
                     clearTimeout(timeoutId);
-                    const readerBase64 = new FileReader();
-                    readerBase64.onloadend = () => resolve(readerBase64.result);
-                    readerBase64.readAsDataURL(blob);
+                    
+                    const smallCanvas = document.createElement('canvas');
+                    let sWidth = img.width;
+                    let sHeight = img.height;
+                    const fallback_max_size = 800;
+                    if (sWidth > fallback_max_size || sHeight > fallback_max_size) {
+                      if (sWidth > sHeight) {
+                        sHeight *= fallback_max_size / sWidth;
+                        sWidth = fallback_max_size;
+                      } else {
+                        sWidth *= fallback_max_size / sHeight;
+                        sHeight = fallback_max_size;
+                      }
+                    }
+                    smallCanvas.width = sWidth;
+                    smallCanvas.height = sHeight;
+                    smallCanvas.getContext('2d').drawImage(img, 0, 0, sWidth, sHeight);
+                    resolve(smallCanvas.toDataURL('image/jpeg', 0.6));
                 }
             }, 'image/jpeg', 0.95);
           } catch (err) {
