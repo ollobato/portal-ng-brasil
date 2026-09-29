@@ -586,9 +586,21 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
       if (!res.ok) {
         throw new Error(await res.text());
       }
-      
       const data = await res.json();
-      let text = data.output[0].text;
+      
+      let text = '';
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+         text = data.choices[0].message.content;
+      } else if (data.output_text) {
+         text = data.output_text;
+      } else if (data.output && data.output[0] && data.output[0].text) {
+         text = data.output[0].text;
+      } else if (data.text) {
+         text = data.text;
+      } else {
+         throw new Error("Formato desconhecido: " + JSON.stringify(data));
+      }
+      
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
       
       const parsed = JSON.parse(text);
