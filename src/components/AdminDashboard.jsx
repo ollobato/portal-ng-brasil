@@ -54,8 +54,11 @@ const compressImageAndUploadToStorage = async (file) => {
                     clearTimeout(timeoutId);
                     resolve(url);
                 } catch (e) {
+                    console.warn("Firebase Storage failed, falling back to base64", e);
                     clearTimeout(timeoutId);
-                    reject(e);
+                    const readerBase64 = new FileReader();
+                    readerBase64.onloadend = () => resolve(readerBase64.result);
+                    readerBase64.readAsDataURL(blob);
                 }
             }, 'image/jpeg', 0.95);
           } catch (err) {
@@ -416,7 +419,11 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       category: typeof news.category === 'string' ? news.category : 'geral',
       praca: typeof news.praca === 'string' ? news.praca : 'Nacional',
       image: safeString(news.image),
-      content: safeString(news.content)
+      content: safeString(news.content),
+      aiGenerated: news.aiGenerated,
+      originalUrl: news.originalUrl,
+      source: news.source,
+      date: news.date
     });
     setShowForm(true);
   };
@@ -1257,6 +1264,51 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
                 </button>
               </div>
               <p className="text-[10px] text-indigo-400 mt-2 italic">* Simulação visual pronta para integração futura via API.</p>
+            </div>
+          )}
+
+          {formData.aiGenerated && (
+            <div className="mb-6 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-200">
+                <Bot className="w-4 h-4 text-slate-600" />
+                <h3 className="text-sm font-bold text-slate-800">Reescrita com IA <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-full">Perplexity • sua chave</span></h3>
+              </div>
+              
+              <div className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="p-4 bg-white border border-slate-200 rounded-lg">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">ORIGINAL (FONTE)</p>
+                    <p className="text-sm font-bold text-slate-800 mb-2">{formData.source || 'Fonte Desconhecida'}</p>
+                    <p className="text-xs text-slate-500 line-clamp-3 mb-2">
+                      Matéria capturada da internet. Confira a url completa para ter a visão integral da notícia na fonte original e enriquecer seu conteúdo.
+                    </p>
+                    {formData.originalUrl && (
+                      <a href={formData.originalUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline break-all">
+                        {formData.originalUrl}
+                      </a>
+                    )}
+                    {formData.date && <p className="text-[10px] text-slate-400 mt-3">Data da extração: {new Date(formData.date).toLocaleString('pt-BR')}</p>}
+                  </div>
+                  
+                  <div className="p-4 bg-indigo-50/30 border border-indigo-100 rounded-lg">
+                    <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-2">REESCRITO • TÍTULO NOVO • SEO</p>
+                    <p className="text-sm font-bold text-indigo-900 mb-2">{formData.title}</p>
+                    <p className="text-xs text-indigo-700">{formData.subtitle}</p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100"><CheckCircle className="w-3 h-3" /> Texto original</span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100"><CheckCircle className="w-3 h-3" /> Meta descrição</span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100"><CheckCircle className="w-3 h-3" /> Imagem gerada por IA</span>
+                    <span className="inline-flex items-center px-2.5 py-1 bg-white text-slate-600 text-[10px] font-bold rounded-md border border-slate-200">Categoria: {formData.category}</span>
+                  </div>
+                  <button onClick={() => window.open('https://wa.me/5511999999999', '_blank')} type="button" className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#25D366] hover:bg-[#128C7E] text-white text-[11px] font-bold rounded-full transition-colors shadow-sm">
+                    <Share className="w-3.5 h-3.5" /> Tirar dúvidas
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
