@@ -571,18 +571,25 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
   ]
 }`;
 
-      const res = await fetch('https://api.perplexity.ai/v1/agent', {
+      const res = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${robotPerplexityKey.trim()}`
         },
         body: JSON.stringify({
-          preset: 'fast',
-          input: "You are a professional journalist assistant that returns ONLY raw JSON without markdown formatting.\n\n" + prompt
+          model: 'sonar-pro',
+          messages: [
+            { role: 'system', content: 'You are a professional journalist assistant that returns ONLY raw JSON without markdown formatting.' },
+            { role: 'user', content: prompt }
+          ]
         })
       });
 
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+      
       const rawText = await res.text();
       let text = '';
       
