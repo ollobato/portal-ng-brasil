@@ -589,7 +589,9 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
       const data = await res.json();
       
       let text = '';
-      if (data.choices && data.choices[0] && data.choices[0].message) {
+      if (data.content && Array.isArray(data.content) && data.content[0] && data.content[0].text) {
+         text = data.content[0].text;
+      } else if (data.choices && data.choices[0] && data.choices[0].message) {
          text = data.choices[0].message.content;
       } else if (data.output_text) {
          text = data.output_text;
