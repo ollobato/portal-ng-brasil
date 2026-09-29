@@ -628,11 +628,20 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
       
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
       
-      const parsed = JSON.parse(text);
-      if (parsed.news && parsed.news.length > 0) {
+      let parsed = JSON.parse(text);
+      if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed); } catch(e) {}
+      }
+      
+      let newsArray = parsed.news;
+      if (!newsArray && Array.isArray(parsed)) {
+          newsArray = parsed;
+      }
+      
+      if (newsArray && newsArray.length > 0) {
          let generatedCount = 0;
          setRobotStatus('Salvando pautas geradas...');
-         for (const article of parsed.news) {
+         for (const article of newsArray) {
             const draftObj = {
               id: Date.now() + Math.floor(Math.random() * 10000),
               title: article.title,
@@ -658,7 +667,7 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
          setRobotActiveTab('curadora');
          setActiveTab('aprovacao');
       } else {
-         throw new Error("Nenhuma notícia encontrada no formato correto.");
+         throw new Error("Nenhuma notícia encontrada no formato correto. Recebido: " + JSON.stringify(parsed).substring(0, 500));
       }
       
     } catch (error) {
