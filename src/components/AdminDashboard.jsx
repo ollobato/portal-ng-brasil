@@ -579,7 +579,8 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
         },
         body: JSON.stringify({
           preset: 'low',
-          input: 'You are a professional journalist assistant that returns ONLY raw JSON without markdown formatting.\n\n' + prompt
+          instructions: 'You are a professional journalist assistant that returns ONLY raw JSON without markdown formatting. You must return a JSON object with a "news" array.',
+          input: prompt
         })
       });
 
@@ -602,27 +603,25 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
          try { parsedObjects.push(JSON.parse(rawText)); } catch (e) {}
       }
       
+      let possibleStrings = [];
+      const extractStrings = (obj) => {
+         if (typeof obj === 'string') {
+            possibleStrings.push(obj);
+         } else if (Array.isArray(obj)) {
+            obj.forEach(extractStrings);
+         } else if (obj && typeof obj === 'object') {
+            Object.values(obj).forEach(extractStrings);
+         }
+      };
+      
       for (const data of parsedObjects) {
-         let responseObj = data;
-         if (Array.isArray(data)) {
-            responseObj = data.find(item => item.content || item.output_text || item.choices || item.text) || data[data.length - 1];
-         }
-         
-         if (responseObj?.content && Array.isArray(responseObj.content) && responseObj.content[0]?.text) {
-            text = responseObj.content[0].text;
-         } else if (responseObj?.choices?.[0]?.message?.content) {
-            text = responseObj.choices[0].message.content;
-         } else if (responseObj?.output_text) {
-            text = responseObj.output_text;
-         } else if (responseObj?.output?.[0]?.text) {
-            text = responseObj.output[0].text;
-         } else if (responseObj?.text) {
-            text = responseObj.text;
-         }
-         
-         if (text) {
-            if (typeof text !== 'string') text = JSON.stringify(text);
-            if (text.includes('"news"')) break;
+         extractStrings(data);
+      }
+      
+      for (const str of possibleStrings) {
+         if (str.includes('"news"') || str.includes('```json')) {
+            text = str;
+            break;
          }
       }
       
