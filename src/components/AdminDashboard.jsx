@@ -601,6 +601,10 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
          throw new Error("Formato desconhecido: " + JSON.stringify(data));
       }
       
+      if (typeof text !== 'string') {
+         throw new Error("O campo retornado não é texto (" + typeof text + "): " + JSON.stringify(data));
+      }
+      
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
       
       const parsed = JSON.parse(text);
