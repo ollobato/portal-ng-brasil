@@ -176,6 +176,19 @@ export const migrateLocalStorageToFirebase = async () => {
       localStorage.removeItem('portal_ng_news'); // Clear to prevent re-migration
     }
 
+    const savedDrafts = localStorage.getItem('portal_ng_drafts');
+    if (savedDrafts) {
+      const parsedDrafts = JSON.parse(savedDrafts);
+      const batch = writeBatch(db);
+      parsedDrafts.forEach(item => {
+        const docRef = doc(db, 'drafts', String(item.id));
+        batch.set(docRef, item);
+      });
+      await batch.commit();
+      console.log('Migration of drafts completed.');
+      localStorage.removeItem('portal_ng_drafts');
+    }
+
     const savedBanners = localStorage.getItem('portal_ng_banners');
     if (savedBanners) {
       const parsedBanners = JSON.parse(savedBanners);
