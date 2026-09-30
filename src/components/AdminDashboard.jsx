@@ -206,6 +206,10 @@ export default function AdminDashboard({ onLogout, newsData, setNewsData, banner
     praca: typeof item.praca === 'string' ? item.praca.replace(/^Praça\s+/i, '') : item.praca,
     title: typeof item.title === 'string' ? item.title.replace(/^Praça\s+/i, '') : item.title
   })).sort((a, b) => b.id - a.id);
+  
+  // AI Logs state
+  const [aiLogsRaw, setAiLogs] = useFirebaseSync('ai_logs', []);
+  const aiLogs = [...aiLogsRaw].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   // Form states
   const [showForm, setShowForm] = useState(false);
@@ -599,6 +603,7 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
     {
       "title": "Título impactante",
       "subtitle": "Subtítulo explicativo",
+      "originalTitle": "TÍTULO ORIGINAL DA NOTÍCIA NA FONTE (obrigatório)",
       "category": "policial | politica | geral | economia | turismo | esportes | entretenimento | tecnologia | saude | mundo",
       "praca": "Local",
       "content": "Conteúdo completo em HTML (com tags <p>, <h2>, <strong>) com no mínimo 4 parágrafos.",
@@ -719,12 +724,24 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
               isDraft: true,
               aiGenerated: true,
               source: article.source,
-              originalUrl: article.url
+              originalUrl: article.url,
+              originalTitle: article.originalTitle || article.original_title || ''
             };
             setDraftData(prev => [draftObj, ...prev]);
             generatedCount++;
             await wait(50);
          }
+         
+         setAiLogs(prev => [{
+            id: Date.now().toString(),
+            date: new Date().toISOString(),
+            aiUsed: 'Perplexity',
+            generatedCount: generatedCount,
+            category: robotCategory,
+            status: 'success',
+            details: `Pesquisa direta gerou ${generatedCount} matérias.`
+         }, ...prev]);
+
          showToast(`Perplexity gerou ${generatedCount} pautas com sucesso!`);
          setRobotActiveTab('curadora');
          setActiveTab('aprovacao');
@@ -734,6 +751,17 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
       
     } catch (error) {
       console.error(error);
+      
+      setAiLogs(prev => [{
+         id: Date.now().toString(),
+         date: new Date().toISOString(),
+         aiUsed: 'Perplexity',
+         generatedCount: 0,
+         category: robotCategory,
+         status: 'error',
+         details: error.message
+      }, ...prev]);
+
       showToast("Erro no Perplexity: " + error.message, true);
     } finally {
       setIsRobotRunning(false);
@@ -1088,6 +1116,16 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
         }
       }
 
+      setAiLogs(prev => [{
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        aiUsed: aiProvider.toUpperCase(),
+        generatedCount: totalGeneratedThisSession,
+        category: robotCategory,
+        status: 'success',
+        details: `Varredura Completa finalizada. ${totalGeneratedThisSession} matérias geradas e entregues.`
+      }, ...prev]);
+
       setRobotStatus(`Concluído! ${totalGeneratedThisSession} matérias foram geradas e entregues uma a uma.`);
       
       setTimeout(() => {
@@ -1098,6 +1136,16 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
       }, 2000);
 
     } catch (error) {
+      setAiLogs(prev => [{
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        aiUsed: aiProvider.toUpperCase(),
+        generatedCount: 0,
+        category: robotCategory,
+        status: 'error',
+        details: error.message
+      }, ...prev]);
+      
       showToast("Erro na Automação: " + error.message, true);
       setIsRobotRunning(false);
       setRobotStatus('');
@@ -1310,8 +1358,8 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
                   <div className="p-4 bg-white border border-slate-200 rounded-lg">
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">ORIGINAL (FONTE)</p>
                     <p className="text-sm font-bold text-slate-800 mb-2">{formData.source || 'Fonte Desconhecida'}</p>
-                    <p className="text-xs text-slate-500 line-clamp-3 mb-2">
-                      Matéria capturada da internet. Confira a url completa para ter a visão integral da notícia na fonte original e enriquecer seu conteúdo.
+                    <p className="text-xs text-slate-600 font-medium line-clamp-4 mb-2">
+                      {formData.originalTitle || (formData.metadata && formData.metadata.titulo_original) || 'Título original indisponível. A matéria foi capturada da internet.'}
                     </p>
                     {formData.originalUrl && (
                       <a href={formData.originalUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline break-all">
@@ -1894,6 +1942,43 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
                   )}
                 </div>
               )}
+              
+              {/* AI Logs History */}
+              <div className="mt-8">
+                <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-indigo-600" /> Histórico de Curadoria
+                </h3>
+                {aiLogs.length > 0 ? (
+                  <div className="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                    {aiLogs.map(log => (
+                      <div key={log.id} className={`p-4 rounded-lg border text-sm ${log.status === 'success' ? 'bg-white border-slate-200' : 'bg-red-50 border-red-200'}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.status === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                              {log.status === 'success' ? 'SUCESSO' : 'ERRO'}
+                            </span>
+                            <span className="font-semibold text-slate-700">{log.aiUsed}</span>
+                          </div>
+                          <span className="text-xs text-slate-500 font-medium">
+                            {new Date(log.date).toLocaleString('pt-BR')}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 mb-2">{log.details}</p>
+                        {log.status === 'success' && (
+                          <div className="flex gap-4 text-xs font-semibold text-slate-500">
+                            <span>Gerou: <strong className="text-indigo-600">{log.generatedCount} matérias</strong></span>
+                            <span>Categoria: <strong className="text-slate-700">{log.category}</strong></span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 bg-white border border-slate-200 rounded-lg text-slate-500 text-sm">
+                    Nenhum histórico de pesquisa recente.
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
