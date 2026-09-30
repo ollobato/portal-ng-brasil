@@ -30,6 +30,10 @@ export function useFirebaseSync(collectionName, fallbackInitialData = []) {
       } else {
         const backup = getInitialBackup();
         setDataState(backup);
+        // Se o Firebase estiver vazio mas houver backup local, sincroniza forçado para o Firebase!
+        if (backup && backup.length > 0) {
+          setData(backup);
+        }
       }
       setLoading(false);
     }, (error) => {
