@@ -76,8 +76,17 @@ export default function App() {
   const newsData = newsDataRaw.map(item => ({
     ...item,
     praca: typeof item.praca === 'string' ? item.praca.replace(/^Praça\s+/i, '') : item.praca,
-    title: typeof item.title === 'string' ? item.title.replace(/^Praça\s+/i, '') : item.title
-  })).sort((a, b) => b.id - a.id); // Default sort descending by ID/Date
+  })).sort((a, b) => {
+    const getTimestamp = (id) => {
+      if (typeof id === 'number') return id;
+      if (typeof id === 'string') {
+        const match = id.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 0;
+      }
+      return 0;
+    };
+    return getTimestamp(b.id) - getTimestamp(a.id);
+  }); // Default sort descending by ID/Date
 
   // Roteamento Simples com persistência para evitar login toda hora
   
