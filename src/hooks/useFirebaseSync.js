@@ -1,10 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, onSnapshot, doc, writeBatch, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { initialNews } from '../data/newsData';
 
 export function useFirebaseSync(collectionName, fallbackInitialData = []) {
-  const [data, setDataState] = useState(fallbackInitialData);
+  // Load from local backup if available, otherwise fallback
+  const getInitialBackup = () => {
+    try {
+      const backup = localStorage.getItem(`portal_ng_backup_${collectionName}`);
+      if (backup) {
+        return JSON.parse(backup);
+      }
+    } catch(e) {}
+    return fallbackInitialData;
+  };
+
+  const [data, setDataState] = useState(getInitialBackup());
   const [loading, setLoading] = useState(true);
 
   // Sync from Firebase
@@ -13,16 +24,18 @@ export function useFirebaseSync(collectionName, fallbackInitialData = []) {
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
       if (!snapshot.empty) {
         const fetchedData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // Sort by timestamp or ID if needed, for now just set
         setDataState(fetchedData);
+        // Redundancy: Backup to LocalStorage
+        localStorage.setItem(`portal_ng_backup_${collectionName}`, JSON.stringify(fetchedData));
       } else {
-        // If empty in Firebase but we have local initial data, let's keep it empty in state
-        // until migration happens. If it's a completely fresh load, use fallback.
-        setDataState(fallbackInitialData);
+        const backup = getInitialBackup();
+        setDataState(backup);
       }
       setLoading(false);
     }, (error) => {
       console.error(`Error fetching ${collectionName} from Firebase:`, error);
+      // Try to load from backup on error
+      setDataState(getInitialBackup());
       setLoading(false);
     });
 
@@ -31,9 +44,11 @@ export function useFirebaseSync(collectionName, fallbackInitialData = []) {
 
   // Wrapper for set state that syncs to Firebase
   const setData = async (newDataOrFn) => {
-    // 1. Update local state immediately for snappy UI
     const newData = typeof newDataOrFn === 'function' ? newDataOrFn(data) : newDataOrFn;
+    
+    // Update local state and backup immediately
     setDataState(newData);
+    localStorage.setItem(`portal_ng_backup_${collectionName}`, JSON.stringify(newData));
 
     // 2. Sync to Firebase
     try {
@@ -66,8 +81,7 @@ export function useFirebaseSync(collectionName, fallbackInitialData = []) {
 
       if (writes > 0) {
         if (writes > 500) {
-           console.warn(`Batch contains ${writes} writes, which exceeds the 500 limit. Only the first 500 will be committed.`);
-           // A real app would chunk this, but for now we just log it.
+           console.warn(`Batch contains ${writes} writes, which exceeds the 500 limit.`);
         }
         await batch.commit();
       }
@@ -80,21 +94,37 @@ export function useFirebaseSync(collectionName, fallbackInitialData = []) {
 }
 
 export function useFirebaseDoc(collectionName, docId, fallbackInitialData = {}) {
-  const [data, setDataState] = useState(fallbackInitialData);
+  // Load from local backup if available, otherwise fallback
+  const getInitialBackup = () => {
+    try {
+      const backup = localStorage.getItem(`portal_ng_backup_doc_${collectionName}_${docId}`);
+      if (backup) {
+        return JSON.parse(backup);
+      }
+    } catch(e) {}
+    return fallbackInitialData;
+  };
+
+  const [data, setDataState] = useState(getInitialBackup());
   const [loading, setLoading] = useState(true);
+  const debounceRef = useRef(null);
 
   // Sync from Firebase
   useEffect(() => {
     const docRef = doc(db, collectionName, docId);
     const unsubscribe = onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
-        setDataState({ ...fallbackInitialData, ...snapshot.data() });
+        const fetchedData = { ...fallbackInitialData, ...snapshot.data() };
+        setDataState(fetchedData);
+        localStorage.setItem(`portal_ng_backup_doc_${collectionName}_${docId}`, JSON.stringify(fetchedData));
       } else {
-        setDataState(fallbackInitialData);
+        const backup = getInitialBackup();
+        setDataState(backup);
       }
       setLoading(false);
     }, (error) => {
       console.error(`Error fetching ${collectionName}/${docId} from Firebase:`, error);
+      setDataState(getInitialBackup());
       setLoading(false);
     });
 
@@ -104,14 +134,23 @@ export function useFirebaseDoc(collectionName, docId, fallbackInitialData = {}) 
   // Wrapper for set state that syncs to Firebase
   const setData = async (newDataOrFn) => {
     const newData = typeof newDataOrFn === 'function' ? newDataOrFn(data) : newDataOrFn;
+    
+    // Update local state and backup immediately
     setDataState(newData);
+    localStorage.setItem(`portal_ng_backup_doc_${collectionName}_${docId}`, JSON.stringify(newData));
 
-    try {
-      const docRef = doc(db, collectionName, docId);
-      await setDoc(docRef, newData, { merge: true });
-    } catch (error) {
-      console.error(`Error saving ${collectionName}/${docId} to Firebase:`, error);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const docRef = doc(db, collectionName, docId);
+        await setDoc(docRef, newData, { merge: true });
+      } catch (error) {
+        console.error(`Error saving ${collectionName}/${docId} to Firebase:`, error);
+      }
+    }, 1000);
   };
 
   return [data, setData, loading];
