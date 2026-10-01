@@ -1,6 +1,6 @@
 import React, { Component, useState } from 'react';
 import { trackEvent } from '../utils/analytics';
-import { LogOut, AlertCircle, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera , Loader2, Save } from 'lucide-react';
+import { LogOut, AlertCircle, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera , Loader2, Save, Link as LinkIcon, Globe } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
 import SocialPostGenerator from './SocialPostGenerator';
 import { shareToWhatsApp } from '../utils/socialExporter';
@@ -1354,38 +1354,74 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
               </div>
               
               <div className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className="p-4 bg-white border border-slate-200 rounded-lg">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">ORIGINAL (FONTE)</p>
-                    <p className="text-sm font-bold text-slate-800 mb-2">{formData.source || 'Fonte Desconhecida'}</p>
-                    <p className="text-xs text-slate-600 font-medium line-clamp-4 mb-2">
-                      {formData.originalTitle || (formData.metadata && formData.metadata.titulo_original) || 'Título original indisponível. A matéria foi capturada da internet.'}
-                    </p>
-                    {formData.originalUrl && (
-                      <a href={formData.originalUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline break-all">
-                        {formData.originalUrl}
-                      </a>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                  {/* Lado Esquerdo: Original */}
+                  <div className="p-5 bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] relative overflow-hidden group hover:border-slate-300 transition-colors">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-slate-300"></div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-black tracking-widest uppercase rounded-md border border-slate-200">
+                        {formData.source || 'Fonte Original'}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Versão Capturada</span>
+                    </div>
+                    
+                    <h4 className="text-base font-black text-slate-800 mb-2 leading-tight">
+                      {formData.originalTitle || (formData.metadata && formData.metadata.titulo_original) || 'Título original não identificado pela extração.'}
+                    </h4>
+                    
+                    {formData.originalSubtitle && (
+                      <p className="text-sm font-medium text-slate-600 mb-4 line-clamp-3">
+                        {formData.originalSubtitle}
+                      </p>
                     )}
-                    {formData.date && <p className="text-[10px] text-slate-400 mt-3">Data da extração: {new Date(formData.date).toLocaleString('pt-BR')}</p>}
+                    
+                    {formData.originalUrl && (
+                      <div className="mb-4">
+                        <a href={formData.originalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline break-all bg-blue-50/50 px-2 py-1.5 rounded-md border border-blue-100/50">
+                          <LinkIcon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="line-clamp-1">{formData.originalUrl}</span>
+                        </a>
+                      </div>
+                    )}
+                    
+                    <div className="pt-4 border-t border-slate-100/80">
+                      <p className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" /> Extraído em: {formData.date ? new Date(formData.date).toLocaleString('pt-BR') : 'Data desconhecida'}
+                      </p>
+                    </div>
                   </div>
                   
-                  <div className="p-4 bg-indigo-50/30 border border-indigo-100 rounded-lg">
-                    <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-2">REESCRITO • TÍTULO NOVO • SEO</p>
-                    <p className="text-sm font-bold text-indigo-900 mb-2">{formData.title}</p>
-                    <p className="text-xs text-indigo-700">{formData.subtitle}</p>
+                  {/* Lado Direito: Reescrito com IA */}
+                  <div className="p-5 bg-gradient-to-br from-indigo-50/80 to-white border border-indigo-200 rounded-xl shadow-[0_4px_15px_-4px_rgba(79,70,229,0.1)] relative overflow-hidden group hover:border-indigo-300 transition-colors">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="px-2.5 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-black tracking-widest uppercase rounded-md border border-indigo-200 flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3" /> Reescrito com IA
+                      </span>
+                      <span className="text-[10px] font-bold text-indigo-400 tracking-wider uppercase">Pronto para Publicação</span>
+                    </div>
+                    
+                    <h4 className="text-base font-black text-slate-900 mb-2 leading-tight">
+                      {formData.title || 'Título gerado pela IA aparecerá aqui'}
+                    </h4>
+                    
+                    <p className="text-sm font-medium text-slate-600 mb-4">
+                      {formData.subtitle || 'Subtítulo gerado pela IA aparecerá aqui'}
+                    </p>
+                    
+                    <div className="mb-4">
+                      <div className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50/50 px-2 py-1.5 rounded-md border border-indigo-100/50">
+                        <Globe className="w-3.5 h-3.5 shrink-0" />
+                        <span className="line-clamp-1 truncate">/{formData.category}/{formData.title ? formData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'nova-materia'}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-indigo-100/80 flex flex-wrap gap-2 items-center">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded border border-emerald-100"><CheckCircle className="w-3 h-3" /> SEO Otimizado</span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded border border-emerald-100"><CheckCircle className="w-3 h-3" /> Anti-Plágio</span>
+                      <span className="inline-flex items-center px-2 py-1 bg-white text-slate-500 text-[10px] font-bold rounded border border-slate-200">Editoria: <span className="text-slate-800 ml-1">{formData.category}</span></span>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100"><CheckCircle className="w-3 h-3" /> Texto original</span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100"><CheckCircle className="w-3 h-3" /> Meta descrição</span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100"><CheckCircle className="w-3 h-3" /> Imagem gerada por IA</span>
-                    <span className="inline-flex items-center px-2.5 py-1 bg-white text-slate-600 text-[10px] font-bold rounded-md border border-slate-200">Categoria: {formData.category}</span>
-                  </div>
-                  <button onClick={() => window.open('https://wa.me/5511999999999', '_blank')} type="button" className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#25D366] hover:bg-[#128C7E] text-white text-[11px] font-bold rounded-full transition-colors shadow-sm">
-                    <Share className="w-3.5 h-3.5" /> Tirar dúvidas
-                  </button>
                 </div>
               </div>
             </div>
