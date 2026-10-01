@@ -519,6 +519,7 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         praca: formData.praca,
         image: formData.image || "",
         content: formData.content,
+        isDraft: false,
       };
 
       if (!updatedArticle.author) {
@@ -530,10 +531,11 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
       }
 
       if (editingIsDraft) {
-        setDraftData(draftData.filter(n => n.id !== editingId));
+        // Ensure editingId matches types perfectly
+        setDraftData(draftData.filter(n => String(n.id) !== String(editingId)));
         setNewsData([updatedArticle, ...newsData]);
       } else {
-        setNewsData(newsData.map(n => n.id === editingId ? updatedArticle : n));
+        setNewsData(newsData.map(n => String(n.id) === String(editingId) ? updatedArticle : n));
       }
     } else {
       // Create new
