@@ -507,8 +507,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
     
     if (editingId) {
       const originalItem = editingIsDraft 
-        ? draftData.find(d => d.id === editingId) 
-        : newsData.find(n => n.id === editingId);
+        ? draftData.find(d => String(d.id) === String(editingId)) 
+        : newsData.find(n => String(n.id) === String(editingId));
 
       const updatedArticle = {
         ...originalItem,
