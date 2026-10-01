@@ -1,3 +1,3 @@
-const l=async({article:s,metaToken:a,metaFbPageId:e,metaIgAccountId:c,imgbbKey:n})=>{try{const o=`https://portalngbrasil.com.br/noticia/${s.id}`,r=`${s.title}
+const l=async({article:s,metaToken:a,metaFbPageId:e,metaIgAccountId:c,imgbbKey:n})=>{try{const o=`https://portalngbrasil.com.br/#/noticia/${s.id}`,r=`${s.title}
 
 Leia a matéria completa no site: ${o}`;if(e){console.log("Postando no Facebook (Foto + Link)...");const t=await(await fetch(`https://graph.facebook.com/v20.0/${e}/photos`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:s.image||"https://portalngbrasil.com.br/assets/placeholder.jpg",message:r,access_token:a})})).json();t.error?console.error("Erro ao postar no Facebook:",t.error):console.log("Facebook postado com sucesso:",t.id)}return{success:!0}}catch(o){return console.error("Erro na automação de postagem:",o),{success:!1,error:o}}};export{l as autoPublishToMeta};
