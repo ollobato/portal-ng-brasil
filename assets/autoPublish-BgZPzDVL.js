@@ -1,3 +1,0 @@
-const l=async({article:t,metaToken:a,metaFbPageId:s,metaIgAccountId:c,imgbbKey:n})=>{try{const o=`https://portalngbrasil.com.br/noticia/${t.id}`,r=`${t.title}
-
-Leia a matéria completa no site: ${o}`;if(s){console.log("Postando no Facebook (Link)...");const e=await(await fetch(`https://graph.facebook.com/v20.0/${s}/feed`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({link:o,message:r,access_token:a})})).json();e.error?console.error("Erro ao postar no Facebook:",e.error):console.log("Facebook postado com sucesso:",e.id)}return{success:!0}}catch(o){return console.error("Erro na automação de postagem:",o),{success:!1,error:o}}};export{l as autoPublishToMeta};
