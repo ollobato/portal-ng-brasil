@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 export const firebaseConfig = {
@@ -16,4 +16,10 @@ export const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Habilitar persistência offline para garantir que nenhuma matéria seja perdida caso a internet caia
+enableIndexedDbPersistence(db).catch((err) => {
+  console.warn("Falha ao ativar persistência offline:", err);
+});
+
 export const storage = getStorage(app);
