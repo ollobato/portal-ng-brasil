@@ -524,8 +524,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
 
       if (!updatedArticle.author) {
         updatedArticle.author = {
-          name: "Você (Editor NG)",
-          role: "Redação Principal",
+          name: "Redação NG Brasil",
+          role: "",
           avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80"
         };
       }
@@ -547,8 +547,8 @@ Para que o portal atinja o patamar de credibilidade almejado, a operação deve 
         subtitle: formData.subtitle,
         praca: formData.praca,
         author: {
-          name: "Você (Editor NG)",
-          role: "Redação Principal",
+          name: "Redação NG Brasil",
+          role: "",
           avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80"
         },
         date: dateStr,
@@ -1663,7 +1663,7 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
           </button>
         </div>
         <div className="divide-y divide-slate-100">
-          {authors.map((author, i) => (
+          {[{ name: "Redação NG Brasil", role: "Conta Administrativa", email: "admin@portalng.com.br", articles: newsData.length }].map((author, i) => (
             <div key={i} className="p-4 sm:p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500 shrink-0">
@@ -1681,9 +1681,6 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
               </div>
             </div>
           ))}
-          {authors.length === 0 && (
-            <div className="p-8 text-center text-slate-500 text-sm">Nenhum autor cadastrado.</div>
-          )}
         </div>
       </div>
     );
