@@ -32,7 +32,7 @@ function scraperPlugin() {
 }
 
 export default defineConfig({
-  base: './',
+  base: '/',
   plugins: [
     react(),
     tailwindcss(),
