@@ -47,7 +47,7 @@ $targetUrl = "https://portalngbrasil.com.br/#/noticia/" . htmlspecialchars($id);
     <!-- Meta tags Open Graph (Facebook, WhatsApp, LinkedIn) -->
     <meta property="og:title" content="<?= htmlspecialchars($title) ?>">
     <meta property="og:description" content="<?= htmlspecialchars($description) ?>">
-    <meta property="og:image" content="<?= htmlspecialchars($image) ?>">
+    <meta property="og:image" content="https://portalngbrasil.com.br/image.php?id=<?= htmlspecialchars($id) ?>">
     <meta property="og:url" content="https://portalngbrasil.com.br/share.php?id=<?= htmlspecialchars($id) ?>">
     <meta property="og:type" content="article">
     
@@ -55,7 +55,7 @@ $targetUrl = "https://portalngbrasil.com.br/#/noticia/" . htmlspecialchars($id);
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="<?= htmlspecialchars($title) ?>">
     <meta name="twitter:description" content="<?= htmlspecialchars($description) ?>">
-    <meta name="twitter:image" content="<?= htmlspecialchars($image) ?>">
+    <meta name="twitter:image" content="https://portalngbrasil.com.br/image.php?id=<?= htmlspecialchars($id) ?>">
 
     <script>
         // Redireciona usuários reais para a matéria no React App
