@@ -1,6 +1,6 @@
 import React, { Component, useState, useRef, useEffect } from 'react';
 import { trackEvent } from '../utils/analytics';
-import { LogOut, AlertCircle, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera , Loader2, Save, Link as LinkIcon, Globe, Send, Zap, ChevronRight, ChevronDown, ChevronUp, Check, Workflow, Cpu, PenTool, CheckSquare, Database, Network, PieChart, Copy, ExternalLink, ShieldCheck, Layers, BookOpen, Compass, CheckCircle2, Server, HelpCircle, ArrowRight, Smartphone, RefreshCw, X, AlertTriangle } from 'lucide-react';
+import { LogOut, AlertCircle, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera , Loader2, Save, Link as LinkIcon, Globe, Send, Zap, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Check, Workflow, Cpu, PenTool, CheckSquare, Database, Network, PieChart, Copy, ExternalLink, ShieldCheck, Layers, BookOpen, Compass, CheckCircle2, Server, HelpCircle, ArrowRight, Smartphone, RefreshCw, X, AlertTriangle } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
 import SocialPostGenerator from './SocialPostGenerator';
 import AnalyticsDashboard from './AnalyticsDashboard';
@@ -239,7 +239,54 @@ class ErrorBoundary extends Component {
 }
 
 export default function AdminDashboard({ onLogout, newsData, setNewsData, banners, setBanners }) {
-  const [activeTab, setActiveTab] = useState('insights');
+  const VALID_ADMIN_TABS = ['insights', 'dashboard', 'robot', 'stories', 'carousels', 'aprovacao', 'materias', 'autores', 'banners', 'configuracoes'];
+  
+  const getInitialAdminTab = () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam && VALID_ADMIN_TABS.includes(tabParam)) return tabParam;
+
+      const hash = window.location.hash.replace('#', '').trim();
+      if (hash && VALID_ADMIN_TABS.includes(hash)) return hash;
+
+      const saved = localStorage.getItem('portal_ng_admin_active_tab') || sessionStorage.getItem('portal_ng_admin_active_tab');
+      if (saved && VALID_ADMIN_TABS.includes(saved)) return saved;
+    } catch(e) {}
+    return 'insights';
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialAdminTab);
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('portal_ng_sidebar_collapsed') === 'true';
+    } catch(e) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('portal_ng_sidebar_collapsed', sidebarCollapsed ? 'true' : 'false');
+    } catch(e) {}
+  }, [sidebarCollapsed]);
+
+  // Sincroniza a aba ativa com o URL e o armazenamento local para persistir no F5
+  useEffect(() => {
+    try {
+      localStorage.setItem('portal_ng_admin_active_tab', activeTab);
+      sessionStorage.setItem('portal_ng_admin_active_tab', activeTab);
+      
+      const currentUrl = new URL(window.location.href);
+      if (currentUrl.pathname.startsWith('/painel')) {
+        if (currentUrl.searchParams.get('tab') !== activeTab) {
+          currentUrl.searchParams.set('tab', activeTab);
+          window.history.replaceState(null, '', currentUrl.pathname + currentUrl.search + currentUrl.hash);
+        }
+      }
+    } catch(e) {}
+  }, [activeTab]);
   const [activeUsersCount, setActiveUsersCount] = useState(0);
   const [toastMessage, setToastMessage] = useState(null);
   const [toastError, setToastError] = useState(false);
@@ -665,8 +712,32 @@ COMO VOCÊ DEVE AGIR:
   });
   const [robotCategory, setRobotCategory] = useState("todas");
   const [robotSearchQuery, setRobotSearchQuery] = useState("");
-  
-  const [robotActiveTab, setRobotActiveTab] = useState("curadora");
+  const VALID_ROBOT_TABS = ["curadora", "prompt", "portais", "chaves", "configuracoes", "lixeira", "informacoes"];
+  const getInitialRobotTab = () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const sub = params.get('subtab');
+      if (sub && VALID_ROBOT_TABS.includes(sub)) return sub;
+      const saved = localStorage.getItem('portal_ng_robot_active_tab') || sessionStorage.getItem('portal_ng_robot_active_tab');
+      if (saved && VALID_ROBOT_TABS.includes(saved)) return saved;
+    } catch(e) {}
+    return "curadora";
+  };
+  const [robotActiveTab, setRobotActiveTab] = useState(getInitialRobotTab);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('portal_ng_robot_active_tab', robotActiveTab);
+      sessionStorage.setItem('portal_ng_robot_active_tab', robotActiveTab);
+      if (activeTab === 'robot') {
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.get('subtab') !== robotActiveTab) {
+          currentUrl.searchParams.set('subtab', robotActiveTab);
+          window.history.replaceState(null, '', currentUrl.pathname + currentUrl.search + currentUrl.hash);
+        }
+      }
+    } catch(e) {}
+  }, [robotActiveTab, activeTab]);
   const [infoSubTab, setInfoSubTab] = useState("all");
   const [infoSelectedAi, setInfoSelectedAi] = useState("all");
   const [infoActiveStep, setInfoActiveStep] = useState("all");
@@ -751,7 +822,7 @@ COMO VOCÊ DEVE AGIR:
   const [authorForm, setAuthorForm] = useState({ name: '', role: '', email: '' });
 
   const getNavClass = (tab) => {
-    const base = "flex items-center gap-2 px-3 py-2 rounded-md font-medium text-sm transition-colors w-full text-left ";
+    const base = `flex items-center ${sidebarCollapsed ? 'md:justify-center md:px-2 gap-0' : 'gap-2 px-3'} py-2 rounded-md font-medium text-sm transition-all w-full text-left `;
     if (activeTab === tab) {
       return base + "bg-red-600/10 text-red-500 border border-red-500/10";
     }
@@ -5639,18 +5710,33 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
       <div className={activeTab === 'dashboard' ? "min-h-screen bg-[#060913] flex flex-col md:flex-row font-sans" : "min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans"}>
         
         {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-[#040f1d] text-slate-300 flex flex-col shrink-0 md:h-screen sticky top-0 z-30">
-        <div className="p-4 md:p-6 border-b border-slate-800 flex items-center justify-between md:block">
-          <div className="flex items-center gap-3">
+      <aside className={`w-full ${sidebarCollapsed ? 'md:w-20' : 'md:w-64'} bg-[#040f1d] text-slate-300 flex flex-col shrink-0 md:h-screen sticky top-0 z-30 transition-all duration-300 ease-in-out`}>
+        <div className={`p-4 ${sidebarCollapsed ? 'md:p-3 md:flex-col md:gap-3' : 'md:p-5'} border-b border-slate-800 flex items-center justify-between transition-all`}>
+          <div className={`flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3'} min-w-0`}>
             <div className="w-10 h-10 flex items-center justify-center shrink-0">
               <img src="/logo/logo-oficial.png" alt="Logo" className="w-full h-full object-cover rounded" onError={(e) => e.target.style.display='none'} />
             </div>
-            <div>
-              <span className="text-white font-bold block">Painel NG <span className="text-red-500 text-[10px] ml-1">v2.0</span></span>
-              <span className="text-[10px] text-red-400 font-semibold uppercase">Área do Jornalista</span>
-            </div>
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <span className="text-white font-bold block truncate">Painel NG <span className="text-red-500 text-[10px] ml-1">v2.0</span></span>
+                <span className="text-[10px] text-red-400 font-semibold uppercase truncate">Área do Jornalista</span>
+              </div>
+            )}
           </div>
           
+          {/* Botão com seta para recolher/expandir o menu */}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="hidden md:flex items-center justify-center w-8 h-8 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-all border border-slate-700/60 cursor-pointer shrink-0"
+            title={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="w-4 h-4 text-[#00F0FF]" />
+            ) : (
+              <ChevronLeft className="w-4 h-4 text-slate-300" />
+            )}
+          </button>
+
           <button 
             onClick={onLogout}
             className="md:hidden flex items-center justify-center p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
@@ -5660,62 +5746,155 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
           </button>
         </div>
 
-        <nav className="flex-row md:flex-col flex md:flex-1 p-2 md:p-4 gap-1.5 overflow-x-auto md:overflow-y-auto no-scrollbar border-b md:border-b-0 border-slate-800">
-          <button onClick={() => {setActiveTab('insights'); setShowForm(false);}} className={getNavClass('insights') + " whitespace-nowrap"}>
-            <Activity className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline md:inline">Início</span><span className="sm:hidden">Início</span>
+        <nav className={`flex-row md:flex-col flex md:flex-1 p-2 ${sidebarCollapsed ? 'md:p-2' : 'md:p-4'} gap-1.5 overflow-x-auto md:overflow-y-auto no-scrollbar border-b md:border-b-0 border-slate-800`}>
+          <button 
+            onClick={() => {setActiveTab('insights'); setShowForm(false);}} 
+            className={getNavClass('insights') + " whitespace-nowrap"}
+            title="Início"
+          >
+            <Activity className="w-4 h-4 shrink-0" /> 
+            {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Início</span>}
+            <span className="sm:hidden">Início</span>
           </button>
           
-          <button onClick={() => {setActiveTab('dashboard'); setShowForm(false);}} className={getNavClass('dashboard') + " whitespace-nowrap"}>
-            <PieChart className="w-4 h-4 shrink-0" /> <span>Dashboard</span>
+          <button 
+            onClick={() => {setActiveTab('dashboard'); setShowForm(false);}} 
+            className={getNavClass('dashboard') + " whitespace-nowrap"}
+            title="Dashboard"
+          >
+            <PieChart className="w-4 h-4 shrink-0" /> 
+            {!sidebarCollapsed && <span>Dashboard</span>}
           </button>
           
-          <div className="hidden md:block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mt-6 mb-2 px-1">Automação IA</div>
-          <button onClick={() => {setActiveTab('robot'); setShowForm(false);}} className={getNavClass('robot') + " whitespace-nowrap justify-between"}>
-            <div className="flex items-center gap-2">
-                <BrainCircuit className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline md:inline">Gerador de Notícias</span><span className="sm:hidden">Gerador</span>
+          {sidebarCollapsed ? (
+            <div className="hidden md:block w-6 h-[1px] bg-slate-800 my-2 mx-auto" />
+          ) : (
+            <div className="hidden md:block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mt-6 mb-2 px-1">Automação IA</div>
+          )}
+
+          <button 
+            onClick={() => {setActiveTab('robot'); setShowForm(false);}} 
+            className={getNavClass('robot') + " whitespace-nowrap relative " + (sidebarCollapsed ? "md:justify-center" : "justify-between")}
+            title="Gerador de Notícias"
+          >
+            <div className={`flex items-center ${sidebarCollapsed ? 'gap-0' : 'gap-2'}`}>
+                <BrainCircuit className="w-4 h-4 shrink-0" /> 
+                {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Gerador de Notícias</span>}
+                <span className="sm:hidden">Gerador</span>
             </div>
             {draftData?.length > 0 && (
-                <span className="bg-yellow-500 text-yellow-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">{draftData.length}</span>
+                <span className={sidebarCollapsed 
+                  ? "hidden md:flex absolute top-1 right-1 bg-yellow-500 text-yellow-950 text-[9px] font-black w-4 h-4 items-center justify-center rounded-full leading-none shadow" 
+                  : "bg-yellow-500 text-yellow-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"}>
+                  {draftData.length}
+                </span>
+            )}
+            {draftData?.length > 0 && sidebarCollapsed && (
+                <span className="md:hidden bg-yellow-500 text-yellow-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                  {draftData.length}
+                </span>
             )}
           </button>
           
-          <button onClick={() => {setActiveTab('stories'); setShowForm(false);}} className={getNavClass('stories') + " whitespace-nowrap"}>
-            <ImageIcon className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline md:inline">Gerador de Stories</span><span className="sm:hidden">Stories</span>
+          <button 
+            onClick={() => {setActiveTab('stories'); setShowForm(false);}} 
+            className={getNavClass('stories') + " whitespace-nowrap"}
+            title="Gerador de Stories"
+          >
+            <ImageIcon className="w-4 h-4 shrink-0" /> 
+            {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Gerador de Stories</span>}
+            <span className="sm:hidden">Stories</span>
           </button>
-          <button onClick={() => {setActiveTab('carousels'); setShowForm(false);}} className={getNavClass('carousels') + " whitespace-nowrap"}>
-            <ImageIcon className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline md:inline">Gerador de Carrosséis</span><span className="sm:hidden">Carrosséis</span>
+
+          <button 
+            onClick={() => {setActiveTab('carousels'); setShowForm(false);}} 
+            className={getNavClass('carousels') + " whitespace-nowrap"}
+            title="Gerador de Carrosséis"
+          >
+            <ImageIcon className="w-4 h-4 shrink-0" /> 
+            {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Gerador de Carrosséis</span>}
+            <span className="sm:hidden">Carrosséis</span>
           </button>
           
-          <button onClick={() => {setActiveTab('aprovacao'); setShowForm(false);}} className={getNavClass('aprovacao') + " whitespace-nowrap justify-between"}>
-            <div className="flex items-center gap-2">
-                <CheckSquare className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline md:inline">Fila de Aprovação</span><span className="sm:hidden">Aprovação</span>
+          <button 
+            onClick={() => {setActiveTab('aprovacao'); setShowForm(false);}} 
+            className={getNavClass('aprovacao') + " whitespace-nowrap relative " + (sidebarCollapsed ? "md:justify-center" : "justify-between")}
+            title="Fila de Aprovação"
+          >
+            <div className={`flex items-center ${sidebarCollapsed ? 'gap-0' : 'gap-2'}`}>
+                <CheckSquare className="w-4 h-4 shrink-0" /> 
+                {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Fila de Aprovação</span>}
+                <span className="sm:hidden">Aprovação</span>
             </div>
             {draftData?.length > 0 && (
-                <span className="bg-yellow-500 text-yellow-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">{draftData.length}</span>
+                <span className={sidebarCollapsed 
+                  ? "hidden md:flex absolute top-1 right-1 bg-yellow-500 text-yellow-950 text-[9px] font-black w-4 h-4 items-center justify-center rounded-full leading-none shadow" 
+                  : "bg-yellow-500 text-yellow-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"}>
+                  {draftData.length}
+                </span>
+            )}
+            {draftData?.length > 0 && sidebarCollapsed && (
+                <span className="md:hidden bg-yellow-500 text-yellow-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                  {draftData.length}
+                </span>
             )}
           </button>
 
-          <div className="hidden md:block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mt-6 mb-2 px-1">Administração</div>
-          <button onClick={() => {setActiveTab('materias'); setShowForm(false);}} className={getNavClass('materias') + " whitespace-nowrap"}>
-            <FileText className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline md:inline">Gestão de Matérias</span><span className="sm:hidden">Matérias</span>
+          {sidebarCollapsed ? (
+            <div className="hidden md:block w-6 h-[1px] bg-slate-800 my-2 mx-auto" />
+          ) : (
+            <div className="hidden md:block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mt-6 mb-2 px-1">Administração</div>
+          )}
+
+          <button 
+            onClick={() => {setActiveTab('materias'); setShowForm(false);}} 
+            className={getNavClass('materias') + " whitespace-nowrap"}
+            title="Gestão de Matérias"
+          >
+            <FileText className="w-4 h-4 shrink-0" /> 
+            {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Gestão de Matérias</span>}
+            <span className="sm:hidden">Matérias</span>
           </button>
-          <button onClick={() => {setActiveTab('autores'); setShowForm(false);}} className={getNavClass('autores') + " whitespace-nowrap"}>
-            <Users className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline md:inline">Redação / Autores</span><span className="sm:hidden">Autores</span>
+
+          <button 
+            onClick={() => {setActiveTab('autores'); setShowForm(false);}} 
+            className={getNavClass('autores') + " whitespace-nowrap"}
+            title="Redação / Autores"
+          >
+            <Users className="w-4 h-4 shrink-0" /> 
+            {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Redação / Autores</span>}
+            <span className="sm:hidden">Autores</span>
           </button>
-          <button onClick={() => {setActiveTab('banners'); setShowForm(false);}} className={getNavClass('banners') + " whitespace-nowrap"}>
-            <ImageIcon className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline md:inline">Banners de Patrocínio</span><span className="sm:hidden">Banners</span>
+
+          <button 
+            onClick={() => {setActiveTab('banners'); setShowForm(false);}} 
+            className={getNavClass('banners') + " whitespace-nowrap"}
+            title="Banners de Patrocínio"
+          >
+            <ImageIcon className="w-4 h-4 shrink-0" /> 
+            {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Banners de Patrocínio</span>}
+            <span className="sm:hidden">Banners</span>
           </button>
         </nav>
 
-        <div className="hidden md:flex flex-col gap-1.5 p-4 border-t border-slate-800 mt-auto">
-          <button onClick={() => {setActiveTab('configuracoes'); setShowForm(false);}} className={getNavClass('configuracoes') + " whitespace-nowrap"}>
-            <Settings className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline md:inline">Configurações</span><span className="sm:hidden">Ajustes</span>
+        <div className={`hidden md:flex flex-col gap-1.5 ${sidebarCollapsed ? 'p-2' : 'p-4'} border-t border-slate-800 mt-auto`}>
+          <button 
+            onClick={() => {setActiveTab('configuracoes'); setShowForm(false);}} 
+            className={getNavClass('configuracoes') + " whitespace-nowrap"}
+            title="Configurações"
+          >
+            <Settings className="w-4 h-4 shrink-0" /> 
+            {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Configurações</span>}
+            <span className="sm:hidden">Ajustes</span>
           </button>
+
           <button 
             onClick={onLogout}
-            className="flex items-center justify-center md:justify-start gap-2 w-full px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors text-sm font-medium"
+            className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3 gap-2'} w-full py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors text-sm font-medium`}
+            title="Sair do Painel"
           >
-            <LogOut className="w-4 h-4 shrink-0" /> Sair do Painel
+            <LogOut className="w-4 h-4 shrink-0" /> 
+            {!sidebarCollapsed && <span>Sair do Painel</span>}
           </button>
         </div>
       </aside>
