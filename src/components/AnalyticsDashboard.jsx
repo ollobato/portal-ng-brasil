@@ -1362,16 +1362,20 @@ export default function AnalyticsDashboard() {
                 const activeY = gy(activeMinuteData[pulseMetricMode] || activeMinuteData.views);
                 const colWidth = plotW / (minuteSeriesCount - 1);
 
-                // Posicionamento inteligente do Tooltip Flutuante no Hover
-                const tooltipLeftPct = Math.min(62, Math.max(2, (activeMinuteIndex / (minuteSeriesCount - 1)) * 100 - 18));
+                // Posicionamento do Card Flutuante ACIMA do gráfico (para NUNCA cobrir a linha ou o cursor do mouse)
+                const tooltipLeftPct = Math.min(54, Math.max(0, (activeMinuteIndex / (minuteSeriesCount - 1)) * 100 - 20));
+                const activeVal = activeMinuteData[pulseMetricMode] || activeMinuteData.views;
+                const badgeW = 96;
+                const badgeX = Math.min(w - padR - badgeW, Math.max(padL, activeX - badgeW / 2));
+                const badgeY = Math.max(2, activeY - 26);
 
                 return (
                   <div className="relative w-full">
-                    {/* Tooltip Flutuante quando o usuário passa o mouse em qualquer minuto */}
+                    {/* Card Flutuante posicionado ACIMA do gráfico (bottom-full) para deixar o gráfico e o cursor 100% livres */}
                     {hoveredMinuteIdx !== null && (
                       <div
                         style={{ left: `${tooltipLeftPct}%` }}
-                        className="absolute top-1 z-30 w-72 sm:w-80 bg-[#0B1022]/95 border border-[#00F0FF]/70 rounded-xl p-2.5 shadow-2xl backdrop-blur-md pointer-events-none transition-all duration-75"
+                        className="absolute bottom-full mb-2.5 z-30 w-72 sm:w-80 bg-[#0B1022]/95 border border-[#00F0FF]/80 rounded-xl p-2.5 shadow-2xl backdrop-blur-md pointer-events-none transition-all duration-75"
                       >
                         <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
                           <span className="text-[10.5px] font-black text-[#00F0FF] uppercase">
@@ -1446,6 +1450,14 @@ export default function AnalyticsDashboard() {
                         strokeWidth="1.5"
                         strokeDasharray="3 3"
                       />
+
+                      {/* Mini-etiqueta colada no ponto selecionado para leitura imediata sem tampar o gráfico */}
+                      <g transform={`translate(${badgeX}, ${badgeY})`}>
+                        <rect x="0" y="0" width={badgeW} height="18" rx="5" fill="#0B1022" stroke={strokeColor} strokeWidth="1.2" />
+                        <text x={badgeW / 2} y="12.5" fill="#FFFFFF" fontSize="9.5" fontWeight="900" textAnchor="middle">
+                          {activeMinuteData.time} • +{fmtPtBr(activeVal)}
+                        </text>
+                      </g>
 
                       {/* Pontos e Colunas de Hover de cada Minuto */}
                       {minutePulseSeries.map((m, i) => {
