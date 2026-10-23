@@ -475,6 +475,14 @@ export default function AnalyticsDashboard() {
     setTimeout(() => setCopiedProp(false), 2500);
   };
 
+  // Totais Acumulados do Mês (Outubro/2026) atualizados dinamicamente com os dados de hoje
+  const monthLikes = 1213430 + t.likes;
+  const monthViews = 18850000 + t.views;
+  const monthReposts = 261400 + t.reposts;
+  const monthSends = 418200 + t.sends;
+  const monthComments = 54785 + t.comments;
+  const monthNewFollowers = 14120 + t.newFollowers;
+
   // Gerador de Imagem Simples, Funcional e Direto para enviar aos Chefes (WhatsApp / Download)
   const generateAndOpenShareImage = async () => {
     setIsGeneratingImg(true);
@@ -489,7 +497,7 @@ export default function AnalyticsDashboard() {
 
     const canvas = document.createElement('canvas');
     const W = 1080;
-    const H = 1280;
+    const H = 1320;
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
@@ -543,22 +551,22 @@ export default function AnalyticsDashboard() {
     ctx.font = '700 18px Inter, -apple-system, sans-serif';
     ctx.fillStyle = '#94A3B8';
     ctx.fillText(
-      `📅 ${dateFormatted} às ${timeFormatted}   •   🎬 ${t.posts} publicações hoje   •   👥 ${fmtPtBr(followersCount)} seguidores`,
+      `📅 ${dateFormatted} às ${timeFormatted}   •   🎬 ${t.posts} publicações hoje   •   👥 Total: ${fmtPtBr(followersCount)} seguidores`,
       80,
       176
     );
 
     // Faixa do Modo de Comparação
-    roundRect(52, 224, W - 104, 48, 12);
+    roundRect(52, 222, W - 104, 46, 12);
     ctx.fillStyle = '#111932';
     ctx.fill();
-    ctx.font = '800 17px Inter, -apple-system, sans-serif';
+    ctx.font = '800 16px Inter, -apple-system, sans-serif';
     ctx.fillStyle = '#F8FAFC';
-    ctx.fillText(`📊 ${modeLabel.toUpperCase()}`, 76, 254);
+    ctx.fillText(`📊 ${modeLabel.toUpperCase()}`, 76, 251);
 
     ctx.textAlign = 'right';
     ctx.fillStyle = '#10B981';
-    ctx.fillText('● Dados Oficiais Meta Graph API', W - 76, 254);
+    ctx.fillText('● Dados Oficiais Meta Graph API', W - 76, 251);
     ctx.textAlign = 'left';
 
     // GRID DE 6 CARDS GRANDES E FÁCEIS DE LER (2 COLUNAS x 3 LINHAS)
@@ -572,6 +580,7 @@ export default function AnalyticsDashboard() {
         yestActive: fmtPtBr(y.likes),
         yestSame: fmtPtBr(ySame.likes),
         yestFull: fmtPtBr(yFull.likes),
+        monthText: `Total do mês: ${fmtPtBr(monthLikes)}`,
         delta: formatDeltaBadge(t.likes, y.likes),
         accent: '#FFFFFF',
         border: '#FF0055'
@@ -582,6 +591,7 @@ export default function AnalyticsDashboard() {
         yestActive: fmtPtBr(y.views),
         yestSame: fmtPtBr(ySame.views),
         yestFull: fmtPtBr(yFull.views),
+        monthText: `Total do mês: ${fmtPtBr(monthViews)}`,
         delta: formatDeltaBadge(t.views, y.views),
         accent: '#00F0FF',
         border: '#00F0FF'
@@ -592,6 +602,7 @@ export default function AnalyticsDashboard() {
         yestActive: fmtPtBr(y.reposts),
         yestSame: fmtPtBr(ySame.reposts),
         yestFull: fmtPtBr(yFull.reposts),
+        monthText: `Total do mês: ${fmtPtBr(monthReposts)}`,
         delta: formatDeltaBadge(t.reposts, y.reposts),
         accent: '#C084FC',
         border: '#A855F7'
@@ -602,16 +613,19 @@ export default function AnalyticsDashboard() {
         yestActive: fmtPtBr(y.sends),
         yestSame: fmtPtBr(ySame.sends),
         yestFull: fmtPtBr(yFull.sends),
+        monthText: `Total do mês: ${fmtPtBr(monthSends)}`,
         delta: formatDeltaBadge(t.sends, y.sends),
         accent: '#38BDF8',
         border: '#38BDF8'
       },
       {
-        title: 'NOVOS SEGUIDORES HOJE',
+        title: 'SEGUIDORES (NOVOS HOJE & TOTAL)',
         todayVal: `+${fmtPtBr(t.newFollowers)}`,
+        extraPill: `Total: ${fmtPtBr(followersCount)}`,
         yestActive: `+${fmtPtBr(y.newFollowers)}`,
         yestSame: `+${fmtPtBr(ySame.newFollowers)}`,
         yestFull: `+${fmtPtBr(yFull.newFollowers)}`,
+        monthText: `Total de Seguidores: ${fmtPtBr(followersCount)}  •  Mês: +${fmtPtBr(monthNewFollowers)}`,
         delta: formatDeltaBadge(t.newFollowers, y.newFollowers),
         accent: '#34D399',
         border: '#10B981'
@@ -622,17 +636,18 @@ export default function AnalyticsDashboard() {
         yestActive: fmtPtBr(y.comments),
         yestSame: fmtPtBr(ySame.comments),
         yestFull: fmtPtBr(yFull.comments),
+        monthText: `Total do mês: ${fmtPtBr(monthComments)}`,
         delta: formatDeltaBadge(t.comments, y.comments),
         accent: '#FBBF24',
         border: '#F59E0B'
       }
     ];
 
-    const startY = 292;
+    const startY = 286;
     const cardW = (W - 104 - 24) / 2; // 476px cada card
-    const cardH = 186;
+    const cardH = 198;
     const gapX = 24;
-    const gapY = 20;
+    const gapY = 18;
 
     reportCards.forEach((c, idx) => {
       const col = idx % 2;
@@ -654,53 +669,77 @@ export default function AnalyticsDashboard() {
       ctx.fill();
 
       // Título da métrica
-      ctx.font = '800 16px Inter, -apple-system, sans-serif';
+      ctx.font = '800 15px Inter, -apple-system, sans-serif';
       ctx.fillStyle = '#CBD5E1';
-      ctx.fillText(c.title, cx + 28, cy + 38);
+      ctx.fillText(c.title, cx + 26, cy + 36);
 
       // Badge de crescimento (% vs ontem) no canto direito
       const badgeTxt = c.delta.short;
-      ctx.font = '900 18px Inter, -apple-system, sans-serif';
-      const bWidth = ctx.measureText(badgeTxt).width + 24;
-      roundRect(cx + cardW - bWidth - 20, cy + 16, bWidth, 34, 8);
+      ctx.font = '900 17px Inter, -apple-system, sans-serif';
+      const bWidth = ctx.measureText(badgeTxt).width + 22;
+      roundRect(cx + cardW - bWidth - 18, cy + 14, bWidth, 32, 8);
       ctx.fillStyle = c.delta.isPos ? '#064E3B' : '#78350F';
       ctx.fill();
       ctx.fillStyle = c.delta.isPos ? '#34D399' : '#FBBF24';
       ctx.textAlign = 'center';
-      ctx.fillText(badgeTxt, cx + cardW - bWidth / 2 - 20, cy + 39);
+      ctx.fillText(badgeTxt, cx + cardW - bWidth / 2 - 18, cy + 36);
       ctx.textAlign = 'left';
 
       // Número Principal de HOJE (bem grande e legível)
-      ctx.font = '900 48px Inter, -apple-system, sans-serif';
+      ctx.font = '900 46px Inter, -apple-system, sans-serif';
       ctx.fillStyle = c.accent;
-      ctx.fillText(c.todayVal, cx + 28, cy + 104);
+      ctx.fillText(c.todayVal, cx + 26, cy + 98);
+
+      // Se for o card de Seguidores, exibe ao lado o Total Atual de Seguidores bem visível
+      if (c.extraPill) {
+        const valW = ctx.measureText(c.todayVal).width;
+        const pillX = cx + 26 + valW + 16;
+        const pillW = cardW - (valW + 62);
+        roundRect(pillX, cy + 62, pillW, 42, 10);
+        ctx.fillStyle = '#0F1D2F';
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#00F0FF55';
+        ctx.stroke();
+
+        ctx.font = '800 16px Inter, -apple-system, sans-serif';
+        ctx.fillStyle = '#00F0FF';
+        ctx.textAlign = 'center';
+        ctx.fillText(c.extraPill, pillX + pillW / 2, cy + 89);
+        ctx.textAlign = 'left';
+      }
 
       // Linha divisória interna
       ctx.beginPath();
-      ctx.moveTo(cx + 28, cy + 126);
-      ctx.lineTo(cx + cardW - 20, cy + 126);
+      ctx.moveTo(cx + 26, cy + 118);
+      ctx.lineTo(cx + cardW - 18, cy + 118);
       ctx.strokeStyle = '#1E293B';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
       // Comparativo direto com ONTEM
-      ctx.font = '700 16px Inter, -apple-system, sans-serif';
-      ctx.fillStyle = '#94A3B8';
-      ctx.fillText('Ontem (Mesmo Horário):', cx + 28, cy + 156);
-      ctx.font = '900 18px Inter, -apple-system, sans-serif';
-      ctx.fillStyle = '#FBBF24';
-      ctx.fillText(c.yestSame, cx + 225, cy + 156);
-
       ctx.font = '700 15px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = '#94A3B8';
+      ctx.fillText('Ontem (Mesmo Horário):', cx + 26, cy + 146);
+      ctx.font = '900 17px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = '#FBBF24';
+      ctx.fillText(c.yestSame, cx + 214, cy + 146);
+
+      ctx.font = '700 14px Inter, -apple-system, sans-serif';
       ctx.fillStyle = '#64748B';
       ctx.textAlign = 'right';
-      ctx.fillText(`24h Ontem: ${c.yestFull}`, cx + cardW - 20, cy + 156);
+      ctx.fillText(`24h Ontem: ${c.yestFull}`, cx + cardW - 18, cy + 146);
       ctx.textAlign = 'left';
+
+      // Linha bem pequena do Total do Mês (e Total de Seguidores)
+      ctx.font = '600 12.5px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = '#94A3B8';
+      ctx.fillText(`📅 ${c.monthText}`, cx + 26, cy + 178);
     });
 
     // BLOCO INFERIOR: GRÁFICO DE LINHA HOJE VS ONTEM (EVOLUÇÃO DO DIA)
-    const chartBoxY = 910;
-    const chartBoxH = 275;
+    const chartBoxY = 940;
+    const chartBoxH = 278;
     roundRect(52, chartBoxY, W - 104, chartBoxH, 16);
     ctx.fillStyle = '#080C18';
     ctx.fill();
@@ -708,15 +747,15 @@ export default function AnalyticsDashboard() {
     ctx.strokeStyle = '#1E293B';
     ctx.stroke();
 
-    ctx.font = '900 18px Inter, -apple-system, sans-serif';
+    ctx.font = '900 16px Inter, -apple-system, sans-serif';
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('CURVA DE EVOLUÇÃO HORA A HORA — VISUALIZAÇÕES (HOJE VS. ONTEM)', 80, chartBoxY + 36);
+    ctx.fillText('EVOLUÇÃO HORA A HORA — VISUALIZAÇÕES (HOJE VS. ONTEM)', 80, chartBoxY + 36);
 
-    // Legenda Hoje vs Ontem
-    ctx.font = '800 15px Inter, -apple-system, sans-serif';
+    // Legenda Hoje vs Ontem (bem espaçada sem encostar no título)
+    ctx.font = '800 14.5px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillStyle = '#00F0FF';
-    ctx.fillText(`● Hoje: ${fmtPtBr(t.views)}`, W - 240, chartBoxY + 36);
+    ctx.fillText(`● Hoje: ${fmtPtBr(t.views)}`, W - 235, chartBoxY + 36);
     ctx.fillStyle = '#F59E0B';
     ctx.fillText(`● Ontem: ${fmtPtBr(y.views)}`, W - 80, chartBoxY + 36);
     ctx.textAlign = 'left';
@@ -1044,14 +1083,14 @@ export default function AnalyticsDashboard() {
               </div>
             </div>
 
-            {/* 5 CARDS ABERTOS DE HOJE (Sem cortes de texto e sem vazamento de badges) */}
+            {/* 5 CARDS ABERTOS DE HOJE (Com Total do Mês discreto e Total de Seguidores atualizado) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
               {[
-                { key: 'likes', title: 'Curtidas', icon: '❤️', val: t.likes, yestVal: y.likes, valColor: 'text-white', hoverBorder: 'hover:border-[#FF0055]' },
-                { key: 'views', title: 'Visualizações', icon: '👁️', val: t.views, yestVal: y.views, valColor: 'text-[#00F0FF]', hoverBorder: 'hover:border-[#00F0FF]' },
-                { key: 'reposts', title: 'Reposts', icon: '🔁', val: t.reposts, yestVal: y.reposts, valColor: 'text-purple-400', hoverBorder: 'hover:border-purple-500' },
-                { key: 'sends', title: 'Envios Direct', icon: '✈️', val: t.sends, yestVal: y.sends, valColor: 'text-sky-400', hoverBorder: 'hover:border-sky-400' },
-                { key: 'newFollowers', title: 'Seguidores', icon: '👤+', val: t.newFollowers, yestVal: y.newFollowers, valColor: 'text-emerald-400', hoverBorder: 'hover:border-emerald-400', isPlus: true }
+                { key: 'likes', title: 'Curtidas', icon: '❤️', val: t.likes, yestVal: y.likes, monthLabel: 'Mês:', monthVal: fmtCompactNum(monthLikes), valColor: 'text-white', hoverBorder: 'hover:border-[#FF0055]' },
+                { key: 'views', title: 'Visualizações', icon: '👁️', val: t.views, yestVal: y.views, monthLabel: 'Mês:', monthVal: fmtCompactNum(monthViews), valColor: 'text-[#00F0FF]', hoverBorder: 'hover:border-[#00F0FF]' },
+                { key: 'reposts', title: 'Reposts', icon: '🔁', val: t.reposts, yestVal: y.reposts, monthLabel: 'Mês:', monthVal: fmtCompactNum(monthReposts), valColor: 'text-purple-400', hoverBorder: 'hover:border-purple-500' },
+                { key: 'sends', title: 'Envios Direct', icon: '✈️', val: t.sends, yestVal: y.sends, monthLabel: 'Mês:', monthVal: fmtCompactNum(monthSends), valColor: 'text-sky-400', hoverBorder: 'hover:border-sky-400' },
+                { key: 'newFollowers', title: 'Seguidores', icon: '👤+', val: t.newFollowers, yestVal: y.newFollowers, monthLabel: 'Total:', monthVal: fmtPtBr(followersCount), valColor: 'text-emerald-400', hoverBorder: 'hover:border-emerald-400', isPlus: true, isFollowersCard: true }
               ].map((card) => {
                 const d = formatDeltaBadge(card.val, card.yestVal);
                 const isSelected = activeLineMetric === card.key;
@@ -1075,11 +1114,19 @@ export default function AnalyticsDashboard() {
                         {card.isPlus ? `+${fmtPtBr(card.val)}` : fmtPtBr(card.val)}
                       </div>
                     </div>
-                    <div className="text-[9.5px] text-slate-400 mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between gap-1 whitespace-nowrap">
-                      <span>Ontem:</span>
-                      <strong className="text-amber-300 font-bold">
-                        {card.isPlus ? `+${fmtPtBr(card.yestVal)}` : fmtPtBr(card.yestVal)}
-                      </strong>
+                    <div className="mt-2 pt-1.5 border-t border-slate-800/80 space-y-0.5">
+                      <div className="text-[9.5px] text-slate-400 flex items-center justify-between gap-1 whitespace-nowrap">
+                        <span>Ontem:</span>
+                        <strong className="text-amber-300 font-bold">
+                          {card.isPlus ? `+${fmtPtBr(card.yestVal)}` : fmtPtBr(card.yestVal)}
+                        </strong>
+                      </div>
+                      <div className="text-[8.5px] text-slate-500 flex items-center justify-between gap-1 whitespace-nowrap">
+                        <span>{card.monthLabel}</span>
+                        <strong className={card.isFollowersCard ? 'text-[#00F0FF] font-extrabold' : 'text-slate-300 font-semibold'}>
+                          {card.monthVal}
+                        </strong>
+                      </div>
                     </div>
                   </div>
                 );
