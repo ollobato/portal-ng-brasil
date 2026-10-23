@@ -112,6 +112,13 @@ export default function AnalyticsDashboard() {
   // Filtro da Vitrine de Virais (Aba 2)
   const [viralSearch, setViralSearch] = useState('');
 
+  // Modal e Imagem de Compartilhamento Diário (para envio aos chefes)
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareImgUrl, setShareImgUrl] = useState('');
+  const [shareImgBlob, setShareImgBlob] = useState(null);
+  const [copyImgStatus, setCopyImgStatus] = useState('');
+  const [isGeneratingImg, setIsGeneratingImg] = useState(false);
+
   // Sincronização em tempo real com a Meta Graph API v20.0
   const fetchLiveMeta = useCallback(async () => {
     setIsSyncing(true);
@@ -468,6 +475,399 @@ export default function AnalyticsDashboard() {
     setTimeout(() => setCopiedProp(false), 2500);
   };
 
+  // Gerador de Imagem Simples, Funcional e Direto para enviar aos Chefes (WhatsApp / Download)
+  const generateAndOpenShareImage = async () => {
+    setIsGeneratingImg(true);
+    setCopyImgStatus('');
+
+    // Atualiza os dados ao vivo antes de desenhar para garantir precisão no envio
+    try {
+      await fetchLiveMeta();
+    } catch (_) {
+      // Continua com os dados mais recentes em memória
+    }
+
+    const canvas = document.createElement('canvas');
+    const W = 1080;
+    const H = 1280;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    const roundRect = (x, y, w, h, r) => {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    };
+
+    // Fundo executivo escuro de alto contraste
+    ctx.fillStyle = '#070B16';
+    ctx.fillRect(0, 0, W, H);
+
+    // Moldura externa sutil
+    roundRect(24, 24, W - 48, H - 48, 24);
+    ctx.fillStyle = '#0D1326';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#1E293B';
+    ctx.stroke();
+
+    const nowDt = new Date();
+    const dateFormatted = nowDt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeFormatted = nowDt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const modeLabel = compareMode === 'same_hour' ? 'Comparativo: Ontem no Mesmo Horário' : 'Comparativo: Ontem (24h Fechado)';
+
+    // CABEÇALHO DO RELATÓRIO
+    roundRect(52, 52, W - 104, 152, 18);
+    ctx.fillStyle = '#080C18';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#00F0FF55';
+    ctx.stroke();
+
+    // Selo superior
+    ctx.font = '800 15px Inter, -apple-system, sans-serif';
+    ctx.fillStyle = '#00F0FF';
+    ctx.fillText('PORTAL NG BRASIL (@portalngbrasil) • RELATÓRIO DIÁRIO DE INSIGHTS', 80, 92);
+
+    // Título principal
+    ctx.font = '900 34px Inter, -apple-system, sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('Desempenho de Hoje vs. Dia Anterior', 80, 138);
+
+    // Subtítulo com data, hora, posts e seguidores
+    ctx.font = '700 18px Inter, -apple-system, sans-serif';
+    ctx.fillStyle = '#94A3B8';
+    ctx.fillText(
+      `📅 ${dateFormatted} às ${timeFormatted}   •   🎬 ${t.posts} publicações hoje   •   👥 ${fmtPtBr(followersCount)} seguidores`,
+      80,
+      176
+    );
+
+    // Faixa do Modo de Comparação
+    roundRect(52, 224, W - 104, 48, 12);
+    ctx.fillStyle = '#111932';
+    ctx.fill();
+    ctx.font = '800 17px Inter, -apple-system, sans-serif';
+    ctx.fillStyle = '#F8FAFC';
+    ctx.fillText(`📊 ${modeLabel.toUpperCase()}`, 76, 254);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#10B981';
+    ctx.fillText('● Dados Oficiais Meta Graph API', W - 76, 254);
+    ctx.textAlign = 'left';
+
+    // GRID DE 6 CARDS GRANDES E FÁCEIS DE LER (2 COLUNAS x 3 LINHAS)
+    const ySame = dailyPulse.yesterdaySameHour;
+    const yFull = dailyPulse.yesterdayFullDay;
+
+    const reportCards = [
+      {
+        title: 'CURTIDAS HOJE',
+        todayVal: fmtPtBr(t.likes),
+        yestActive: fmtPtBr(y.likes),
+        yestSame: fmtPtBr(ySame.likes),
+        yestFull: fmtPtBr(yFull.likes),
+        delta: formatDeltaBadge(t.likes, y.likes),
+        accent: '#FFFFFF',
+        border: '#FF0055'
+      },
+      {
+        title: 'VISUALIZAÇÕES HOJE',
+        todayVal: fmtPtBr(t.views),
+        yestActive: fmtPtBr(y.views),
+        yestSame: fmtPtBr(ySame.views),
+        yestFull: fmtPtBr(yFull.views),
+        delta: formatDeltaBadge(t.views, y.views),
+        accent: '#00F0FF',
+        border: '#00F0FF'
+      },
+      {
+        title: 'COMPARTILHAMENTOS & REPOSTS',
+        todayVal: fmtPtBr(t.reposts),
+        yestActive: fmtPtBr(y.reposts),
+        yestSame: fmtPtBr(ySame.reposts),
+        yestFull: fmtPtBr(yFull.reposts),
+        delta: formatDeltaBadge(t.reposts, y.reposts),
+        accent: '#C084FC',
+        border: '#A855F7'
+      },
+      {
+        title: 'ENVIOS (DIRECT / WHATSAPP)',
+        todayVal: fmtPtBr(t.sends),
+        yestActive: fmtPtBr(y.sends),
+        yestSame: fmtPtBr(ySame.sends),
+        yestFull: fmtPtBr(yFull.sends),
+        delta: formatDeltaBadge(t.sends, y.sends),
+        accent: '#38BDF8',
+        border: '#38BDF8'
+      },
+      {
+        title: 'NOVOS SEGUIDORES HOJE',
+        todayVal: `+${fmtPtBr(t.newFollowers)}`,
+        yestActive: `+${fmtPtBr(y.newFollowers)}`,
+        yestSame: `+${fmtPtBr(ySame.newFollowers)}`,
+        yestFull: `+${fmtPtBr(yFull.newFollowers)}`,
+        delta: formatDeltaBadge(t.newFollowers, y.newFollowers),
+        accent: '#34D399',
+        border: '#10B981'
+      },
+      {
+        title: 'COMENTÁRIOS HOJE',
+        todayVal: fmtPtBr(t.comments),
+        yestActive: fmtPtBr(y.comments),
+        yestSame: fmtPtBr(ySame.comments),
+        yestFull: fmtPtBr(yFull.comments),
+        delta: formatDeltaBadge(t.comments, y.comments),
+        accent: '#FBBF24',
+        border: '#F59E0B'
+      }
+    ];
+
+    const startY = 292;
+    const cardW = (W - 104 - 24) / 2; // 476px cada card
+    const cardH = 186;
+    const gapX = 24;
+    const gapY = 20;
+
+    reportCards.forEach((c, idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      const cx = 52 + col * (cardW + gapX);
+      const cy = startY + row * (cardH + gapY);
+
+      // Card background
+      roundRect(cx, cy, cardW, cardH, 16);
+      ctx.fillStyle = '#080C18';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#1E293B';
+      ctx.stroke();
+
+      // Barra lateral de cor no card
+      roundRect(cx, cy, 8, cardH, 4);
+      ctx.fillStyle = c.border;
+      ctx.fill();
+
+      // Título da métrica
+      ctx.font = '800 16px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = '#CBD5E1';
+      ctx.fillText(c.title, cx + 28, cy + 38);
+
+      // Badge de crescimento (% vs ontem) no canto direito
+      const badgeTxt = c.delta.short;
+      ctx.font = '900 18px Inter, -apple-system, sans-serif';
+      const bWidth = ctx.measureText(badgeTxt).width + 24;
+      roundRect(cx + cardW - bWidth - 20, cy + 16, bWidth, 34, 8);
+      ctx.fillStyle = c.delta.isPos ? '#064E3B' : '#78350F';
+      ctx.fill();
+      ctx.fillStyle = c.delta.isPos ? '#34D399' : '#FBBF24';
+      ctx.textAlign = 'center';
+      ctx.fillText(badgeTxt, cx + cardW - bWidth / 2 - 20, cy + 39);
+      ctx.textAlign = 'left';
+
+      // Número Principal de HOJE (bem grande e legível)
+      ctx.font = '900 48px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = c.accent;
+      ctx.fillText(c.todayVal, cx + 28, cy + 104);
+
+      // Linha divisória interna
+      ctx.beginPath();
+      ctx.moveTo(cx + 28, cy + 126);
+      ctx.lineTo(cx + cardW - 20, cy + 126);
+      ctx.strokeStyle = '#1E293B';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Comparativo direto com ONTEM
+      ctx.font = '700 16px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = '#94A3B8';
+      ctx.fillText('Ontem (Mesmo Horário):', cx + 28, cy + 156);
+      ctx.font = '900 18px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = '#FBBF24';
+      ctx.fillText(c.yestSame, cx + 225, cy + 156);
+
+      ctx.font = '700 15px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = '#64748B';
+      ctx.textAlign = 'right';
+      ctx.fillText(`24h Ontem: ${c.yestFull}`, cx + cardW - 20, cy + 156);
+      ctx.textAlign = 'left';
+    });
+
+    // BLOCO INFERIOR: GRÁFICO DE LINHA HOJE VS ONTEM (EVOLUÇÃO DO DIA)
+    const chartBoxY = 910;
+    const chartBoxH = 275;
+    roundRect(52, chartBoxY, W - 104, chartBoxH, 16);
+    ctx.fillStyle = '#080C18';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#1E293B';
+    ctx.stroke();
+
+    ctx.font = '900 18px Inter, -apple-system, sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('CURVA DE EVOLUÇÃO HORA A HORA — VISUALIZAÇÕES (HOJE VS. ONTEM)', 80, chartBoxY + 36);
+
+    // Legenda Hoje vs Ontem
+    ctx.font = '800 15px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#00F0FF';
+    ctx.fillText(`● Hoje: ${fmtPtBr(t.views)}`, W - 240, chartBoxY + 36);
+    ctx.fillStyle = '#F59E0B';
+    ctx.fillText(`● Ontem: ${fmtPtBr(y.views)}`, W - 80, chartBoxY + 36);
+    ctx.textAlign = 'left';
+
+    // Desenho das duas linhas (Hoje vs Ontem)
+    const vCfg = hourlyCurves.views;
+    const ptsCount = 7;
+    const sYest = vCfg.yesterday.slice(0, ptsCount);
+    const sToday = vCfg.today.slice(0, ptsCount);
+    const maxV = Math.max(...sYest, ...sToday, 1) * 1.18;
+
+    const pLeft = 100;
+    const pRight = 90;
+    const pTop = chartBoxY + 65;
+    const pBot = chartBoxY + chartBoxH - 42;
+    const pW = W - pLeft - pRight;
+    const pH = pBot - pTop;
+
+    const gx = (i) => pLeft + (i / (ptsCount - 1)) * pW;
+    const gy = (val) => pTop + pH - (val / maxV) * pH;
+
+    // Linhas de grade horizontais
+    [0.33, 0.66, 1].forEach((p) => {
+      const yLine = pTop + pH * (1 - p);
+      ctx.beginPath();
+      ctx.moveTo(pLeft, yLine);
+      ctx.lineTo(W - pRight, yLine);
+      ctx.strokeStyle = '#1E293B';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    // Linha de Ontem (tracejada âmbar)
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash([8, 6]);
+    sYest.forEach((v, i) => {
+      if (i === 0) ctx.moveTo(gx(i), gy(v));
+      else ctx.lineTo(gx(i), gy(v));
+    });
+    ctx.strokeStyle = '#F59E0B';
+    ctx.lineWidth = 3.5;
+    ctx.stroke();
+    ctx.restore();
+
+    // Linha de Hoje (sólida ciano)
+    ctx.beginPath();
+    sToday.forEach((v, i) => {
+      if (i === 0) ctx.moveTo(gx(i), gy(v));
+      else ctx.lineTo(gx(i), gy(v));
+    });
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 4.5;
+    ctx.stroke();
+
+    // Pontos e horários no eixo X
+    hourlyCurves.hours.slice(0, ptsCount).forEach((hLbl, i) => {
+      const xPos = gx(i);
+      const yTod = gy(sToday[i]);
+      const yYes = gy(sYest[i]);
+
+      // Ponto Ontem
+      ctx.beginPath();
+      ctx.arc(xPos, yYes, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#F59E0B';
+      ctx.fill();
+
+      // Ponto Hoje
+      ctx.beginPath();
+      ctx.arc(xPos, yTod, i === ptsCount - 1 ? 7 : 5.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#00F0FF';
+      ctx.fill();
+
+      // Rótulo do eixo X
+      ctx.font = '800 14px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = i === ptsCount - 1 ? '#00F0FF' : '#94A3B8';
+      ctx.textAlign = 'center';
+      ctx.fillText(i === ptsCount - 1 ? `${hLbl} (Agora)` : hLbl, xPos, chartBoxY + chartBoxH - 14);
+    });
+    ctx.textAlign = 'left';
+
+    // Rodapé institucional
+    ctx.font = '700 15px Inter, -apple-system, sans-serif';
+    ctx.fillStyle = '#64748B';
+    ctx.fillText(
+      `Portal NG Brasil • Meta Comercial: ${fmtPtBr(followersCount)} / 200.000 seguidores (${String(pctTo200k).replace('.', ',')}%)`,
+      52,
+      H - 42
+    );
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#94A3B8';
+    ctx.fillText('portalngbrasil.com.br', W - 52, H - 42);
+    ctx.textAlign = 'left';
+
+    const dataUrl = canvas.toDataURL('image/png');
+    setShareImgUrl(dataUrl);
+    setShareModalOpen(true);
+
+    canvas.toBlob(async (blob) => {
+      setShareImgBlob(blob);
+      setIsGeneratingImg(false);
+      // Tenta copiar automaticamente para a área de transferência para facilitar o Ctrl+V no WhatsApp
+      if (blob && navigator.clipboard && window.ClipboardItem) {
+        try {
+          await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]);
+          setCopyImgStatus('✓ Imagem já copiada! Basta dar Ctrl+V (ou Cmd+V) no WhatsApp.');
+        } catch (_) {
+          // Caso o navegador exija clique explícito no modal
+        }
+      }
+    }, 'image/png');
+  };
+
+  const handleCopyShareImage = async () => {
+    if (!shareImgBlob) return;
+    try {
+      await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': shareImgBlob })]);
+      setCopyImgStatus('✓ Imagem copiada! Cole (Ctrl+V / Cmd+V) direto no WhatsApp.');
+    } catch (_) {
+      setCopyImgStatus('Use o botão "Baixar Imagem" abaixo para enviar.');
+    }
+  };
+
+  const handleDownloadShareImage = () => {
+    if (!shareImgUrl) return;
+    const a = document.createElement('a');
+    const dateSlug = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    a.href = shareImgUrl;
+    a.download = `Relatorio_Portal_NG_Brasil_${dateSlug}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleNativeShareImage = async () => {
+    if (!shareImgBlob) return;
+    const dateSlug = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    const file = new File([shareImgBlob], `Relatorio_Portal_NG_Brasil_${dateSlug}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: 'Relatório Diário — Portal NG Brasil',
+          text: `Desempenho de Hoje vs. Ontem (@portalngbrasil) — ${new Date().toLocaleDateString('pt-BR')}`,
+          files: [file]
+        });
+      } catch (_) {}
+    } else {
+      handleDownloadShareImage();
+    }
+  };
+
   const remTo200k = Math.max(0, 200000 - followersCount);
   const pctTo200k = Math.min(100, Number(((followersCount / 200000) * 100).toFixed(1)));
   const totalInteractionsCount = totalLikesCount + totalCommentsCount;
@@ -598,24 +998,36 @@ export default function AnalyticsDashboard() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
           {/* LADO ESQUERDO (7 COLUNAS): VISUALIZADOR DE HOJE ABERTO NAS 5 MÉTRICAS + FEED AO VIVO */}
           <div className="xl:col-span-7 bg-gradient-to-br from-[#0F172E] via-[#0D1326] to-[#17112B] border border-[#00F0FF]/35 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/90 pb-3.5">
-              <div className="min-w-0">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF0055]/20 border border-[#FF0055]/40 text-[#FF0055] text-[10px] font-extrabold uppercase tracking-wider mb-1 whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF0055] animate-ping"></span>
-                  RADAR DE HOJE AO VIVO • {todayDateStr}
+            <div className="flex flex-col gap-3 border-b border-slate-800/90 pb-3.5">
+              <div className="flex flex-wrap items-start justify-between gap-2.5">
+                <div className="min-w-0">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF0055]/20 border border-[#FF0055]/40 text-[#FF0055] text-[10px] font-extrabold uppercase tracking-wider mb-1 whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#FF0055] animate-ping"></span>
+                    RADAR DE HOJE AO VIVO • {todayDateStr}
+                  </div>
+                  <h2 className="text-base sm:text-lg font-black text-white leading-tight">
+                    Desempenho de Hoje em Tempo Real
+                  </h2>
+                  <div className="text-xs font-extrabold text-[#00F0FF] mt-0.5">
+                    ({t.posts} publicações hoje)
+                  </div>
                 </div>
-                <h2 className="text-base sm:text-lg font-black text-white leading-tight whitespace-nowrap">
-                  Desempenho de Hoje em Tempo Real
-                </h2>
-                <div className="text-xs font-extrabold text-[#00F0FF] mt-0.5">
-                  ({t.posts} publicações hoje)
-                </div>
+
+                {/* Botão Compartilhar (Gera Imagem Atualizada dos Insights de Hoje + Comparativo com Ontem) */}
+                <button
+                  onClick={generateAndOpenShareImage}
+                  disabled={isGeneratingImg}
+                  className="px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-lg shadow-emerald-500/20 cursor-pointer transition-all inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                >
+                  <span>📤</span>
+                  {isGeneratingImg ? 'Gerando Imagem...' : 'Compartilhar'}
+                </button>
               </div>
 
-              <div className="flex items-center gap-1 bg-[#070A14] p-1 rounded-xl border border-slate-800 shrink-0 self-start sm:self-center">
+              <div className="flex items-center gap-1 bg-[#070A14] p-1 rounded-xl border border-slate-800 self-start">
                 <button
                   onClick={() => setCompareMode('same_hour')}
-                  className={`px-2.5 py-1.5 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
+                  className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
                     compareMode === 'same_hour' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
                   }`}
                 >
@@ -623,7 +1035,7 @@ export default function AnalyticsDashboard() {
                 </button>
                 <button
                   onClick={() => setCompareMode('full_day')}
-                  className={`px-2.5 py-1.5 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
+                  className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
                     compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
                   }`}
                 >
@@ -632,14 +1044,14 @@ export default function AnalyticsDashboard() {
               </div>
             </div>
 
-            {/* 5 CARDS ABERTOS DE HOJE */}
+            {/* 5 CARDS ABERTOS DE HOJE (Sem cortes de texto e sem vazamento de badges) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
               {[
-                { key: 'likes', title: 'Curtidas', icon: '❤️', iconBg: 'bg-[#FF0055]/15 text-[#FF0055]', val: t.likes, yestVal: y.likes, valColor: 'text-white', hoverBorder: 'hover:border-[#FF0055]' },
-                { key: 'views', title: 'Visualizações', icon: '👁️', iconBg: 'bg-[#00F0FF]/15 text-[#00F0FF]', val: t.views, yestVal: y.views, valColor: 'text-[#00F0FF]', hoverBorder: 'hover:border-[#00F0FF]' },
-                { key: 'reposts', title: 'Reposts', icon: '🔁', iconBg: 'bg-purple-500/15 text-purple-400', val: t.reposts, yestVal: y.reposts, valColor: 'text-purple-400', hoverBorder: 'hover:border-purple-500' },
-                { key: 'sends', title: 'Envios Direct', icon: '✈️', iconBg: 'bg-sky-500/15 text-sky-400', val: t.sends, yestVal: y.sends, valColor: 'text-sky-400', hoverBorder: 'hover:border-sky-400' },
-                { key: 'newFollowers', title: 'Seguidores', icon: '👤+', iconBg: 'bg-emerald-500/20 text-emerald-400', val: t.newFollowers, yestVal: y.newFollowers, valColor: 'text-emerald-400', hoverBorder: 'hover:border-emerald-400', isPlus: true }
+                { key: 'likes', title: 'Curtidas', icon: '❤️', val: t.likes, yestVal: y.likes, valColor: 'text-white', hoverBorder: 'hover:border-[#FF0055]' },
+                { key: 'views', title: 'Visualizações', icon: '👁️', val: t.views, yestVal: y.views, valColor: 'text-[#00F0FF]', hoverBorder: 'hover:border-[#00F0FF]' },
+                { key: 'reposts', title: 'Reposts', icon: '🔁', val: t.reposts, yestVal: y.reposts, valColor: 'text-purple-400', hoverBorder: 'hover:border-purple-500' },
+                { key: 'sends', title: 'Envios Direct', icon: '✈️', val: t.sends, yestVal: y.sends, valColor: 'text-sky-400', hoverBorder: 'hover:border-sky-400' },
+                { key: 'newFollowers', title: 'Seguidores', icon: '👤+', val: t.newFollowers, yestVal: y.newFollowers, valColor: 'text-emerald-400', hoverBorder: 'hover:border-emerald-400', isPlus: true }
               ].map((card) => {
                 const d = formatDeltaBadge(card.val, card.yestVal);
                 const isSelected = activeLineMetric === card.key;
@@ -647,21 +1059,23 @@ export default function AnalyticsDashboard() {
                   <div
                     key={card.key}
                     onClick={() => setActiveLineMetric(card.key)}
-                    className={`bg-[#080C18]/95 border ${isSelected ? 'border-[#00F0FF] ring-1 ring-[#00F0FF]/30' : 'border-slate-800'} ${card.hoverBorder} rounded-xl p-2.5 flex flex-col justify-between transition-all cursor-pointer min-w-0`}
+                    className={`bg-[#080C18]/95 border ${isSelected ? 'border-[#00F0FF] ring-1 ring-[#00F0FF]/30' : 'border-slate-800'} ${card.hoverBorder} rounded-xl p-2.5 flex flex-col justify-between transition-all cursor-pointer min-w-0 overflow-hidden`}
                   >
                     <div>
-                      <div className="flex items-center justify-between gap-1 mb-1.5">
-                        <span className={`w-5 h-5 rounded-md ${card.iconBg} flex items-center justify-center text-[11px] shrink-0`}>{card.icon}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-black whitespace-nowrap ${d.isPos ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="text-xs leading-none shrink-0">{card.icon}</span>
+                        <span className={`px-1 py-0.5 rounded text-[9px] font-black leading-none whitespace-nowrap ${d.isPos ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
                           {d.short}
                         </span>
                       </div>
-                      <div className="text-[10px] font-extrabold text-slate-300 uppercase tracking-tight whitespace-nowrap truncate">{card.title}</div>
-                      <div className={`text-base sm:text-lg 2xl:text-xl font-black tracking-tight mt-0.5 whitespace-nowrap ${card.valColor}`}>
+                      <div className="text-[9.5px] font-extrabold text-slate-300 uppercase tracking-tighter leading-tight whitespace-nowrap">
+                        {card.title}
+                      </div>
+                      <div className={`text-base sm:text-lg font-black tracking-tight mt-0.5 whitespace-nowrap ${card.valColor}`}>
                         {card.isPlus ? `+${fmtPtBr(card.val)}` : fmtPtBr(card.val)}
                       </div>
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between gap-1 whitespace-nowrap">
+                    <div className="text-[9.5px] text-slate-400 mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between gap-1 whitespace-nowrap">
                       <span>Ontem:</span>
                       <strong className="text-amber-300 font-bold">
                         {card.isPlus ? `+${fmtPtBr(card.yestVal)}` : fmtPtBr(card.yestVal)}
@@ -1237,6 +1651,73 @@ export default function AnalyticsDashboard() {
           </div>
         )}
       </div>
+
+      {/* MODAL DE COMPARTILHAMENTO DA IMAGEM DIÁRIA (HOJE vs. ONTEM) */}
+      {shareModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShareModalOpen(false)}
+        >
+          <div
+            className="bg-[#0D1326] border border-slate-700 rounded-2xl max-w-xl w-full p-5 shadow-2xl space-y-4 max-h-[92vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-black text-white">
+                  📤 Relatório Diário em Imagem (Hoje vs. Ontem)
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Imagem pronta com os dados atualizados para enviar no WhatsApp da diretoria
+                </p>
+              </div>
+              <button
+                onClick={() => setShareModalOpen(false)}
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {copyImgStatus && (
+              <div className="px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-center">
+                {copyImgStatus}
+              </div>
+            )}
+
+            <div className="overflow-y-auto flex-1 bg-[#070B16] border border-slate-800 rounded-xl p-2 flex justify-center">
+              {shareImgUrl && (
+                <img
+                  src={shareImgUrl}
+                  alt="Relatório Diário Portal NG Brasil"
+                  className="max-h-[58vh] w-auto object-contain rounded-lg shadow-lg"
+                />
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <button
+                onClick={handleCopyShareImage}
+                className="py-2.5 px-4 rounded-xl bg-[#00F0FF] hover:bg-[#33f3ff] text-slate-950 font-black text-xs cursor-pointer transition-all flex items-center justify-center gap-1.5"
+              >
+                📋 Copiar Imagem (Ctrl+V)
+              </button>
+              <button
+                onClick={handleDownloadShareImage}
+                className="py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs cursor-pointer transition-all flex items-center justify-center gap-1.5"
+              >
+                ⬇ Baixar Imagem PNG
+              </button>
+              <button
+                onClick={handleNativeShareImage}
+                className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer transition-all flex items-center justify-center gap-1.5"
+              >
+                📲 Compartilhar Direto
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
