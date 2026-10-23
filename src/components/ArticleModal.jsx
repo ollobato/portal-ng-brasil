@@ -133,8 +133,8 @@ export default function ArticleModal({
               <div className="flex items-center gap-3">
                 <img src={article.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'} alt={article.author?.name || 'Redação'} className="w-10 h-10 rounded-full object-cover border border-slate-200" />
                 <div>
-                  <span className="font-bold text-slate-900 block">{article.author.name}</span>
-                  <span className="text-slate-500 text-xs">{article.author.role}</span>
+                  <span className="font-bold text-slate-900 block">{article.author?.name || (typeof article.author === 'string' ? article.author : 'Redação Portal NG')}</span>
+                  <span className="text-slate-500 text-xs">{article.author?.role || 'Jornalismo'}</span>
                 </div>
               </div>
 

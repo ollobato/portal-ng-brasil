@@ -30,7 +30,7 @@ export default function Footer({ setActiveCategory, setSelectedPraca }) {
             </div>
 
             <p className="text-sm text-slate-400 max-w-md leading-relaxed font-medium">
-              O Portal NG Brasil é um veículo independente de jornalismo digital dedicado a cobrir de forma ágil e inteligente as notícias sobre **Brasil, Policial, Política, Saúde, Tecnologia, Turismo e Entretenimento**.
+              O Portal NG Brasil é um veículo independente dedicado a trazer informações completas, de forma ágil e inteligente, sobre os principais fatos do Brasil e do mundo.
             </p>
 
             <div className="flex items-center gap-4 text-xs font-bold text-[#d40a38]">
@@ -137,7 +137,14 @@ export default function Footer({ setActiveCategory, setSelectedPraca }) {
 
         {/* Bottom Footer Row */}
         <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-500">
-          <p>© {new Date().getFullYear()} Portal NG Brasil (Notícias Gerais). Todos os direitos reservados.</p>
+          <div className="flex flex-col items-center sm:items-start gap-1">
+            <p>© {new Date().getFullYear()} Portal NG Brasil (Notícias Gerais). Todos os direitos reservados.</p>
+            <div className="flex items-center gap-3 mt-1">
+              <a href="/termos" className="hover:text-slate-300 transition-colors">Termos de Serviço</a>
+              <span>•</span>
+              <a href="/privacidade" className="hover:text-slate-300 transition-colors">Política de Privacidade</a>
+            </div>
+          </div>
           
           <div className="flex items-center gap-4">
             <a 

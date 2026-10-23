@@ -3,7 +3,8 @@ import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
 import { doc, updateDoc, increment } from 'firebase/firestore';
-import { useFirebaseSync, migrateLocalStorageToFirebase } from './hooks/useFirebaseSync';
+import { useFirebaseSync, useFirebaseDoc, migrateLocalStorageToFirebase } from './hooks/useFirebaseSync';
+import { serverTimestamp, setDoc } from 'firebase/firestore';
 import TickerBar from './components/TickerBar';
 import Header from './components/Header';
 import HeroSection from './components/HeroSection';
@@ -16,7 +17,11 @@ import NewsletterModal from './components/NewsletterModal';
 import Footer from './components/Footer';
 import Login from './components/Login';
 import AdminDashboard from './components/AdminDashboard';
-import WeatherMapWidget from './components/WeatherMapWidget';
+import TermsOfService from './components/TermsOfService';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import LinksPage from './components/LinksPage';
+import ApprovalPage from './components/ApprovalPage';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
 
 import { 
   initialNews, 
@@ -50,7 +55,7 @@ export default function App() {
         // On successful login, trigger migration if needed
         migrateLocalStorageToFirebase();
       } else {
-        // setIsLoggedIn(false);
+        setIsLoggedIn(false);
       }
       setIsAuthLoading(false);
     });
@@ -60,6 +65,11 @@ export default function App() {
   // Sync News & Banners with Firebase
   const [newsDataRaw, setNewsData, isNewsLoading] = useFirebaseSync('news', initialNews);
   const [banners, setBanners, isBannersLoading] = useFirebaseSync('banners', [{ id: Date.now(), active: false, image: '', link: '' }]);
+  const [siteSettings] = useFirebaseDoc('settings', 'global', {
+    siteSlogan: localStorage.getItem('portal_ng_site_slogan') || 'As notícias que impactam o país e o mundo.',
+    siteName: localStorage.getItem('portal_ng_site_name') || 'Portal NG Brasil'
+  });
+  const currentSlogan = siteSettings?.siteSlogan || localStorage.getItem('portal_ng_site_slogan') || 'As notícias que impactam o país e o mundo.';
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
 
   const activeBanners = banners.filter(b => b.active && b.image);
@@ -72,11 +82,29 @@ export default function App() {
     return () => clearInterval(interval);
   }, [activeBanners.length]);
 
-  // Apply fallback formatting (legacy logic)
-  const newsData = newsDataRaw.map(item => ({
-    ...item,
-    praca: typeof item.praca === 'string' ? item.praca.replace(/^Praça\s+/i, '') : item.praca,
-  })).sort((a, b) => {
+  // Apply fallback formatting (legacy logic) and normalize author
+  const newsData = newsDataRaw.map(item => {
+    let author = item.author;
+    if (!author || typeof author !== 'object') {
+      author = {
+        name: typeof author === 'string' && author ? author : 'Redação Portal NG',
+        role: 'Jornalismo',
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'
+      };
+    } else {
+      author = {
+        name: author.name || 'Redação Portal NG',
+        role: author.role || 'Jornalismo',
+        avatar: author.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'
+      };
+    }
+
+    return {
+      ...item,
+      author,
+      praca: typeof item.praca === 'string' ? item.praca.replace(/^Praça\s+/i, '') : (item.praca || 'Nacional'),
+    };
+  }).sort((a, b) => {
     const getTimestamp = (id) => {
       if (typeof id === 'number') return id;
       if (typeof id === 'string') {
@@ -94,7 +122,20 @@ export default function App() {
   const location = useLocation();
   const isAdminView = location.pathname.startsWith("/painel") && location.pathname !== "/painel/login";
   const isLoginView = location.pathname === "/painel/login";
-  
+  const isTermsView = location.pathname === "/termos";
+  const isPrivacyView = location.pathname === "/privacidade";
+  const isLinksView = location.pathname === "/links" || location.pathname === "/bio";
+  const isMediaKitView = location.pathname === "/midia-kit" ||
+                         location.pathname === "/midiakit" ||
+                         location.pathname === "/insights" ||
+                         new URLSearchParams(location.search).has('midiakit') ||
+                         location.hash.includes('midia-kit') ||
+                         location.hash.includes('insights');
+  const isApprovalView = location.pathname.startsWith("/aprovacao") || 
+                         location.pathname.startsWith("/revisao") || 
+                         location.pathname.startsWith("/aprovar") ||
+                         new URLSearchParams(location.search).has('aprovacao') ||
+                         location.hash.includes('aprovacao');
 
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedPraca, setSelectedPraca] = useState('Todas');
@@ -104,25 +145,62 @@ export default function App() {
   // Sync URL with selected article for unique links
   useEffect(() => {
     let materiaId = new URLSearchParams(location.search).get('materia');
+    const pathParts = location.pathname.split('/');
+    const lastPart = pathParts[pathParts.length - 1];
 
-    if (!materiaId) {
-      const pathParts = location.pathname.split('/');
-      const lastPart = pathParts[pathParts.length - 1];
-      if (lastPart && lastPart.includes('-news-')) {
-        const parts = lastPart.split('-');
-        materiaId = parts.slice(-2).join('-');
+    if (!materiaId && lastPart) {
+      if (lastPart.includes('-news-')) {
+        materiaId = 'news-' + lastPart.split('-news-').pop();
+      } else if (lastPart.startsWith('news-')) {
+        materiaId = lastPart;
       }
     }
     
-    if (materiaId && !isNewsLoading) {
-      const found = newsData.find(n => String(n.id) === String(materiaId));
+    if (!isNewsLoading) {
+      let found = null;
+      if (materiaId) {
+        found = newsData.find(n => String(n.id) === String(materiaId));
+      }
+      
+      // Fallback infalível: procura qualquer artigo cujo ID seja exatamente o final da URL
+      if (!found && lastPart) {
+        found = newsData.find(n => lastPart === String(n.id) || lastPart.endsWith(`-${String(n.id)}`));
+      }
+
       if (found) {
         setSelectedArticle(found);
+      } else if (selectedArticle) {
+        setSelectedArticle(null);
       }
-    } else if (!materiaId && selectedArticle) {
-      setSelectedArticle(null);
     }
   }, [newsData, isNewsLoading, location.pathname, location.search]);
+
+  // Real-time Presence Tracking
+  useEffect(() => {
+    if (isAdminView) return; // Don't track admin panel views
+    
+    let sessionId = sessionStorage.getItem('ng_session');
+    if (!sessionId) {
+      sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+      sessionStorage.setItem('ng_session', sessionId);
+    }
+
+    const updatePresence = async () => {
+      try {
+        await setDoc(doc(db, 'active_sessions', sessionId), {
+          last_active: serverTimestamp(),
+          path: location.pathname
+        });
+      } catch (err) {
+        // ignore errors silently
+      }
+    };
+
+    updatePresence();
+    const interval = setInterval(updatePresence, 30000); // update every 30s
+
+    return () => clearInterval(interval);
+  }, [location.pathname, isAdminView]);
 
   // Handle opening an article and updating the URL
   const handleOpenArticle = async (article) => {
@@ -165,7 +243,7 @@ export default function App() {
     const baseUrl = 'https://portalngbrasil.com.br';
     
     // Configurações base de Título
-    let currentTitle = 'Portal NG Brasil | Notícias em Política, Turismo e Entretenimento';
+    let currentTitle = `Portal NG Brasil | ${currentSlogan}`;
     if (isAdminView) {
       currentTitle = 'Painel Admin | Portal NG Brasil';
     } else if (selectedArticle) {
@@ -215,11 +293,11 @@ export default function App() {
 
     // Regras de Indexação Genéricas
     setMeta('robots', 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1');
-    setMeta('description', selectedArticle ? (selectedArticle.subtitle || selectedArticle.title) : "Portal NG Brasil - O principal veículo de jornalismo digital independente.");
+    setMeta('description', selectedArticle ? (selectedArticle.subtitle || selectedArticle.title) : `Portal NG Brasil - ${currentSlogan}`);
 
     // Open Graph (Facebook, WhatsApp, LinkedIn)
     setMeta('og:title', currentTitle, 'property');
-    setMeta('og:description', selectedArticle ? selectedArticle.subtitle : "Jornalismo independente.", 'property');
+    setMeta('og:description', selectedArticle ? selectedArticle.subtitle : currentSlogan, 'property');
     setMeta('og:url', currentUrl, 'property');
     setMeta('og:type', selectedArticle ? 'article' : 'website', 'property');
     setMeta('og:site_name', 'Portal NG Brasil', 'property');
@@ -229,7 +307,7 @@ export default function App() {
     // Twitter Cards
     setMeta('twitter:card', 'summary_large_image', 'property');
     setMeta('twitter:title', currentTitle, 'property');
-    setMeta('twitter:description', selectedArticle ? selectedArticle.subtitle : "Portal NG Brasil", 'property');
+    setMeta('twitter:description', selectedArticle ? selectedArticle.subtitle : currentSlogan, 'property');
     if (selectedArticle?.image) setMeta('twitter:image', selectedArticle.image, 'property');
 
     // Schema.org (Dados Estruturados para Rich Snippets no Google Notícias)
@@ -306,7 +384,7 @@ export default function App() {
     return matchesCategory && matchesPraca && matchesSearch;
   });
 
-  const featuredNews = filteredNews.find(n => n.isFeatured) || filteredNews[0];
+  const featuredNews = filteredNews[0];
   const trendingNews = filteredNews.filter(n => n.id !== featuredNews?.id);
 
   const policialArticles = filteredNews.filter(n => n.category === 'policial');
@@ -359,6 +437,68 @@ export default function App() {
     );
   }
 
+  // Página de Aprovação de Matéria (Prévia & Redes Sociais)
+  if (isApprovalView) {
+    return <ApprovalPage onNavigateHome={() => navigate('/')} />;
+  }
+
+  // Página de Links (Linktree / Bio)
+  if (isLinksView) {
+    return <LinksPage />;
+  }
+
+  // Dashboard Comercial & Mídia Kit Ao Vivo (Instagram Graph API)
+  if (isMediaKitView) {
+    return <AnalyticsDashboard isPublicMediaKit={true} onNavigateHome={() => navigate('/')} />;
+  }
+
+  // Seção Institucional: Termos de Serviço e Privacidade
+  if (isTermsView || isPrivacyView) {
+    return (
+      <div className="min-h-screen flex flex-col bg-white text-slate-900 transition-colors duration-300">
+        <TickerBar 
+          tickerItems={tickerItems}
+          weatherCities={weatherCities}
+          currencyRates={currencyRates}
+          savedCount={savedArticleIds.length}
+          dailyViews={displayDailyViews}
+          onOpenSavedModal={() => setIsSavedModalOpen(true)}
+          fontSize={fontSize}
+          setFontSize={setFontSize}
+        />
+        <Header 
+          activeCategory={activeCategory}
+          setActiveCategory={(cat) => {
+            setActiveCategory(cat);
+            navigate(cat === "all" ? "/" : `/${cat}`);
+          }}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onOpenNewsletter={() => setIsNewsletterOpen(true)}
+          selectedPraca={selectedPraca}
+          setSelectedPraca={setSelectedPraca}
+          onNavigateLogin={() => navigate("/painel/login")}
+          slogan={currentSlogan}
+          onGoHome={() => {
+            setSelectedArticle(null);
+            navigate("/");
+          }}
+        />
+        <main className="flex-1 w-full bg-slate-50">
+          {isTermsView && <TermsOfService />}
+          {isPrivacyView && <PrivacyPolicy />}
+        </main>
+        <Footer 
+          setActiveCategory={(cat) => {
+            setActiveCategory(cat);
+            navigate(cat === "all" ? "/" : `/${cat}`);
+          }}
+          setSelectedPraca={setSelectedPraca}
+        />
+      </div>
+    );
+  }
+
   // --- PORTAL PÚBLICO ---
   return (
     <div className="min-h-screen flex flex-col bg-white text-slate-900 transition-colors duration-300">
@@ -388,20 +528,25 @@ export default function App() {
         selectedPraca={selectedPraca}
         setSelectedPraca={setSelectedPraca}
         onNavigateLogin={() => navigate("/painel/login")}
+        slogan={currentSlogan}
+        onGoHome={() => {
+          setSelectedArticle(null);
+          navigate("/");
+        }}
       />
 
       {/* Ad Space (Sponsor placeholder or Actual Banners) */}
-      <div className="w-full bg-slate-50 border-b border-slate-200 py-4 px-4 flex flex-col items-center gap-4 overflow-hidden relative">
+      <div className="w-full border-b border-slate-200 relative overflow-hidden">
         {activeBanners.length > 0 ? (
-          <div className="w-full max-w-7xl relative">
+          <div className="w-full relative">
             <div className="flex transition-transform duration-700 ease-in-out w-full" style={{ transform: `translateX(-${activeBannerIndex * 100}%)` }}>
               {activeBanners.map((banner, index) => (
-                <div key={banner.id || index} className="w-full shrink-0 flex justify-center px-2">
+                <div key={banner.id || index} className="w-full shrink-0 flex justify-center">
                   <a 
                     href={banner.link || "#"} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="w-full h-[90px] md:h-[120px] rounded-xl flex items-center justify-center overflow-hidden hover:opacity-90 transition-opacity"
+                    className="w-full h-[120px] md:h-[180px] lg:h-[220px] flex items-center justify-center overflow-hidden hover:opacity-95 transition-opacity"
                     title="Clique para saber mais"
                   >
                     <img 
@@ -415,12 +560,12 @@ export default function App() {
             </div>
             {/* Dots */}
             {activeBanners.length > 1 && (
-              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
                 {activeBanners.map((_, i) => (
                   <button 
                     key={i} 
                     onClick={() => setActiveBannerIndex(i)}
-                    className={`w-2 h-2 rounded-full transition-colors ${i === activeBannerIndex ? "bg-[#006644]" : "bg-slate-300"}`}
+                    className={`w-2 h-2 rounded-full transition-colors ${i === activeBannerIndex ? "bg-white scale-125" : "bg-white/50"}`}
                   />
                 ))}
               </div>
@@ -428,11 +573,11 @@ export default function App() {
           </div>
         ) : (
           <div 
-            className="w-full max-w-7xl h-[90px] md:h-[120px] bg-slate-200 border-2 border-slate-300 border-dashed rounded-xl flex items-center justify-center overflow-hidden relative group cursor-pointer hover:bg-slate-300 transition-colors"
+            className="w-full h-[120px] md:h-[180px] lg:h-[220px] bg-slate-100 flex items-center justify-center overflow-hidden relative group cursor-pointer hover:bg-slate-200 transition-colors"
             title="Espaço para Banner"
           >
             <div className="text-slate-400 font-bold uppercase tracking-widest text-xs opacity-50 group-hover:opacity-80 transition-opacity">
-              Banner 728x90
+              Banner Publicitário
             </div>
           </div>
         )}
@@ -488,12 +633,6 @@ export default function App() {
                   />
                 )}
 
-                {/* Weather Map Widget */}
-                {activeCategory === 'all' && searchQuery === '' && selectedPraca === 'Todas' && (
-                  <div className="my-8">
-                    <WeatherMapWidget />
-                  </div>
-                )}
 
                 {/* Interactive Reader Poll */}
                 {activeCategory === 'all' && searchQuery === '' && (

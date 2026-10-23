@@ -1,14 +1,20 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { Download, Copy, Share2, Image as ImageIcon, Sparkles, Check, RefreshCw, Upload, Send } from 'lucide-react';
 import { formatInstagramCaption, formatWhatsAppMessage, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
+import { uploadImageForSocial } from '../utils/imageUploader';
+import { safeLoadImageForCanvas } from '../utils/imageLoader';
 
-export default function SocialPostGenerator({showToast,  article, onClose, inline = false, metaToken, metaFbPageId, metaIgAccountId, imgbbKey }) {
+const SocialPostGenerator = forwardRef(({showToast,  article, onClose, inline = false, metaToken, metaFbPageId, metaIgAccountId, imgbbKey, hideButtons = false, onPostSuccess }, ref) => {
   const canvasRef = useRef(null);
   
   const [aspectRatio, setAspectRatio] = useState('4:5'); 
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [postStatus, setPostStatus] = useState('');
+  
+  const [useTwoPhotos, setUseTwoPhotos] = useState(false);
+  const [secondImageUrl, setSecondImageUrl] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const formatText = (text) => {
     if (!text) return '';
@@ -27,8 +33,8 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
 
   const getInitialImage = (art) => {
     const img = art?.image;
-    if (!img || img.includes('1504711434969-e33886168f5c')) {
-      return `https://image.pollinations.ai/prompt/${encodeURIComponent("News photo about " + (art?.title || 'brasil news') + ", realistic, high quality")}?width=1200&height=1440&nologo=true`;
+    if (!img || img.includes('pollinations.ai')) {
+      return '';
     }
     return img;
   };
@@ -45,16 +51,16 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
   }, [article]);
 
   useEffect(() => {
-    setCaptionText(formatInstagramCaption({ title, subtitle, category, praca: article?.praca }));
+    setCaptionText(formatInstagramCaption({ title, subtitle, category, praca: article?.praca, id: article?.id, content: article?.content }));
   }, [title, subtitle, category, article]);
 
-  const renderCanvas = () => {
+  const renderCanvas = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
     const width = 1080;
-    const height = aspectRatio === '1:1' ? 1080 : 1440;
+    const height = aspectRatio === '1:1' ? 1080 : aspectRatio === '9:16' ? 1920 : 1440;
     canvas.width = width;
     canvas.height = height;
 
@@ -62,42 +68,85 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
     ctx.fillStyle = '#040f1d';
     ctx.fillRect(0, 0, width, height);
 
-    // Draw main news image
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = imageUrl;
+    const [img1, img2] = await Promise.all([
+      safeLoadImageForCanvas(imageUrl),
+      useTwoPhotos ? safeLoadImageForCanvas(secondImageUrl) : Promise.resolve(null)
+    ]);
 
-    img.onload = () => {
-      drawCanvas(ctx, img, width, height);
-    };
-
-    img.onerror = () => {
-      // If error, just draw without image
-      drawCanvas(ctx, null, width, height);
-    };
+    if (canvasRef.current === canvas) {
+      await drawCanvas(ctx, img1, width, height, img2);
+    }
   };
 
-  const drawCanvas = (ctx, img, width, height) => {
-      // 1. Draw image at top
-      if (img) {
-         const scale = Math.max(width / img.width, height / img.height);
-         const x = (width / 2) - (img.width / 2) * scale;
-         const y = 0;
-         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+  const drawCanvas = async (ctx, img, width, height, img2) => {
+      const targetHeight = height * 0.58;
+
+      if (!useTwoPhotos || !img2) {
+          // 1. Draw single image at top
+          if (img) {
+             const scale = Math.max(width / img.width, targetHeight / img.height);
+             const x = (width / 2) - (img.width / 2) * scale;
+             const y = (targetHeight / 2) - (img.height / 2) * scale;
+             ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+             // Gradiente sutil
+             const grad = ctx.createLinearGradient(0, targetHeight - 160, 0, targetHeight);
+             grad.addColorStop(0, 'rgba(0, 23, 46, 0)');
+             grad.addColorStop(1, '#00172e');
+             ctx.fillStyle = grad;
+             ctx.fillRect(0, targetHeight - 160, width, 160);
+          } else {
+             ctx.fillStyle = '#020617';
+             ctx.fillRect(0, 0, width, targetHeight);
+          }
       } else {
-         ctx.fillStyle = '#1e293b';
-         ctx.fillRect(0, 0, width, height);
+          // 2. Draw two images side-by-side
+          const halfWidth = width / 2;
+          
+          if (img) {
+             const scale1 = Math.max(halfWidth / img.width, targetHeight / img.height);
+             const w1 = img.width * scale1;
+             const h1 = img.height * scale1;
+             const x1 = (halfWidth / 2) - (w1 / 2);
+             const y1 = (targetHeight / 2) - (h1 / 2);
+             
+             ctx.save();
+             ctx.beginPath();
+             ctx.rect(0, 0, halfWidth, targetHeight);
+             ctx.clip();
+             ctx.drawImage(img, x1, y1, w1, h1);
+             ctx.restore();
+          } else {
+             ctx.fillStyle = '#020617';
+             ctx.fillRect(0, 0, halfWidth, targetHeight);
+          }
+
+          if (img2) {
+             const scale2 = Math.max(halfWidth / img2.width, targetHeight / img2.height);
+             const w2 = img2.width * scale2;
+             const h2 = img2.height * scale2;
+             const x2 = halfWidth + (halfWidth / 2) - (w2 / 2);
+             const y2 = (targetHeight / 2) - (h2 / 2);
+             
+             ctx.save();
+             ctx.beginPath();
+             ctx.rect(halfWidth, 0, halfWidth, targetHeight);
+             ctx.clip();
+             ctx.drawImage(img2, x2, y2, w2, h2);
+             ctx.restore();
+          } else {
+             ctx.fillStyle = '#020617';
+             ctx.fillRect(halfWidth, 0, halfWidth, targetHeight);
+          }
+          
+          // Draw separator line
+          ctx.fillStyle = '#00172e';
+          ctx.fillRect(halfWidth - 2, 0, 4, targetHeight);
       }
 
       // Load logo
-      const logo = new Image();
-      logo.src = '/logo-ng.png';
-      logo.onload = () => {
-        finalizeDraw(ctx, width, height, logo);
-      };
-      logo.onerror = () => {
-        finalizeDraw(ctx, width, height, null);
-      }
+      const logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
+      finalizeDraw(ctx, width, height, logo);
   };
 
   const finalizeDraw = (ctx, width, height, logo) => {
@@ -248,7 +297,16 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
     setTimeout(() => {
        renderCanvas();
     }, 100);
-  }, [title, subtitle, category, imageUrl, aspectRatio]);
+  }, [title, subtitle, category, imageUrl, aspectRatio, useTwoPhotos, secondImageUrl, refreshKey]);
+
+  const handleForceImageRefresh = () => {
+    const rawUrl = article?.image;
+    if (rawUrl) {
+      setImageUrl(`${rawUrl}${rawUrl.includes('?') ? '&' : '?'}t=${Date.now()}`);
+    } else {
+      setRefreshKey(prev => prev + 1);
+    }
+  };
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
@@ -271,81 +329,176 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
     shareToWhatsApp(article || { title, subtitle, category, praca: article?.praca, id: article?.id });
   };
 
-  const handleGenerateNewImage = () => {
-    const randomSeed = Math.floor(Math.random() * 1000000);
-    const prompt = `News photo about ${title}, realistic, high quality`;
-    setImageUrl(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1200&height=1200&nologo=true&seed=${randomSeed}`);
-  };
 
-  const handlePostToMeta = async () => {
-    if (!metaToken || !imgbbKey) {
-      showToast ? showToast("Configure as credenciais do Meta e ImgBB nas Configurações.", true) : alert("Configure as credenciais do Meta e ImgBB nas Configurações.");
-      return;
+  useImperativeHandle(ref, () => ({
+    postToMeta: async (platforms = ['facebook', 'instagram']) => {
+      return await handlePostToMeta(platforms);
+    }
+  }));
+
+  const handlePostToMeta = async (platforms = ['facebook', 'instagram']) => {
+    if (!metaToken) {
+      const msg = "Configure o Token de Acesso do Meta nas Configurações.";
+      showToast ? showToast(msg, true) : alert(msg);
+      throw new Error(msg);
     }
     
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      throw new Error("Canvas da arte ainda não está pronto para renderização.");
+    }
 
     try {
       setIsPosting(true);
       
-      // 1. Upload to ImgBB
-      setPostStatus('Hospedando imagem...');
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-      const formData = new FormData();
-      formData.append('image', blob);
-      
-      const imgbbRes = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
-        method: 'POST',
-        body: formData
-      });
-      const imgbbData = await imgbbRes.json();
-      
-      if (!imgbbData.success) throw new Error("Erro ao subir imagem no ImgBB: " + (imgbbData.error?.message || "Desconhecido"));
-      
-      const publicImageUrl = imgbbData.data.url;
+      // 1. Gerar imagem e hospedar em URL pública direta
+      setPostStatus('Hospedando arte para redes sociais...');
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+      const publicImageUrl = await uploadImageForSocial(blob, imgbbKey);
 
-      // 2. Post to Facebook (if ID is configured)
-      if (metaFbPageId) {
+      let fbPostUrl = null;
+      let igPostUrl = null;
+      let fbError = null;
+      let igError = null;
+
+      // 2. Postar no Facebook (se configurado e solicitado)
+      if (metaFbPageId && platforms.includes('facebook')) {
         setPostStatus('Postando no Facebook...');
-        const fbRes = await fetch(`https://graph.facebook.com/v19.0/${metaFbPageId}/photos`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: publicImageUrl, message: captionText, access_token: metaToken })
-        });
-        const fbData = await fbRes.json();
-        if (fbData.error) console.error("Erro Facebook:", fbData.error);
+        try {
+          let fbToken = metaToken;
+          try {
+            const accRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?access_token=${metaToken}`);
+            if (accRes.ok) {
+              const accData = await accRes.json();
+              const targetPage = accData.data?.find(p => String(p.id) === String(metaFbPageId));
+              if (targetPage && targetPage.access_token) {
+                fbToken = targetPage.access_token;
+              }
+            }
+          } catch (e) {}
+
+          const fbFormData = new FormData();
+          fbFormData.append('source', blob, 'post.jpg');
+          fbFormData.append('message', captionText);
+          fbFormData.append('access_token', fbToken);
+
+          const fbRes = await fetch(`https://graph.facebook.com/v20.0/${metaFbPageId}/photos`, {
+            method: 'POST',
+            body: fbFormData
+          });
+          
+          const fbData = await fbRes.json();
+          if (fbData.error) {
+              console.error("Erro Facebook:", fbData.error);
+              fbError = fbData.error.message;
+          } else {
+              const fbPostId = fbData.post_id || fbData.id;
+              fbPostUrl = fbPostId ? `https://www.facebook.com/${fbPostId}` : `https://www.facebook.com/${metaFbPageId}`;
+              console.log("Facebook publicado com sucesso:", fbPostUrl);
+          }
+        } catch (e) {
+          fbError = e.message;
+        }
       }
 
-      // 3. Post to Instagram (if ID is configured)
-      if (metaIgAccountId) {
-        setPostStatus('Preparando Instagram...');
-        // Step A: Create Media Container
-        const igMediaRes = await fetch(`https://graph.facebook.com/v19.0/${metaIgAccountId}/media`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image_url: publicImageUrl, caption: captionText, access_token: metaToken })
-        });
-        const igMediaData = await igMediaRes.json();
-        if (igMediaData.error) throw new Error("Erro no Instagram (Media): " + igMediaData.error.message);
-        
-        const creationId = igMediaData.id;
+      // 3. Postar no Instagram (se configurado e solicitado)
+      if (metaIgAccountId && platforms.includes('instagram')) {
+        setPostStatus('Criando container no Instagram...');
+        try {
+          const safeCaption = captionText.length > 2100 ? captionText.substring(0, 2100) + "..." : captionText;
+          
+          const igMediaRes = await fetch(`https://graph.facebook.com/v20.0/${metaIgAccountId}/media`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_url: publicImageUrl, caption: safeCaption, access_token: metaToken })
+          });
+          const igMediaData = await igMediaRes.json();
+          if (igMediaData.error) {
+              throw new Error("Container Instagram: " + (igMediaData.error.error_user_msg || igMediaData.error.message));
+          }
+          
+          const creationId = igMediaData.id;
 
-        // Step B: Publish Media Container
-        setPostStatus('Publicando no Instagram...');
-        const igPublishRes = await fetch(`https://graph.facebook.com/v19.0/${metaIgAccountId}/media_publish`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ creation_id: creationId, access_token: metaToken })
-        });
-        const igPublishData = await igPublishRes.json();
-        if (igPublishData.error) throw new Error("Erro no Instagram (Publish): " + igPublishData.error.message);
+          setPostStatus('Aguardando processamento da imagem pelo Instagram...');
+
+          // Aguarda o container ficar com status FINISHED antes de publicar
+          let isReady = false;
+          let retries = 12; // até 36 segundos
+          while (retries > 0) {
+              await new Promise(r => setTimeout(r, 3000));
+              try {
+                const statusRes = await fetch(`https://graph.facebook.com/v20.0/${creationId}?fields=status_code,status&access_token=${metaToken}`);
+                const statusData = await statusRes.json();
+                if (statusData.status_code === 'FINISHED') {
+                    isReady = true;
+                    break;
+                } else if (statusData.status_code === 'ERROR') {
+                    throw new Error("Processamento Instagram falhou: " + (statusData.status || "Formato de imagem rejeitado"));
+                }
+              } catch (stErr) {
+                if (stErr.message.includes('Processamento Instagram')) throw stErr;
+              }
+              retries--;
+          }
+
+          setPostStatus('Publicando no Feed do Instagram...');
+          const igPublishRes = await fetch(`https://graph.facebook.com/v20.0/${metaIgAccountId}/media_publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ creation_id: creationId, access_token: metaToken })
+          });
+          const igPublishData = await igPublishRes.json();
+          
+          if (igPublishData.error) {
+              throw new Error("Publicação Instagram: " + (igPublishData.error.error_user_msg || igPublishData.error.message));
+          }
+          
+          igPostUrl = 'https://www.instagram.com/portalngbrasil/';
+          try {
+            const permaRes = await fetch(`https://graph.facebook.com/v20.0/${igPublishData.id}?fields=permalink&access_token=${metaToken}`);
+            const permaData = await permaRes.json();
+            if (permaData.permalink) {
+                igPostUrl = permaData.permalink;
+            }
+          } catch (_) {}
+          console.log("Instagram publicado com sucesso:", igPostUrl);
+        } catch (e) {
+          igError = e.message;
+        }
       }
 
-      showToast ? showToast("Postado no Instagram com sucesso!") : alert("Postado com sucesso!");
+      if (fbError && igError) {
+        showToast ? showToast(`FB: ${fbError} | IG: ${igError}`, true) : null;
+      } else if (fbError) {
+        showToast ? showToast(`Postou no Instagram, mas falhou no Facebook: ${fbError}`, true) : null;
+      } else if (igError) {
+        showToast ? showToast(`Falhou no Instagram: ${igError}`, true) : null;
+      } else {
+        showToast ? showToast("Publicado com sucesso no Instagram e redes sociais!") : alert("Publicado com sucesso!");
+      }
+
+      const postResult = {
+        success: !fbError && !igError,
+        facebook: fbPostUrl || (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil'),
+        instagram: igPostUrl || 'https://www.instagram.com/portalngbrasil/',
+        fbError,
+        igError
+      };
+
+      if (onPostSuccess) {
+        onPostSuccess(postResult);
+      }
+
+      return postResult;
     } catch (err) {
       console.error(err);
-      showToast ? showToast("Erro ao postar: " + err.message, true) : alert("Erro ao postar: " + err.message);
+      showToast ? showToast("Erro nas redes sociais: " + err.message, true) : alert("Erro: " + err.message);
+      return {
+        success: false,
+        error: err.message,
+        facebook: metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil',
+        instagram: 'https://www.instagram.com/portalngbrasil/'
+      };
     } finally {
       setIsPosting(false);
       setPostStatus('');
@@ -359,7 +512,15 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
       <div className={`w-full ${inline ? '' : 'md:w-1/2'} bg-slate-950 p-6 flex flex-col items-center justify-center relative ${inline ? 'border-b' : 'border-r'} border-slate-800`}>
         <div className="flex items-center gap-2 mb-4 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-800">
             <Sparkles className="w-4 h-4 text-red-500 animate-pulse" />
-            <span className="text-xs font-bold text-slate-300">Pré-visualização da Arte do Instagram</span>
+            <span className="text-xs font-bold text-slate-300">Pré-visualização da Arte</span>
+            <button 
+              type="button"
+              onClick={handleForceImageRefresh} 
+              title="Forçar recarregamento da imagem" 
+              className="ml-1 bg-slate-800 hover:bg-slate-700 p-1 rounded-full text-slate-300 transition-colors flex items-center justify-center"
+            >
+               <RefreshCw className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           <div className="w-full max-w-[340px] aspect-[4/5] rounded-xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex items-center justify-center">
@@ -367,18 +528,24 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
           </div>
 
           {/* Aspect Ratio Selector */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex flex-wrap gap-2 mt-4 justify-center">
             <button
               onClick={() => setAspectRatio('1:1')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${aspectRatio === '1:1' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
             >
-              Feed 1:1 (Quadrado)
+              Feed 1:1
             </button>
             <button
               onClick={() => setAspectRatio('4:5')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${aspectRatio === '4:5' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
             >
-              Portrait 4:5 (Expandido)
+              Portrait 4:5
+            </button>
+            <button
+              onClick={() => setAspectRatio('9:16')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${aspectRatio === '9:16' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+            >
+              Stories/Reels 9:16
             </button>
           </div>
         </div>
@@ -397,6 +564,68 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
 
           {/* Form fields */}
           <div className="space-y-4">
+            {/* Imagem Dupla (Instagram/Facebook) */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-sm mb-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={useTwoPhotos}
+                  onChange={(e) => setUseTwoPhotos(e.target.checked)}
+                  className="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500"
+                />
+                <span className="text-xs font-bold text-slate-700">Usar duas fotos na imagem do instagram (Tela Dividida)</span>
+              </label>
+
+              {useTwoPhotos && (
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
+                    <span>📸 Segunda Imagem (Metade Direita)</span>
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    <div 
+                      className="w-full h-16 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-white cursor-pointer hover:bg-slate-50 transition-colors relative"
+                      onPaste={(e) => {
+                        const items = e.clipboardData.items;
+                        for (let i = 0; i < items.length; i++) {
+                          if (items[i].type.indexOf('image') !== -1) {
+                            const blob = items[i].getAsFile();
+                            const reader = new FileReader();
+                            reader.onloadend = () => setSecondImageUrl(reader.result);
+                            reader.readAsDataURL(blob);
+                            e.preventDefault();
+                          }
+                        }
+                      }}
+                    >
+                      <div className="text-center text-slate-500 pointer-events-none flex flex-col items-center">
+                        <Upload className="w-4 h-4 mb-1" />
+                        <span className="text-[10px] font-bold">Upload ou Ctrl+V da segunda foto</span>
+                      </div>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onloadend = () => setSecondImageUrl(reader.result);
+                          reader.readAsDataURL(file);
+                        }} 
+                      />
+                    </div>
+                    <input 
+                      type="text" 
+                      placeholder="Ou cole o link de uma imagem da internet..." 
+                      value={secondImageUrl && secondImageUrl.startsWith('http') ? secondImageUrl : ''}
+                      onChange={(e) => setSecondImageUrl(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-red-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Título da Arte</label>
               <textarea
@@ -428,62 +657,19 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
               <textarea
                 value={captionText}
                 onChange={(e) => setCaptionText(e.target.value)}
-                rows={4}
+                rows={12}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-600 focus:ring-2 focus:ring-red-500 focus:outline-none"
               />
             </div>
 
-            {/* Imagem de Fundo (Upload ou Link) */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
-                <span>📸 Imagem de Fundo (Foco)</span>
-              </label>
-              <div 
-                className="w-full h-16 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-white cursor-pointer hover:bg-slate-50 transition-colors relative"
-                onPaste={(e) => {
-                  const items = e.clipboardData.items;
-                  for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.indexOf('image') !== -1) {
-                      const blob = items[i].getAsFile();
-                      const reader = new FileReader();
-                      reader.onloadend = () => setImageUrl(reader.result);
-                      reader.readAsDataURL(blob);
-                      e.preventDefault();
-                    }
-                  }
-                }}
-              >
-                <div className="text-center text-slate-500 pointer-events-none flex flex-col items-center">
-                  <Upload className="w-4 h-4 mb-1" />
-                  <span className="text-[10px] font-bold">Clique para Subir ou Dê Ctrl+V aqui</span>
-                </div>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onloadend = () => setImageUrl(reader.result);
-                    reader.readAsDataURL(file);
-                  }} 
-                />
-              </div>
-            </div>
 
-            <button
-              onClick={handleGenerateNewImage}
-              className="w-full bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all"
-            >
-              <RefreshCw className="w-4 h-4" /> Gerar Nova Imagem de Fundo (IA)
-            </button>
           </div>
 
         {/* Action Buttons */}
+        {!hideButtons && (
         <div className="space-y-2 pt-2 border-t border-slate-100">
           <button
-            onClick={handlePostToMeta}
+            onClick={() => handlePostToMeta(['facebook', 'instagram'])}
             disabled={isPosting || (!metaToken || !imgbbKey)}
             className={`w-full ${isPosting ? 'bg-slate-400' : (!metaToken || !imgbbKey) ? 'bg-slate-300' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'} text-white font-bold py-3 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all text-sm`}
             title={(!metaToken || !imgbbKey) ? "Configure as chaves do Meta e ImgBB nas Configurações primeiro" : "Postar simultaneamente no Facebook e Instagram"}
@@ -511,6 +697,7 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
@@ -524,4 +711,6 @@ export default function SocialPostGenerator({showToast,  article, onClose, inlin
       {content}
     </div>
   );
-}
+});
+
+export default SocialPostGenerator;

@@ -10,7 +10,8 @@ export default function Header({
   onOpenNewsletter,
   selectedPraca,
   setSelectedPraca,
-  onNavigateLogin
+  onNavigateLogin,
+  slogan = "As notícias que impactam o país e o mundo."
 }) {
   const navItems = [
     { id: 'all', label: 'Início', icon: Globe },
@@ -64,7 +65,7 @@ export default function Header({
               </span>
             </div>
             <span className="text-sm md:text-base font-medium text-slate-300 mt-1 italic tracking-wide">
-              Jornalismo Digital • Informação Completa para o seu Dia a Dia
+              {slogan}
             </span>
           </div>
         </div>

@@ -1,6 +1,15 @@
 import React from 'react';
 import { trackEvent } from '../utils/analytics';
-import { Bookmark, Clock } from 'lucide-react';
+import { Bookmark, Clock, Calendar } from 'lucide-react';
+
+const generateSlug = (text) => {
+  if (!text) return '';
+  return text.toString().toLowerCase().trim()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
+    .replace(/[^a-z0-9\s-]/g, "") // remove special chars
+    .replace(/[\s_-]+/g, "-") // replace spaces and underscores with dash
+    .replace(/^-+|-+$/g, ""); // remove leading/trailing dashes
+};
 
 export default function CategorySection({ 
   categoryKey, 
@@ -31,6 +40,18 @@ export default function CategorySection({
       case 'turismo': return 'border-[#006644]';
       case 'entretenimento': return 'border-amber-500';
       default: return 'border-slate-300';
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    if (dateString.includes(' de ')) return dateString;
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return dateString;
+      return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+    } catch (e) {
+      return dateString;
     }
   };
 
@@ -65,11 +86,17 @@ export default function CategorySection({
               onClick={() => onSelectArticle(item)}
               className="relative h-48 w-full overflow-hidden bg-slate-100 border-b border-slate-200"
             >
-              <img 
-                src={item.image || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1200&auto=format&fit=crop&q=80'} 
-                alt={item.title} 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
+              {item.image ? (
+                <img 
+                  src={item.image} 
+                  alt={item.title} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                    <span className="text-slate-400 font-medium">Sem foto</span>
+                </div>
+              )}
               <div className="absolute top-3 left-3 flex items-center gap-1.5">
                 <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase shadow-sm ${getBadgeClass(item.category)}`}>
                   {item.categoryLabel}
@@ -95,9 +122,15 @@ export default function CategorySection({
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
                   📍 {item.praca}
                 </span>
-                <h3 className="text-base sm:text-lg font-bold text-title-blue group-hover:text-blue-700 line-clamp-2 transition-colors mb-2 font-heading leading-snug">
-                  {item.title}
-                </h3>
+                <a 
+                  href={`/#/${item.category}/${generateSlug(item.title)}-${item.id}`}
+                  onClick={(e) => { e.preventDefault(); onSelectArticle(item); }}
+                  className="hover:underline"
+                >
+                  <h3 className="text-base sm:text-lg font-bold text-title-blue group-hover:text-blue-700 line-clamp-2 transition-colors mb-2 font-heading leading-snug">
+                    {item.title}
+                  </h3>
+                </a>
                 <p className="text-slate-600 text-xs sm:text-sm line-clamp-2 mb-4">
                   {item.subtitle}
                 </p>
@@ -105,10 +138,10 @@ export default function CategorySection({
 
               {/* Footer Author & Read time */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 mt-auto">
-                <span className="truncate max-w-[150px] font-semibold text-slate-700">{item.author.name}</span>
+                <span className="truncate max-w-[150px] font-semibold text-slate-700">{item.author?.name || (typeof item.author === 'string' ? item.author : 'Redação Portal NG')}</span>
                 <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-slate-400" />
-                  {item.readTime}
+                  <Calendar className="w-3 h-3 text-slate-400" />
+                  {formatDate(item.date)}
                 </span>
               </div>
 

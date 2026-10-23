@@ -87,8 +87,8 @@ export default function HeroSection({
               <div className="flex items-center gap-3 mt-auto pt-4 border-t border-slate-100">
                 <img src={featuredNews.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'} alt={featuredNews.author?.name || 'Redação'} className="w-8 h-8 rounded-full object-cover border border-slate-200" />
                 <div>
-                  <span className="font-bold text-slate-800 block text-xs">{featuredNews.author.name}</span>
-                  <span className="text-slate-500 text-[10px] uppercase">{featuredNews.author.role}</span>
+                  <span className="font-bold text-slate-800 block text-xs">{featuredNews.author?.name || 'Redação Portal NG'}</span>
+                  <span className="text-slate-500 text-[10px] uppercase">{featuredNews.author?.role || 'Jornalismo'}</span>
                 </div>
               </div>
             </div>

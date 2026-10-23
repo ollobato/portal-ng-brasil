@@ -3,10 +3,26 @@ import { collection, onSnapshot, doc, writeBatch, getDocs, setDoc } from 'fireba
 import { db } from '../lib/firebase';
 import { initialNews } from '../data/newsData';
 
+// Helper to safely write to localStorage without throwing QuotaExceededError
+const safeSetLocalStorage = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch (err) {
+    // If quota is exceeded, clear legacy heavy backups and silently ignore
+    try {
+      localStorage.removeItem(key);
+    } catch (_) {}
+  }
+};
+
 export function useFirebaseSync(collectionName, fallbackInitialData = []) {
   // Load from local backup if available, otherwise fallback
   const getInitialBackup = () => {
     try {
+      // News collection is large and handled by Firestore IndexedDB cache, do not read from localStorage
+      if (collectionName === 'news') {
+        return fallbackInitialData;
+      }
       const backup = localStorage.getItem(`portal_ng_backup_${collectionName}`);
       if (backup) {
         return JSON.parse(backup);
@@ -25,8 +41,10 @@ export function useFirebaseSync(collectionName, fallbackInitialData = []) {
       if (!snapshot.empty) {
         const fetchedData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setDataState(fetchedData);
-        // Redundancy: Backup to LocalStorage
-        localStorage.setItem(`portal_ng_backup_${collectionName}`, JSON.stringify(fetchedData));
+        // Only backup small collections to LocalStorage; news is cached in IndexedDB by Firestore
+        if (collectionName !== 'news') {
+          safeSetLocalStorage(`portal_ng_backup_${collectionName}`, JSON.stringify(fetchedData));
+        }
       } else {
         const backup = getInitialBackup();
         setDataState(backup);
@@ -52,7 +70,9 @@ export function useFirebaseSync(collectionName, fallbackInitialData = []) {
     
     // Update local state and backup immediately
     setDataState(newData);
-    localStorage.setItem(`portal_ng_backup_${collectionName}`, JSON.stringify(newData));
+    if (collectionName !== 'news') {
+      safeSetLocalStorage(`portal_ng_backup_${collectionName}`, JSON.stringify(newData));
+    }
 
     // 2. Sync to Firebase
     try {
@@ -120,7 +140,7 @@ export function useFirebaseDoc(collectionName, docId, fallbackInitialData = {}) 
       if (snapshot.exists()) {
         const fetchedData = { ...fallbackInitialData, ...snapshot.data() };
         setDataState(fetchedData);
-        localStorage.setItem(`portal_ng_backup_doc_${collectionName}_${docId}`, JSON.stringify(fetchedData));
+        safeSetLocalStorage(`portal_ng_backup_doc_${collectionName}_${docId}`, JSON.stringify(fetchedData));
       } else {
         const backup = getInitialBackup();
         setDataState(backup);
@@ -141,7 +161,7 @@ export function useFirebaseDoc(collectionName, docId, fallbackInitialData = {}) 
     
     // Update local state and backup immediately
     setDataState(newData);
-    localStorage.setItem(`portal_ng_backup_doc_${collectionName}_${docId}`, JSON.stringify(newData));
+    safeSetLocalStorage(`portal_ng_backup_doc_${collectionName}_${docId}`, JSON.stringify(newData));
 
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
