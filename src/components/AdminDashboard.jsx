@@ -1,4 +1,4 @@
-import React, { Component, useState, useRef } from 'react';
+import React, { Component, useState, useRef, useEffect } from 'react';
 import { trackEvent } from '../utils/analytics';
 import { LogOut, AlertCircle, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera , Loader2, Save, Link as LinkIcon, Globe, Send, Zap, ChevronRight, ChevronDown, ChevronUp, Check, Workflow, Cpu, PenTool, CheckSquare, Database, Network, PieChart, Copy, ExternalLink, ShieldCheck, Layers, BookOpen, Compass, CheckCircle2, Server, HelpCircle, ArrowRight, Smartphone, RefreshCw, X, AlertTriangle } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';

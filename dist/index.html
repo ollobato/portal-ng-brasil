@@ -19,17 +19,22 @@
     </script>
     
     <!-- Google News Publisher Center Sync -->
-    <script async type="application/javascript"
-            src="https://news.google.com/swg/js/v1/swg-basic.js"></script>
     <script>
-      (self.SWG_BASIC = self.SWG_BASIC || []).push( basicSubscriptions => {
-        basicSubscriptions.init({
-          type: "NewsArticle",
-          isPartOfType: ["Product"],
-          isPartOfProductId: "CAowwvjhCw:openaccess",
-          clientOptions: { theme: "light", lang: "pt-BR" },
+      if (window.location.hostname === 'portalngbrasil.com.br' && !window.location.pathname.startsWith('/admin')) {
+        var swgScript = document.createElement('script');
+        swgScript.async = true;
+        swgScript.type = 'application/javascript';
+        swgScript.src = 'https://news.google.com/swg/js/v1/swg-basic.js';
+        document.head.appendChild(swgScript);
+        (self.SWG_BASIC = self.SWG_BASIC || []).push(function(basicSubscriptions) {
+          basicSubscriptions.init({
+            type: "NewsArticle",
+            isPartOfType: ["Product"],
+            isPartOfProductId: "CAowwvjhCw:openaccess",
+            clientOptions: { theme: "light", lang: "pt-BR" },
+          });
         });
-      });
+      }
     </script>
     
     <!-- Open Graph / Facebook -->
@@ -61,8 +66,8 @@
         }
       }(window.location))
     </script>
-    <script type="module" crossorigin src="/assets/index-1jZuswBi.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CiPEuymB.css">
+    <script type="module" crossorigin src="/assets/index-Dz_fg1nS.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BTpKsdnN.css">
   </head>
   <body class="bg-slate-50 text-slate-900 selection:bg-emerald-500 selection:text-white transition-colors duration-300">
     <div id="root"></div>
