@@ -5636,7 +5636,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
+      <div className={activeTab === 'dashboard' ? "min-h-screen bg-[#060913] flex flex-col md:flex-row font-sans" : "min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans"}>
         
         {/* Sidebar */}
       <aside className="w-full md:w-64 bg-[#040f1d] text-slate-300 flex flex-col shrink-0 md:h-screen sticky top-0 z-30">
@@ -5666,7 +5666,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
           </button>
           
           <button onClick={() => {setActiveTab('dashboard'); setShowForm(false);}} className={getNavClass('dashboard') + " whitespace-nowrap"}>
-            <PieChart className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline md:inline">Dashboard Avançado</span><span className="sm:hidden">Dashboard</span>
+            <PieChart className="w-4 h-4 shrink-0" /> <span>Dashboard</span>
           </button>
           
           <div className="hidden md:block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mt-6 mb-2 px-1">Automação IA</div>
@@ -5723,32 +5723,33 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         
-        {/* Topbar */}
-        <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm sticky top-0 z-20">
-          <h1 className="text-xl font-bold text-title-blue font-heading capitalize">
-            {activeTab === 'insights' && 'Analytics e Desempenho'}
-            {activeTab === 'materias' && (showForm ? 'Publicador' : 'Gestão de Notícias')}
-            {activeTab === 'autores' && 'Equipe de Redação'}
-            {activeTab === 'banners' && 'Gestão de Banners'}
-            {activeTab === 'configuracoes' && 'Configurações'}
-            {activeTab === 'robot' && 'Gerador de Notícias'}
-            {activeTab === 'stories' && 'Gerador de Stories (IA)'}
-            {activeTab === 'carousels' && 'Gerador de Carrosséis (IA)'}
-            {activeTab === 'aprovacao' && 'Fila de Aprovação'}
-            {activeTab === 'dashboard' && 'Dashboard Avançado'}
-          </h1>
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => {setActiveTab('materias'); setShowForm(true); setEditingId(null); setFormData({title:'', subtitle:'', category:'politica', praca:'Nacional', image:'', content:'', authorName: 'Redação NG Brasil'});}}
-              className="bg-[#d40a38] hover:bg-red-700 text-white transition-colors px-4 py-2.5 rounded-md font-bold text-sm flex items-center justify-center gap-2 w-full sm:w-auto shadow-sm"
-            >
-              <PlusCircle className="w-4 h-4 shrink-0" /> Nova Matéria
-            </button>
-          </div>
-        </header>
+        {/* Topbar (oculta no Dashboard para visual escuro em tela cheia sem faixa branca) */}
+        {activeTab !== 'dashboard' && (
+          <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm sticky top-0 z-20">
+            <h1 className="text-xl font-bold text-title-blue font-heading capitalize">
+              {activeTab === 'insights' && 'Analytics e Desempenho'}
+              {activeTab === 'materias' && (showForm ? 'Publicador' : 'Gestão de Notícias')}
+              {activeTab === 'autores' && 'Equipe de Redação'}
+              {activeTab === 'banners' && 'Gestão de Banners'}
+              {activeTab === 'configuracoes' && 'Configurações'}
+              {activeTab === 'robot' && 'Gerador de Notícias'}
+              {activeTab === 'stories' && 'Gerador de Stories (IA)'}
+              {activeTab === 'carousels' && 'Gerador de Carrosséis (IA)'}
+              {activeTab === 'aprovacao' && 'Fila de Aprovação'}
+            </h1>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => {setActiveTab('materias'); setShowForm(true); setEditingId(null); setFormData({title:'', subtitle:'', category:'politica', praca:'Nacional', image:'', content:'', authorName: 'Redação NG Brasil'});}}
+                className="bg-[#d40a38] hover:bg-red-700 text-white transition-colors px-4 py-2.5 rounded-md font-bold text-sm flex items-center justify-center gap-2 w-full sm:w-auto shadow-sm"
+              >
+                <PlusCircle className="w-4 h-4 shrink-0" /> Nova Matéria
+              </button>
+            </div>
+          </header>
+        )}
 
         {/* Dashboard Content Area */}
-        <div className={activeTab === 'dashboard' ? "p-2 md:p-4 flex-1 overflow-y-auto bg-[#060913]" : "p-4 md:p-8 flex-1 overflow-y-auto bg-slate-50/50"}>
+        <div className={activeTab === 'dashboard' ? "p-0 flex-1 overflow-y-auto bg-[#060913]" : "p-4 md:p-8 flex-1 overflow-y-auto bg-slate-50/50"}>
           {activeTab === 'insights' && renderInsights()}
           {activeTab === 'materias' && renderMaterias()}
           {activeTab === 'autores' && renderAutores()}

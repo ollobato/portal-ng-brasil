@@ -474,44 +474,51 @@ export default function AnalyticsDashboard() {
   const mainViewsDelta = formatDeltaBadge(t.views, y.views);
 
   return (
-    <div className="bg-[#060913] text-slate-100 p-4 md:p-6 rounded-2xl relative overflow-x-hidden font-sans selection:bg-[#FF0055] selection:text-white border border-slate-800/80 shadow-2xl">
+    <div className="bg-[#060913] text-slate-100 p-4 md:p-7 min-h-screen relative overflow-x-hidden font-sans selection:bg-[#FF0055] selection:text-white">
       {/* Glow Effects */}
       <div className="absolute -top-24 left-1/4 w-[500px] h-[500px] bg-[#FF0055]/10 rounded-full blur-[130px] pointer-events-none"></div>
       <div className="absolute top-1/3 -right-24 w-[450px] h-[450px] bg-[#00F0FF]/10 rounded-full blur-[130px] pointer-events-none"></div>
       <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[130px] pointer-events-none"></div>
 
       <div className="max-w-[1440px] mx-auto relative z-10 space-y-6">
-        {/* Top Header */}
-        <div className="bg-[#0D1326]/90 border border-slate-800/90 rounded-2xl p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center gap-4">
-            <div className="relative">
+        {/* Top Header com Introdução Executiva */}
+        <div className="bg-[#0D1326]/95 border border-slate-800/90 rounded-2xl p-5 md:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="relative shrink-0">
               <div className="w-16 h-16 rounded-2xl p-0.5 bg-gradient-to-tr from-[#FF0055] via-purple-500 to-[#00F0FF] shadow-lg shadow-[#FF0055]/20">
                 <img
-                  src={profilePicUrl}
+                  src={profilePicUrl || '/logo/logo-oficial.png'}
                   alt="@portalngbrasil"
-                  className="w-full h-full object-cover rounded-[14px] bg-slate-900"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  className="w-full h-full object-cover rounded-[14px] bg-slate-950"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/logo/logo-oficial.png';
+                  }}
                 />
               </div>
               <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full shadow">✓</span>
             </div>
-            <div>
+            <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">
-                  PORTAL NG BRASIL <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF0055] via-pink-500 to-[#00F0FF]">INSIGHTS & MEDIA KIT</span>
-                </h1>
-                <span className="px-3 py-0.5 rounded-full text-xs font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/30">
+                  Central de Inteligência, Audiência & Comercial
+                </span>
+                <span className="px-3 py-0.5 rounded-full text-[11px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
                   Meta Graph API v20.0 Live
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Conta Oficial: <strong className="text-white">@portalngbrasil</strong> • ID: <code className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">{IG_ID}</code> • <span className="text-[#00F0FF] font-semibold">{syncStatusText}</span>
+              <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">
+                DASHBOARD <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF0055] via-pink-500 to-[#00F0FF]">PORTAL NG BRASIL — INSIGHTS & MÍDIA KIT</span>
+              </h1>
+              <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
+                Monitoramento em tempo real da comunidade oficial <strong className="text-white">@portalngbrasil</strong>. Acompanhe o pulso diário de engajamento, evolução hora a hora contra o dia anterior e métricas auditadas para fechamento de patrocínios.
+                <span className="text-[#00F0FF] font-semibold ml-2">• {syncStatusText}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap gap-2.5 shrink-0">
             <button
               onClick={() => window.print()}
               className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 cursor-pointer transition-all"
@@ -687,14 +694,14 @@ export default function AnalyticsDashboard() {
                 <span className="text-[11px] font-black uppercase tracking-widest text-[#00F0FF]">Curva de Evolução Hora a Hora (Linhas)</span>
                 <h3 className="text-lg font-black text-white mt-0.5">Comparativo: Hoje vs. Ontem</h3>
               </div>
-              <div className="flex items-center gap-3 text-xs font-bold">
-                <span className="flex items-center gap-1.5 text-[#00F0FF] bg-[#00F0FF]/10 border border-[#00F0FF]/30 px-2.5 py-1 rounded-lg">
-                  <span className="w-3.5 h-0.5 bg-[#00F0FF] inline-block relative">
+              <div className="flex items-center gap-2 text-xs font-bold shrink-0">
+                <span className="flex items-center gap-1.5 text-[#00F0FF] bg-[#00F0FF]/10 border border-[#00F0FF]/30 px-2.5 py-1 rounded-lg whitespace-nowrap">
+                  <span className="w-3.5 h-0.5 bg-[#00F0FF] inline-block relative shrink-0">
                     <span className="w-2 h-2 rounded-full bg-[#00F0FF] absolute -top-[3px] left-1"></span>
                   </span> Hoje (Ao Vivo)
                 </span>
-                <span className="flex items-center gap-1.5 text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg">
-                  <span className="w-3.5 h-0.5 bg-amber-400 inline-block relative">
+                <span className="flex items-center gap-1.5 text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg whitespace-nowrap">
+                  <span className="w-3.5 h-0.5 bg-amber-400 inline-block relative shrink-0">
                     <span className="w-2 h-2 rounded-full bg-amber-400 absolute -top-[3px] left-1"></span>
                   </span> Ontem
                 </span>
