@@ -332,25 +332,25 @@ export default function AnalyticsDashboard() {
     }
 
     return (
-      <div className="bg-[#080C18] border border-slate-800/90 rounded-xl p-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs mb-2 pb-2 border-b border-slate-800/80">
-          <span className="font-black text-white">{selectedCfg.label}</span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="px-2 py-0.5 rounded bg-[#00F0FF]/15 border border-[#00F0FF]/40 text-white font-black text-[11px] whitespace-nowrap">
-              <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: selectedCfg.stroke }}></span>
+      <div className="bg-[#080C18] border border-slate-800/90 rounded-xl p-3">
+        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] mb-2 pb-2 border-b border-slate-800/80">
+          <span className="font-extrabold text-white whitespace-nowrap">{selectedCfg.label}</span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="px-1.5 py-0.5 rounded bg-[#00F0FF]/15 border border-[#00F0FF]/40 text-white font-extrabold text-[10px] whitespace-nowrap">
+              <span className="inline-block w-1.5 h-1.5 rounded-full mr-1" style={{ background: selectedCfg.stroke }}></span>
               Hoje: {fmtPtBr(lastPt.v)}
             </span>
-            <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-300 font-black text-[11px] whitespace-nowrap">
-              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1"></span>
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-300 font-extrabold text-[10px] whitespace-nowrap">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1"></span>
               Ontem: {fmtPtBr(yestCompPt.v)}
             </span>
-            <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-black text-[11px] whitespace-nowrap">
+            <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-black text-[10px] whitespace-nowrap">
               {deltaObj.short}
             </span>
           </div>
         </div>
 
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 overflow-hidden">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
           <defs>
             <linearGradient id="gradLineMainReact" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={selectedCfg.stroke} stopOpacity="0.32" />
@@ -468,23 +468,26 @@ export default function AnalyticsDashboard() {
     setTimeout(() => setCopiedProp(false), 2500);
   };
 
-  const remTo140k = Math.max(0, 140000 - followersCount);
-  const pctTo140k = Math.min(100, Number(((followersCount / 140000) * 100).toFixed(1)));
+  const remTo200k = Math.max(0, 200000 - followersCount);
+  const pctTo200k = Math.min(100, Number(((followersCount / 200000) * 100).toFixed(1)));
   const totalInteractionsCount = totalLikesCount + totalCommentsCount;
   const mainViewsDelta = formatDeltaBadge(t.views, y.views);
 
   return (
-    <div className="bg-[#060913] text-slate-100 p-4 md:p-7 min-h-screen relative overflow-x-hidden font-sans selection:bg-[#FF0055] selection:text-white">
+    <div
+      style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
+      className="bg-[#060913] text-slate-100 p-4 md:p-6 min-h-screen relative overflow-x-hidden selection:bg-[#FF0055] selection:text-white"
+    >
       {/* Glow Effects */}
       <div className="absolute -top-24 left-1/4 w-[500px] h-[500px] bg-[#FF0055]/10 rounded-full blur-[130px] pointer-events-none"></div>
       <div className="absolute top-1/3 -right-24 w-[450px] h-[450px] bg-[#00F0FF]/10 rounded-full blur-[130px] pointer-events-none"></div>
       <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[130px] pointer-events-none"></div>
 
-      <div className="max-w-[1440px] mx-auto relative z-10 space-y-6">
-        {/* Top Header com Introdução Executiva */}
-        <div className="bg-[#0D1326]/95 border border-slate-800/90 rounded-2xl p-5 md:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-start sm:items-center gap-4">
-            <div className="relative shrink-0">
+      <div className="max-w-[1440px] mx-auto relative z-10 space-y-5">
+        {/* Top Header */}
+        <div className="bg-[#0D1326]/95 border border-slate-800/90 rounded-2xl p-5 md:p-6 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-start gap-4">
+            <div className="relative shrink-0 mt-0.5">
               <div className="w-16 h-16 rounded-2xl p-0.5 bg-gradient-to-tr from-[#FF0055] via-purple-500 to-[#00F0FF] shadow-lg shadow-[#FF0055]/20">
                 <img
                   src={profilePicUrl || '/logo/logo-oficial.png'}
@@ -498,81 +501,94 @@ export default function AnalyticsDashboard() {
               </div>
               <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full shadow">✓</span>
             </div>
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/30">
+
+            <div className="flex-1 min-w-0">
+              {/* Badge em uma única linha */}
+              <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/30 whitespace-nowrap">
                   Central de Inteligência, Audiência & Comercial
                 </span>
-                <span className="px-3 py-0.5 rounded-full text-[11px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                   Meta Graph API v20.0 Live
                 </span>
               </div>
-              <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">
-                DASHBOARD <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF0055] via-pink-500 to-[#00F0FF]">PORTAL NG BRASIL — INSIGHTS & MÍDIA KIT</span>
-              </h1>
-              <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
-                Monitoramento em tempo real da comunidade oficial <strong className="text-white">@portalngbrasil</strong>. Acompanhe o pulso diário de engajamento, evolução hora a hora contra o dia anterior e métricas auditadas para fechamento de patrocínios.
-                <span className="text-[#00F0FF] font-semibold ml-2">• {syncStatusText}</span>
-              </p>
-            </div>
-          </div>
 
-          <div className="flex flex-wrap gap-2.5 shrink-0">
-            <button
-              onClick={() => window.print()}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 cursor-pointer transition-all"
-            >
-              🖨️ Exportar Mídia Kit PDF
-            </button>
-            <button
-              onClick={fetchLiveMeta}
-              disabled={isSyncing}
-              className="px-4 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-[#FF0055] to-pink-600 hover:from-[#ff1a66] hover:to-pink-500 text-white shadow-lg shadow-[#FF0055]/25 cursor-pointer transition-all"
-            >
-              {isSyncing ? '⏳ Sincronizando API...' : '↻ Sincronizar Meta Graph API Agora'}
-            </button>
+              {/* Título em 2 linhas conforme solicitado */}
+              <h1 className="font-black tracking-tight leading-tight">
+                <span className="block text-lg sm:text-xl md:text-2xl text-white">
+                  DASHBOARD PORTAL NG BRASIL
+                </span>
+                <span className="block text-base sm:text-lg md:text-xl text-transparent bg-clip-text bg-gradient-to-r from-[#FF0055] via-pink-500 to-[#00F0FF] mt-0.5">
+                  INSIGHTS & MÍDIA KIT
+                </span>
+              </h1>
+
+              {/* Botões minimalistas abaixo de INSIGHTS & MÍDIA KIT */}
+              <div className="flex flex-wrap items-center gap-2.5 mt-3">
+                <button
+                  onClick={fetchLiveMeta}
+                  disabled={isSyncing}
+                  className="px-3.5 py-1.5 rounded-lg text-[11px] font-bold bg-[#FF0055]/15 hover:bg-[#FF0055]/25 text-white border border-[#FF0055]/40 cursor-pointer transition-all inline-flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <span className={isSyncing ? 'animate-spin inline-block' : ''}>↻</span>
+                  {isSyncing ? 'Atualizando...' : 'Atualizar'}
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="px-3.5 py-1.5 rounded-lg text-[11px] font-bold bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 cursor-pointer transition-all inline-flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <span>⬇</span>
+                  Baixar Media Kit
+                </button>
+                <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
+                  • {syncStatusText}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* 1. NO TOPO: 140K Milestone Banner */}
-        <div className="bg-gradient-to-r from-[#111832] via-[#161B36] to-[#1A102B] border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-3">
-            <div>
-              <span className="text-xs font-black uppercase tracking-widest text-amber-400">🔥 Marco de Monetização & Autoridade Digital</span>
-              <h2 className="text-lg md:text-xl font-black text-white mt-0.5">
-                Comunidade de <span className="text-[#00F0FF]">{fmtPtBr(followersCount)}</span> seguidores ativos — rumo aos <span className="text-[#FF0055]">140K</span>!
+        {/* 1. NO TOPO: 200K Milestone Banner */}
+        <div className="bg-gradient-to-r from-[#111832] via-[#161B36] to-[#1A102B] border border-slate-800 rounded-2xl p-4 md:p-5 shadow-xl">
+          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-3">
+            <div className="min-w-0">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400 block">
+                🔥 Marco de Monetização & Autoridade Digital
+              </span>
+              <h2 className="text-base sm:text-lg font-black text-white mt-0.5 leading-snug">
+                Comunidade de <span className="text-[#00F0FF]">{fmtPtBr(followersCount)}</span> seguidores ativos — rumo aos <span className="text-[#FF0055]">200K</span>!
               </h2>
-              <p className="text-xs text-slate-300 mt-0.5 max-w-3xl">
+              <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
                 Crescimento de <strong className="text-emerald-400">+75,1%</strong> sobre o último Mídia Kit (79 mil). Somente em Outubro/2026 já são <strong className="text-[#FF0055]">1.271.548 interações diretas verificadas</strong> em 290 publicações.
               </p>
             </div>
-            <div className="flex items-center gap-4 bg-[#090D1A]/90 border border-slate-800 px-5 py-3 rounded-xl shrink-0">
-              <div>
-                <div className="text-[11px] text-slate-400 font-bold uppercase">Valuation Mídia Orgânica / Mês</div>
-                <div className="text-xl font-black text-emerald-400">R$ 342.400</div>
-                <div className="text-[11px] text-slate-400">Equivalente em Meta Ads (CPM R$ 18)</div>
+            <div className="flex items-center gap-3.5 bg-[#090D1A]/90 border border-slate-800 px-4 py-2.5 rounded-xl shrink-0">
+              <div className="whitespace-nowrap">
+                <div className="text-[10px] text-slate-400 font-bold uppercase">Valuation Mídia Orgânica / Mês</div>
+                <div className="text-lg font-black text-emerald-400">R$ 342.400</div>
+                <div className="text-[10px] text-slate-400">Equivalente em Meta Ads (CPM R$ 18)</div>
               </div>
-              <div className="h-10 w-[1px] bg-slate-800"></div>
-              <div>
-                <div className="text-[11px] text-slate-400 font-bold uppercase">Engajamento Reels</div>
-                <div className="text-lg font-black text-amber-400">5,61% ER</div>
-                <div className="text-[11px] text-slate-400">4,3x acima da média nacional</div>
+              <div className="h-9 w-[1px] bg-slate-800"></div>
+              <div className="whitespace-nowrap">
+                <div className="text-[10px] text-slate-400 font-bold uppercase">Engajamento Reels</div>
+                <div className="text-base font-black text-amber-400">5,61% ER</div>
+                <div className="text-[10px] text-slate-400">4,3x acima da média nacional</div>
               </div>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <div className="flex justify-between text-xs font-bold">
-              <span className="text-slate-300">Progresso da Meta Comercial: 140.000 Seguidores</span>
+            <div className="flex flex-wrap justify-between items-center gap-2 text-xs font-bold">
+              <span className="text-slate-200">Progresso da Meta Comercial: 200.000 Seguidores</span>
               <span className="text-[#00F0FF] font-black">
-                {String(pctTo140k).replace('.', ',')}% ({fmtPtBr(followersCount)} / 140.000 — faltam apenas {fmtPtBr(remTo140k)})
+                {String(pctTo200k).replace('.', ',')}% ({fmtPtBr(followersCount)} / 200.000 — faltam {fmtPtBr(remTo200k)})
               </span>
             </div>
             <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-[#00F0FF] via-purple-500 to-[#FF0055] transition-all duration-700"
-                style={{ width: `${pctTo140k}%` }}
+                style={{ width: `${pctTo200k}%` }}
               ></div>
             </div>
           </div>
@@ -581,22 +597,25 @@ export default function AnalyticsDashboard() {
         {/* 2. LOGO ABAIXO: VISUALIZADOR DE HOJE + COMPARATIVO COM ONTEM (EM LINHAS) */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
           {/* LADO ESQUERDO (7 COLUNAS): VISUALIZADOR DE HOJE ABERTO NAS 5 MÉTRICAS + FEED AO VIVO */}
-          <div className="xl:col-span-7 bg-gradient-to-br from-[#0F172E] via-[#0D1326] to-[#17112B] border border-[#00F0FF]/35 rounded-2xl p-5 shadow-2xl flex flex-col gap-4">
+          <div className="xl:col-span-7 bg-gradient-to-br from-[#0F172E] via-[#0D1326] to-[#17112B] border border-[#00F0FF]/35 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/90 pb-3.5">
-              <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#FF0055]/20 border border-[#FF0055]/40 text-[#FF0055] text-[11px] font-black uppercase tracking-wider mb-1">
-                  <span className="w-2 h-2 rounded-full bg-[#FF0055] animate-ping"></span>
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF0055]/20 border border-[#FF0055]/40 text-[#FF0055] text-[10px] font-extrabold uppercase tracking-wider mb-1 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF0055] animate-ping"></span>
                   RADAR DE HOJE AO VIVO • {todayDateStr}
                 </div>
-                <h2 className="text-lg font-black text-white">
-                  Desempenho de Hoje em Tempo Real (<span className="text-[#00F0FF]">{t.posts} publicações hoje</span>)
+                <h2 className="text-base sm:text-lg font-black text-white leading-tight whitespace-nowrap">
+                  Desempenho de Hoje em Tempo Real
                 </h2>
+                <div className="text-xs font-extrabold text-[#00F0FF] mt-0.5">
+                  ({t.posts} publicações hoje)
+                </div>
               </div>
 
-              <div className="flex items-center gap-1.5 bg-[#070A14] p-1 rounded-xl border border-slate-800 shrink-0 self-start sm:self-center">
+              <div className="flex items-center gap-1 bg-[#070A14] p-1 rounded-xl border border-slate-800 shrink-0 self-start sm:self-center">
                 <button
                   onClick={() => setCompareMode('same_hour')}
-                  className={`px-2.5 py-1.5 rounded-lg text-[11px] transition-all cursor-pointer whitespace-nowrap ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
                     compareMode === 'same_hour' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
                   }`}
                 >
@@ -604,7 +623,7 @@ export default function AnalyticsDashboard() {
                 </button>
                 <button
                   onClick={() => setCompareMode('full_day')}
-                  className={`px-2.5 py-1.5 rounded-lg text-[11px] transition-all cursor-pointer whitespace-nowrap ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
                     compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
                   }`}
                 >
@@ -614,7 +633,7 @@ export default function AnalyticsDashboard() {
             </div>
 
             {/* 5 CARDS ABERTOS DE HOJE */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
               {[
                 { key: 'likes', title: 'Curtidas', icon: '❤️', iconBg: 'bg-[#FF0055]/15 text-[#FF0055]', val: t.likes, yestVal: y.likes, valColor: 'text-white', hoverBorder: 'hover:border-[#FF0055]' },
                 { key: 'views', title: 'Visualizações', icon: '👁️', iconBg: 'bg-[#00F0FF]/15 text-[#00F0FF]', val: t.views, yestVal: y.views, valColor: 'text-[#00F0FF]', hoverBorder: 'hover:border-[#00F0FF]' },
@@ -628,21 +647,21 @@ export default function AnalyticsDashboard() {
                   <div
                     key={card.key}
                     onClick={() => setActiveLineMetric(card.key)}
-                    className={`bg-[#080C18]/95 border ${isSelected ? 'border-[#00F0FF] ring-1 ring-[#00F0FF]/30' : 'border-slate-800'} ${card.hoverBorder} rounded-xl p-3 flex flex-col justify-between transition-all cursor-pointer`}
+                    className={`bg-[#080C18]/95 border ${isSelected ? 'border-[#00F0FF] ring-1 ring-[#00F0FF]/30' : 'border-slate-800'} ${card.hoverBorder} rounded-xl p-2.5 flex flex-col justify-between transition-all cursor-pointer min-w-0`}
                   >
                     <div>
                       <div className="flex items-center justify-between gap-1 mb-1.5">
-                        <span className={`w-6 h-6 rounded-md ${card.iconBg} flex items-center justify-center text-xs shrink-0`}>{card.icon}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-black whitespace-nowrap ${d.isPos ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                        <span className={`w-5 h-5 rounded-md ${card.iconBg} flex items-center justify-center text-[11px] shrink-0`}>{card.icon}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-black whitespace-nowrap ${d.isPos ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
                           {d.short}
                         </span>
                       </div>
-                      <div className="text-[11px] font-extrabold text-slate-300 uppercase leading-tight">{card.title}</div>
-                      <div className={`text-xl 2xl:text-2xl font-black tracking-tight mt-0.5 ${card.valColor}`}>
+                      <div className="text-[10px] font-extrabold text-slate-300 uppercase tracking-tight whitespace-nowrap truncate">{card.title}</div>
+                      <div className={`text-base sm:text-lg 2xl:text-xl font-black tracking-tight mt-0.5 whitespace-nowrap ${card.valColor}`}>
                         {card.isPlus ? `+${fmtPtBr(card.val)}` : fmtPtBr(card.val)}
                       </div>
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between">
+                    <div className="text-[10px] text-slate-400 mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between gap-1 whitespace-nowrap">
                       <span>Ontem:</span>
                       <strong className="text-amber-300 font-bold">
                         {card.isPlus ? `+${fmtPtBr(card.yestVal)}` : fmtPtBr(card.yestVal)}
@@ -657,12 +676,12 @@ export default function AnalyticsDashboard() {
             <div className="bg-[#080C18]/90 border border-slate-800/90 rounded-xl p-3.5 flex-1 flex flex-col justify-between gap-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-[#00F0FF]/15 text-[#00F0FF] font-black uppercase text-[10px]">Feed Ao Vivo de Hoje</span>
-                  <span className="text-xs font-bold text-slate-300">Últimas publicações capturadas na Graph API</span>
+                  <span className="px-2 py-0.5 rounded bg-[#00F0FF]/15 text-[#00F0FF] font-extrabold uppercase text-[10px] whitespace-nowrap">Feed Ao Vivo de Hoje</span>
+                  <span className="text-[11px] font-bold text-slate-300">Últimas publicações capturadas na Graph API</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="text-slate-400">💬 Comentários Hoje: <strong className="text-white">{fmtPtBr(t.comments)}</strong></span>
-                  <span className="text-[11px] text-emerald-400 font-bold">{lastSyncBadge}</span>
+                <div className="flex items-center gap-2.5 text-[11px]">
+                  <span className="text-slate-400 whitespace-nowrap">💬 Comentários Hoje: <strong className="text-white">{fmtPtBr(t.comments)}</strong></span>
+                  <span className="text-[10.5px] text-emerald-400 font-bold whitespace-nowrap">{lastSyncBadge}</span>
                 </div>
               </div>
 
@@ -674,9 +693,9 @@ export default function AnalyticsDashboard() {
                         {p.type === 'REELS' ? '🎬 REEL' : '📰 FEED'}
                       </span>
                       <span className="text-[10px] font-bold text-slate-400 shrink-0">{p.time}</span>
-                      <span className="text-slate-200 font-medium truncate">{p.caption}</span>
+                      <span className="text-slate-200 font-medium truncate text-[11.5px]">{p.caption}</span>
                     </div>
-                    <div className="flex items-center gap-2.5 shrink-0 text-[11px] font-bold">
+                    <div className="flex items-center gap-2 shrink-0 text-[11px] font-bold whitespace-nowrap">
                       <span className="text-[#FF0055]">❤️ {fmtPtBr(p.likes)}</span>
                       <span className="text-[#00F0FF]">💬 {fmtPtBr(p.comments)}</span>
                       <a href={p.link} target="_blank" rel="noreferrer" className="text-slate-300 hover:text-[#00F0FF] underline">Ver ↗</a>
@@ -688,21 +707,25 @@ export default function AnalyticsDashboard() {
           </div>
 
           {/* LADO DIREITO (5 COLUNAS): GRÁFICO DE LINHAS HOJE vs ONTEM */}
-          <div className="xl:col-span-5 bg-[#0D1326] border border-slate-800/90 rounded-2xl p-5 shadow-2xl flex flex-col justify-between gap-3.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-              <div>
-                <span className="text-[11px] font-black uppercase tracking-widest text-[#00F0FF]">Curva de Evolução Hora a Hora (Linhas)</span>
-                <h3 className="text-lg font-black text-white mt-0.5">Comparativo: Hoje vs. Ontem</h3>
+          <div className="xl:col-span-5 bg-[#0D1326] border border-slate-800/90 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+              <div className="min-w-0">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#00F0FF] block whitespace-nowrap">
+                  Curva de Evolução Hora a Hora (Linhas)
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-white mt-0.5 whitespace-nowrap">
+                  Comparativo: Hoje vs. Ontem
+                </h3>
               </div>
-              <div className="flex items-center gap-2 text-xs font-bold shrink-0">
-                <span className="flex items-center gap-1.5 text-[#00F0FF] bg-[#00F0FF]/10 border border-[#00F0FF]/30 px-2.5 py-1 rounded-lg whitespace-nowrap">
-                  <span className="w-3.5 h-0.5 bg-[#00F0FF] inline-block relative shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-[#00F0FF] absolute -top-[3px] left-1"></span>
+              <div className="flex items-center gap-1.5 text-[10.5px] font-bold shrink-0">
+                <span className="flex items-center gap-1.5 text-[#00F0FF] bg-[#00F0FF]/10 border border-[#00F0FF]/30 px-2 py-1 rounded-lg whitespace-nowrap">
+                  <span className="w-3 h-0.5 bg-[#00F0FF] inline-block relative shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#00F0FF] absolute -top-[2px] left-1"></span>
                   </span> Hoje (Ao Vivo)
                 </span>
-                <span className="flex items-center gap-1.5 text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg whitespace-nowrap">
-                  <span className="w-3.5 h-0.5 bg-amber-400 inline-block relative shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 absolute -top-[3px] left-1"></span>
+                <span className="flex items-center gap-1.5 text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded-lg whitespace-nowrap">
+                  <span className="w-3 h-0.5 bg-amber-400 inline-block relative shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute -top-[2px] left-1"></span>
                   </span> Ontem
                 </span>
               </div>
@@ -720,7 +743,7 @@ export default function AnalyticsDashboard() {
                 <button
                   key={btn.key}
                   onClick={() => setActiveLineMetric(btn.key)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] cursor-pointer transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-[10.5px] cursor-pointer transition-all whitespace-nowrap ${
                     activeLineMetric === btn.key
                       ? 'font-black bg-[#00F0FF] text-slate-950 shadow'
                       : 'font-bold bg-[#080C18] text-slate-400 hover:text-white border border-slate-800'
@@ -735,7 +758,7 @@ export default function AnalyticsDashboard() {
             {renderMainDualLineChart()}
 
             {/* 5 Mini-Gráficos de Linha (Sparklines Duplas Hoje vs Ontem para cada métrica) */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
               {miniItems.map(item => {
                 const cfg = hourlyCurves[item.key];
                 const sliceYest = cfg.yesterday.slice(0, 7);
@@ -759,30 +782,30 @@ export default function AnalyticsDashboard() {
                     onClick={() => setActiveLineMetric(item.key)}
                     className={`p-2 rounded-xl bg-[#080C18] border ${
                       isSelected ? 'border-[#00F0FF] ring-1 ring-[#00F0FF]/30' : 'border-slate-800/80 hover:border-slate-700'
-                    } cursor-pointer transition-all flex flex-col justify-between overflow-hidden`}
+                    } cursor-pointer transition-all flex flex-col justify-between overflow-hidden min-w-0`}
                   >
                     <div>
-                      <div className="text-[10px] font-extrabold text-slate-200 truncate leading-tight">{item.title}</div>
-                      <div className="text-[9px] font-black text-emerald-400 mt-0.5 leading-tight">{d.short}</div>
+                      <div className="text-[9.5px] font-extrabold text-slate-200 truncate leading-tight whitespace-nowrap">{item.title}</div>
+                      <div className="text-[9px] font-black text-emerald-400 mt-0.5 leading-tight whitespace-nowrap">{d.short}</div>
                     </div>
-                    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-8 my-1 overflow-visible">
+                    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-7 my-1 overflow-visible">
                       <polyline fill="none" stroke="#F59E0B" strokeWidth="1.8" strokeDasharray="3 2" strokeLinecap="round" points={ptsYest} />
                       <polyline fill="none" stroke={cfg.stroke} strokeWidth="2.4" strokeLinecap="round" points={ptsToday} />
                       <circle cx={lastX} cy={lastYYest} r="2.5" fill="#F59E0B" stroke="#080C18" strokeWidth="1" />
                       <circle cx={lastX} cy={lastYToday} r="3" fill={cfg.stroke} stroke="#080C18" strokeWidth="1" />
                     </svg>
-                    <div className="flex flex-col gap-0.5 text-[9.5px] pt-1 border-t border-slate-800/70 font-bold">
-                      <div className="flex items-center justify-between gap-1">
+                    <div className="flex flex-col gap-0.5 text-[9px] pt-1 border-t border-slate-800/70 font-bold">
+                      <div className="flex items-center justify-between gap-1 whitespace-nowrap">
                         <span className="text-slate-400 flex items-center gap-1 shrink-0">
                           <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: cfg.stroke }}></span>Hoje
                         </span>
-                        <span className="text-white font-black truncate">{fmtCompactNum(item.today)}</span>
+                        <span className="text-white font-black">{fmtCompactNum(item.today)}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center justify-between gap-1 whitespace-nowrap">
                         <span className="text-amber-400/90 flex items-center gap-1 shrink-0">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>Ontem
                         </span>
-                        <span className="text-amber-300 font-black truncate">{fmtCompactNum(item.yest)}</span>
+                        <span className="text-amber-300 font-black">{fmtCompactNum(item.yest)}</span>
                       </div>
                     </div>
                   </div>
@@ -791,9 +814,9 @@ export default function AnalyticsDashboard() {
             </div>
 
             {/* Resumo do Veredito Hoje vs Ontem */}
-            <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 via-[#080C18] to-[#00F0FF]/10 border border-emerald-500/30 flex items-center justify-between gap-3">
-              <div className="text-xs">
-                <div className="font-black text-emerald-400 uppercase tracking-wider">
+            <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-500/10 via-[#080C18] to-[#00F0FF]/10 border border-emerald-500/30 flex items-center justify-between gap-3">
+              <div className="text-[11px] leading-snug">
+                <div className="font-black text-emerald-400 uppercase tracking-wide">
                   {compareMode === 'same_hour'
                     ? `🚀 Ritmo Acelerado: Curva de Hoje está ${mainViewsDelta.short} acima de ontem!`
                     : '⏱️ Curva de Hoje + Linha Pontilhada de Projeção vs. 24h de Ontem'}
