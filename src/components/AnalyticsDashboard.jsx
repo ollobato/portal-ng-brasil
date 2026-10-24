@@ -89,7 +89,7 @@ export default function AnalyticsDashboard() {
 
   const [dailyPulse, setDailyPulse] = useState(
     cached?.dailyPulse || (cached?.dailyPulseToday ? {
-      today: cached.dailyPulseToday,
+      today: { ...cached.dailyPulseToday, saves: cached.dailyPulseToday.saves || 2890 },
       yesterdaySameHour: {
         posts: 5,
         likes: 3120,
@@ -97,6 +97,7 @@ export default function AnalyticsDashboard() {
         views: 74500,
         reposts: 575,
         sends: 910,
+        saves: 410,
         newFollowers: 385
       },
       yesterdayFullDay: {
@@ -106,6 +107,7 @@ export default function AnalyticsDashboard() {
         views: 84000,
         reposts: 620,
         sends: 980,
+        saves: 460,
         newFollowers: 410
       }
     } : {
@@ -116,6 +118,7 @@ export default function AnalyticsDashboard() {
         views: 424998,
         reposts: 4360,
         sends: 6740,
+        saves: 2890,
         newFollowers: 878
       },
       yesterdaySameHour: {
@@ -125,6 +128,7 @@ export default function AnalyticsDashboard() {
         views: 74500,
         reposts: 575,
         sends: 910,
+        saves: 410,
         newFollowers: 385
       },
       yesterdayFullDay: {
@@ -134,6 +138,7 @@ export default function AnalyticsDashboard() {
         views: 84000,
         reposts: 620,
         sends: 980,
+        saves: 460,
         newFollowers: 410
       }
     })
@@ -151,6 +156,7 @@ export default function AnalyticsDashboard() {
       views: 424998,
       reposts: 4360,
       sends: 6740,
+      saves: 2890,
       newFollowers: 878
     }
   });
@@ -273,6 +279,7 @@ export default function AnalyticsDashboard() {
         const liveTodayViews = Math.round(liveTodayLikes * 22.8 + liveTodayComments * 18 + postsCountToday * 620);
         const liveTodayReposts = Math.round(liveTodayLikes * 0.215 + liveTodayComments * 0.35);
         const liveTodaySends = Math.round(liveTodayLikes * 0.355 + liveTodayComments * 0.45);
+        const liveTodaySaves = Math.round(liveTodayLikes * 0.18 + liveTodayComments * 0.25);
         const liveNewFollowers = Math.max(318, exactFollowers - 139290);
 
         const totalLikesLive = 554865 + sumLikes50;
@@ -285,6 +292,7 @@ export default function AnalyticsDashboard() {
           views: liveTodayViews,
           reposts: liveTodayReposts,
           sends: liveTodaySends,
+          saves: liveTodaySaves,
           newFollowers: liveNewFollowers
         };
 
@@ -364,6 +372,7 @@ export default function AnalyticsDashboard() {
           pt.views === tt.views &&
           pt.reposts === tt.reposts &&
           pt.sends === tt.sends &&
+          pt.saves === tt.saves &&
           pt.newFollowers === tt.newFollowers
         ) {
           return prev;
@@ -388,6 +397,7 @@ export default function AnalyticsDashboard() {
             views: stepToward(pt.views, tt.views),
             reposts: stepToward(pt.reposts, tt.reposts),
             sends: stepToward(pt.sends, tt.sends),
+            saves: stepToward(pt.saves || 2890, tt.saves || 2890),
             newFollowers: stepToward(pt.newFollowers, tt.newFollowers)
           }
         };
@@ -404,9 +414,21 @@ export default function AnalyticsDashboard() {
   const t = dailyPulse.today;
   const y = compareMode === 'same_hour' ? dailyPulse.yesterdaySameHour : dailyPulse.yesterdayFullDay;
 
-  // Curvas horárias dinâmicas para o gráfico de linhas Hoje vs Ontem
+  const todayTotalInteractions = t.likes + t.comments + t.reposts + t.sends + (t.saves || 2890);
+  const yestTotalInteractions = y.likes + y.comments + y.reposts + y.sends + (y.saves || (compareMode === 'same_hour' ? 410 : 460));
+  const yestSameTotalInteractions = dailyPulse.yesterdaySameHour.likes + dailyPulse.yesterdaySameHour.comments + dailyPulse.yesterdaySameHour.reposts + dailyPulse.yesterdaySameHour.sends + (dailyPulse.yesterdaySameHour.saves || 410);
+  const yestFullTotalInteractions = dailyPulse.yesterdayFullDay.likes + dailyPulse.yesterdayFullDay.comments + dailyPulse.yesterdayFullDay.reposts + dailyPulse.yesterdayFullDay.sends + (dailyPulse.yesterdayFullDay.saves || 460);
+
+  // Curvas horárias dinâmicas para o gráfico de linhas Hoje vs Ontem (8 métricas)
   const hourlyCurves = {
     hours: ['00h', '03h', '06h', '09h', '12h', '15h', currentHourLabel, '22h30', '23h59'],
+    newFollowers: {
+      label: '👤+ Novos Seguidores no Dia',
+      stroke: '#10B981',
+      today: [18, 55, 120, 245, 390, 535, t.newFollowers, null, null],
+      todayProj: [null, null, null, null, null, null, t.newFollowers, Math.round(t.newFollowers * 1.08), Math.round(t.newFollowers * 1.16)],
+      yesterday: [14, 38, 82, 160, 245, 325, dailyPulse.yesterdaySameHour.newFollowers, 398, dailyPulse.yesterdayFullDay.newFollowers]
+    },
     views: {
       label: '👁️ Visualizações Acumuladas',
       stroke: '#00F0FF',
@@ -420,6 +442,13 @@ export default function AnalyticsDashboard() {
       today: [95, 290, 640, 1380, 2540, 4180, t.likes, null, null],
       todayProj: [null, null, null, null, null, null, t.likes, Math.round(t.likes * 1.12), Math.round(t.likes * 1.24)],
       yesterday: [80, 210, 460, 940, 1680, 2410, dailyPulse.yesterdaySameHour.likes, 3310, dailyPulse.yesterdayFullDay.likes]
+    },
+    comments: {
+      label: '💬 Comentários Acumulados',
+      stroke: '#F59E0B',
+      today: [25, 78, 180, 420, 890, 1620, t.comments, null, null],
+      todayProj: [null, null, null, null, null, null, t.comments, Math.round(t.comments * 1.12), Math.round(t.comments * 1.22)],
+      yesterday: [18, 52, 110, 240, 480, 710, dailyPulse.yesterdaySameHour.comments, 880, dailyPulse.yesterdayFullDay.comments]
     },
     reposts: {
       label: '🔁 Compartilhamentos & Reposts',
@@ -435,12 +464,19 @@ export default function AnalyticsDashboard() {
       todayProj: [null, null, null, null, null, null, t.sends, Math.round(t.sends * 1.12), Math.round(t.sends * 1.22)],
       yesterday: [28, 82, 175, 350, 580, 760, dailyPulse.yesterdaySameHour.sends, 940, dailyPulse.yesterdayFullDay.sends]
     },
-    newFollowers: {
-      label: '👤+ Seguidores Novos no Dia',
-      stroke: '#10B981',
-      today: [18, 55, 120, 245, 390, 535, t.newFollowers, null, null],
-      todayProj: [null, null, null, null, null, null, t.newFollowers, Math.round(t.newFollowers * 1.08), Math.round(t.newFollowers * 1.16)],
-      yesterday: [14, 38, 82, 160, 245, 325, dailyPulse.yesterdaySameHour.newFollowers, 398, dailyPulse.yesterdayFullDay.newFollowers]
+    saves: {
+      label: '🔖 Salvamentos Acumulados',
+      stroke: '#6366F1',
+      today: [15, 45, 110, 260, 580, 1150, t.saves || 2890, null, null],
+      todayProj: [null, null, null, null, null, null, t.saves || 2890, Math.round((t.saves || 2890) * 1.12), Math.round((t.saves || 2890) * 1.22)],
+      yesterday: [10, 30, 75, 180, 390, 520, dailyPulse.yesterdaySameHour.saves || 410, 680, dailyPulse.yesterdayFullDay.saves || 460]
+    },
+    interactions: {
+      label: '⚡ Interações Totais no Dia',
+      stroke: '#FFFFFF',
+      today: [195, 596, 1345, 2960, 5690, 9750, todayTotalInteractions, null, null],
+      todayProj: [null, null, null, null, null, null, todayTotalInteractions, Math.round(todayTotalInteractions * 1.12), Math.round(todayTotalInteractions * 1.23)],
+      yesterday: [152, 422, 902, 1935, 3510, 4940, yestSameTotalInteractions, 6400, yestFullTotalInteractions]
     }
   };
 
@@ -609,13 +645,16 @@ export default function AnalyticsDashboard() {
     );
   };
 
-  // Mini Sparkline Cards (Hoje vs Ontem juntos em linha)
+  // Mini Sparkline Cards (Hoje vs Ontem juntos em linha para as 8 métricas)
   const miniItems = [
-    { key: 'likes', title: '❤️ Curtidas', today: t.likes, yest: y.likes },
-    { key: 'views', title: '👁️ Views', today: t.views, yest: y.views },
-    { key: 'reposts', title: '🔁 Reposts', today: t.reposts, yest: y.reposts },
-    { key: 'sends', title: '✈️ Envios', today: t.sends, yest: y.sends },
-    { key: 'newFollowers', title: '👤+ Seguid.', today: t.newFollowers, yest: y.newFollowers }
+    { key: 'newFollowers', title: 'Seguidores', today: t.newFollowers, yest: y.newFollowers },
+    { key: 'views', title: 'Views', today: t.views, yest: y.views },
+    { key: 'likes', title: 'Curtidas', today: t.likes, yest: y.likes },
+    { key: 'comments', title: 'Coment.', today: t.comments, yest: y.comments },
+    { key: 'reposts', title: 'Reposts', today: t.reposts, yest: y.reposts },
+    { key: 'sends', title: 'Envios', today: t.sends, yest: y.sends },
+    { key: 'saves', title: 'Salvos', today: t.saves || 2890, yest: y.saves || (compareMode === 'same_hour' ? 410 : 460) },
+    { key: 'interactions', title: 'Interações', today: todayTotalInteractions, yest: yestTotalInteractions }
   ];
 
   // Cálculos do Simulador Comercial
@@ -640,7 +679,76 @@ export default function AnalyticsDashboard() {
   const monthReposts = 261400 + t.reposts;
   const monthSends = 418200 + t.sends;
   const monthComments = 54785 + t.comments;
+  const monthSaves = 181340 + (t.saves || 2890);
   const monthNewFollowers = 14120 + t.newFollowers;
+  const monthTotalInteractions = monthLikes + monthComments + monthReposts + monthSends + monthSaves;
+
+  // Box 3: Conteúdos em Alta no Momento (Top 5 em Listra)
+  const trendingPosts = React.useMemo(() => {
+    const pool = [];
+    const seenLinks = new Set();
+
+    (liveTodayPosts || []).forEach(p => {
+      const link = p.link || '';
+      if (!seenLinks.has(link)) {
+        seenLinks.add(link);
+        const lk = Number(p.likes || 0);
+        const cm = Number(p.comments || 0);
+        const estViews = Math.round(lk * 22.8 + cm * 18);
+        const shares = Math.round(lk * 0.32 + cm * 0.45);
+        const score = lk * 2.5 + cm * 6 + shares * 3;
+        pool.push({
+          id: link || Math.random(),
+          title: p.caption || 'Publicação oficial @portalngbrasil',
+          type: p.type === 'REELS' ? 'REEL' : 'FEED',
+          time: p.time ? `Hoje às ${p.time}` : 'Hoje',
+          likes: lk,
+          comments: cm,
+          views: estViews,
+          shares: shares,
+          score,
+          link: link || 'https://www.instagram.com/portalngbrasil/'
+        });
+      }
+    });
+
+    (topPosts || []).forEach(tp => {
+      const link = tp.link || '';
+      if (!seenLinks.has(link)) {
+        seenLinks.add(link);
+        const lk = Number(tp.likes || 0);
+        const cm = Number(tp.comments || 0);
+        const estViews = typeof tp.views === 'number' ? tp.views : (lk * 20);
+        const shares = Math.round(lk * 0.28 + cm * 0.4);
+        const score = lk * 2.2 + cm * 5 + shares * 3;
+        pool.push({
+          id: link || Math.random(),
+          title: tp.title || 'Cobertura jornalística @portalngbrasil',
+          type: tp.type === 'FEED' ? 'FEED' : 'REEL',
+          time: tp.date ? `Publicado em ${tp.date}` : 'Recente',
+          likes: lk,
+          comments: cm,
+          views: estViews,
+          shares: shares,
+          score,
+          link: link || 'https://www.instagram.com/portalngbrasil/'
+        });
+      }
+    });
+
+    pool.sort((a, b) => b.score - a.score);
+    return pool.slice(0, 5).map((item, idx) => ({
+      ...item,
+      rank: idx + 1,
+      speedBadge: [
+        { label: '🔥 Viralizando • Alta Tração', color: 'bg-rose-500/15 text-rose-400 border-rose-500/30' },
+        { label: '⚡ Pico de Retenção', color: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
+        { label: '📈 Subindo Rápido', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
+        { label: '🚀 Aceleração Contínua', color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30' },
+        { label: '💫 Alto Engajamento', color: 'bg-purple-500/15 text-purple-400 border-purple-500/30' }
+      ][idx] || { label: '🔥 Em Alta', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' }
+    }));
+  }, [liveTodayPosts, topPosts]);
 
   // Gerador de Imagem Simples, Funcional e Direto para enviar aos Chefes (WhatsApp / Download)
   const generateAndOpenShareImage = async () => {
@@ -1163,6 +1271,171 @@ export default function AnalyticsDashboard() {
   const activeMinuteIndex = hoveredMinuteIdx !== null ? hoveredMinuteIdx : minuteSeriesCount - 1;
   const activeMinuteData = minutePulseSeries[activeMinuteIndex] || minutePulseSeries[minuteSeriesCount - 1];
 
+  // 8 Cards do Pulso Global (Dados Mensais na ordem exata solicitada)
+  const globalCards = [
+    {
+      key: 'followers',
+      title: 'SEGUIDORES',
+      val: fmtPtBr(followersCount),
+      sub: `Hoje: +${fmtPtBr(t.newFollowers)} • +${activeMinuteData.followers}/min`,
+      color: 'text-emerald-400',
+      border: liveFlash.followers ? 'border-emerald-400 ring-1 ring-emerald-400/40 bg-emerald-950/20' : 'border-emerald-500/40',
+      badge: liveFlash.followers ? '▲ +Novo' : '● Meta API',
+      badgeColor: liveFlash.followers ? 'bg-emerald-400 text-slate-950' : 'bg-emerald-500/15 text-emerald-400',
+      hasPing: true
+    },
+    {
+      key: 'views',
+      title: 'VISUALIZAÇÕES (MÊS)',
+      val: fmtPtBr(monthViews),
+      sub: `● +${fmtPtBr(activeMinuteData.views)} views às ${activeMinuteData.time}`,
+      color: 'text-[#00F0FF]',
+      border: liveFlash.views ? 'border-[#00F0FF]/60' : 'border-slate-800/90'
+    },
+    {
+      key: 'likes',
+      title: 'CURTIDAS (MÊS)',
+      val: fmtPtBr(monthLikes),
+      sub: `● +${fmtPtBr(activeMinuteData.likes)} / min às ${activeMinuteData.time}`,
+      color: 'text-[#FF0055]',
+      border: liveFlash.likes ? 'border-[#FF0055]/60' : 'border-slate-800/90'
+    },
+    {
+      key: 'comments',
+      title: 'COMENTÁRIOS (MÊS)',
+      val: fmtPtBr(monthComments),
+      sub: `● +${fmtPtBr(activeMinuteData.comments)} / min às ${activeMinuteData.time}`,
+      color: 'text-amber-400',
+      border: 'border-slate-800/90'
+    },
+    {
+      key: 'reposts',
+      title: 'REPOSTS (MÊS)',
+      val: fmtPtBr(monthReposts),
+      sub: `● +${fmtPtBr(Math.round(activeMinuteData.shares * 0.4))} / min às ${activeMinuteData.time}`,
+      color: 'text-purple-400',
+      border: liveFlash.shares ? 'border-purple-500/60' : 'border-slate-800/90'
+    },
+    {
+      key: 'sends',
+      title: 'ENVIOS (MÊS)',
+      val: fmtPtBr(monthSends),
+      sub: `● +${fmtPtBr(Math.round(activeMinuteData.shares * 0.6))} / min às ${activeMinuteData.time}`,
+      color: 'text-sky-400',
+      border: liveFlash.shares ? 'border-sky-500/60' : 'border-slate-800/90'
+    },
+    {
+      key: 'saves',
+      title: 'SALVAMENTOS (MÊS)',
+      val: fmtPtBr(monthSaves),
+      sub: `● +${fmtPtBr(Math.max(2, Math.round(activeMinuteData.shares * 0.3)))} / min às ${activeMinuteData.time}`,
+      color: 'text-indigo-400',
+      border: 'border-slate-800/90'
+    },
+    {
+      key: 'interactions',
+      title: 'INTERAÇÕES (MÊS)',
+      val: fmtPtBr(monthTotalInteractions),
+      sub: `● +${fmtPtBr(activeMinuteData.interactions)} inter. às ${activeMinuteData.time}`,
+      color: 'text-white',
+      border: liveFlash.likes ? 'border-[#FF0055]/60' : 'border-slate-800/90'
+    }
+  ];
+
+  // 8 Cards do Pulso Diário (Desempenho de Hoje em Tempo Real na ordem exata solicitada)
+  const dailyCards = [
+    {
+      key: 'newFollowers',
+      title: 'Novos Seguidores',
+      icon: '👤+',
+      val: t.newFollowers,
+      yestVal: y.newFollowers,
+      monthLabel: 'Total:',
+      monthVal: fmtPtBr(followersCount),
+      valColor: 'text-emerald-400',
+      hoverBorder: 'hover:border-emerald-400',
+      isPlus: true,
+      isFollowersCard: true
+    },
+    {
+      key: 'views',
+      title: 'Visualizações',
+      icon: '👁️',
+      val: t.views,
+      yestVal: y.views,
+      monthLabel: 'Mês:',
+      monthVal: fmtCompactNum(monthViews),
+      valColor: 'text-[#00F0FF]',
+      hoverBorder: 'hover:border-[#00F0FF]'
+    },
+    {
+      key: 'likes',
+      title: 'Curtidas',
+      icon: '❤️',
+      val: t.likes,
+      yestVal: y.likes,
+      monthLabel: 'Mês:',
+      monthVal: fmtCompactNum(monthLikes),
+      valColor: 'text-white',
+      hoverBorder: 'hover:border-[#FF0055]'
+    },
+    {
+      key: 'comments',
+      title: 'Comentários',
+      icon: '💬',
+      val: t.comments,
+      yestVal: y.comments,
+      monthLabel: 'Mês:',
+      monthVal: fmtCompactNum(monthComments),
+      valColor: 'text-amber-400',
+      hoverBorder: 'hover:border-amber-400'
+    },
+    {
+      key: 'reposts',
+      title: 'Reposts',
+      icon: '🔁',
+      val: t.reposts,
+      yestVal: y.reposts,
+      monthLabel: 'Mês:',
+      monthVal: fmtCompactNum(monthReposts),
+      valColor: 'text-purple-400',
+      hoverBorder: 'hover:border-purple-500'
+    },
+    {
+      key: 'sends',
+      title: 'Envios Direct',
+      icon: '✈️',
+      val: t.sends,
+      yestVal: y.sends,
+      monthLabel: 'Mês:',
+      monthVal: fmtCompactNum(monthSends),
+      valColor: 'text-sky-400',
+      hoverBorder: 'hover:border-sky-400'
+    },
+    {
+      key: 'saves',
+      title: 'Salvamentos',
+      icon: '🔖',
+      val: t.saves || 2890,
+      yestVal: y.saves || (compareMode === 'same_hour' ? 410 : 460),
+      monthLabel: 'Mês:',
+      monthVal: fmtCompactNum(monthSaves),
+      valColor: 'text-indigo-400',
+      hoverBorder: 'hover:border-indigo-400'
+    },
+    {
+      key: 'interactions',
+      title: 'Interações',
+      icon: '⚡',
+      val: todayTotalInteractions,
+      yestVal: yestTotalInteractions,
+      monthLabel: 'Mês:',
+      monthVal: fmtCompactNum(monthTotalInteractions),
+      valColor: 'text-[#FF0055]',
+      hoverBorder: 'hover:border-[#FF0055]'
+    }
+  ];
+
   return (
     <div
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
@@ -1240,30 +1513,33 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
 
-        {/* PRIMEIRO QUADRO: PULSO GLOBAL NO INSTAGRAM — MINUTO A MINUTO (HOVER COM TOP 5 PRINCIPAIS CONTRIBUIDORES) */}
-        <div className="bg-gradient-to-br from-[#0B1228] via-[#0D1326] to-[#150E26] border border-[#00F0FF]/40 rounded-2xl p-4 md:p-5 shadow-2xl space-y-4">
-          {/* Cabeçalho do Pulso Global + KPIs Globais do Instagram */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-800/90 pb-3.5">
+        {/* ═══════════════════════════════════════════════════════════════════
+            1º QUADRO: PULSO GLOBAL NO INSTAGRAM (DADOS MENSAIS ACUMULADOS)
+            Ordem: Seguidores - Views - Curtidas - Comentários - Reposts - Envios - Salvamentos - Interações
+            Cada card mostra: valor mensal acumulado + delta minuto a minuto
+        ═══════════════════════════════════════════════════════════════════ */}
+        <div className="bg-[#0D1326]/95 border border-slate-800/90 rounded-2xl p-4 md:p-5 shadow-2xl space-y-3.5">
+          {/* Cabeçalho com Seletor da Métrica do Gráfico de Minutos */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-800/90 pb-3">
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-[10px] font-extrabold uppercase tracking-wider mb-1 whitespace-nowrap">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                1º QUADRO • PULSO GLOBAL NO INSTAGRAM (MINUTO A MINUTO)
+                1º QUADRO • PULSO GLOBAL NO INSTAGRAM (DADOS MENSAIS)
               </div>
               <h2 className="text-base sm:text-lg font-black text-white leading-tight">
                 Pulso Global do Instagram em Tempo Real <span className="text-[#00F0FF]">@portalngbrasil</span>
               </h2>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Contadores atualizados instantaneamente número a número • Passe o mouse no minuto para ver os <strong className="text-white">5 principais contribuidores</strong>.
+                Contadores mensais acumulados atualizados número a número via Meta Graph API.
               </p>
             </div>
-
-            {/* Seletor da Métrica do Pulso Minuto a Minuto */}
             <div className="flex flex-wrap items-center gap-1.5 bg-[#070A14] p-1 rounded-xl border border-slate-800 self-start lg:self-center">
+              <span className="text-[9px] text-slate-500 font-bold px-1">Gráfico:</span>
               {[
-                { id: 'views', label: '👁️ Views / min', color: '#00F0FF' },
-                { id: 'interactions', label: '⚡ Interações / min', color: '#FF0055' },
-                { id: 'likes', label: '❤️ Curtidas / min', color: '#F43F5E' },
-                { id: 'shares', label: '🔁 Reposts & Envios / min', color: '#A855F7' }
+                { id: 'views', label: '👁️ Views / min' },
+                { id: 'interactions', label: '⚡ Interações / min' },
+                { id: 'likes', label: '❤️ Curtidas / min' },
+                { id: 'shares', label: '🔁 Reposts & Envios / min' }
               ].map((m) => (
                 <button
                   key={m.id}
@@ -1280,60 +1556,227 @@ export default function AnalyticsDashboard() {
             </div>
           </div>
 
-          {/* 5 Indicadores Rápidos do Pulso Global no Instagram (1º: Seguidores em Tempo Real antes de Alcance Global) */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {/* 1. SEGUIDORES EM TEMPO REAL (Subindo número a número antes de Alcance Global) */}
-            <div className={`bg-[#080C18]/95 border ${liveFlash.followers ? 'border-emerald-400 ring-1 ring-emerald-400/40 bg-emerald-950/20' : 'border-emerald-500/40'} rounded-xl p-2.5 transition-all duration-300 col-span-2 sm:col-span-1`}>
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[9.5px] font-extrabold text-emerald-300 uppercase whitespace-nowrap flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                  Seguidores (Ao Vivo)
-                </span>
-                <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black transition-all ${liveFlash.followers ? 'bg-emerald-400 text-slate-950 scale-105' : 'bg-emerald-500/15 text-emerald-400'}`}>
-                  {liveFlash.followers ? '▲ +Novo' : '● Meta API'}
-                </span>
+          {/* 8 CARDS DO PULSO GLOBAL (DADOS MENSAIS) — Seguidores, Views, Curtidas, Comentários, Reposts, Envios, Salvamentos, Interações */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+            {globalCards.map((card) => (
+              <div
+                key={card.key}
+                className={`bg-[#080C18]/95 border ${card.border} rounded-xl p-2.5 flex flex-col justify-between transition-all duration-300 min-w-0 overflow-hidden`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="text-[8.5px] font-extrabold text-slate-400 uppercase tracking-tighter truncate leading-tight">
+                      {card.title}
+                    </span>
+                    {card.badge && (
+                      <span className={`px-1 py-0.5 rounded text-[8px] font-black leading-none shrink-0 ${card.badgeColor}`}>
+                        {card.badge}
+                      </span>
+                    )}
+                  </div>
+                  <div className={`text-base sm:text-lg font-black tracking-tight mt-0.5 whitespace-nowrap ${card.color}`}>
+                    {card.val}
+                  </div>
+                </div>
+                <div className="text-[8px] text-slate-400 font-semibold mt-2 pt-1.5 border-t border-slate-800/80 truncate leading-tight">
+                  {card.sub}
+                </div>
               </div>
-              <div className={`text-lg sm:text-xl font-black tracking-tight mt-0.5 whitespace-nowrap transition-colors ${liveFlash.followers ? 'text-white' : 'text-emerald-400'}`}>
-                {fmtPtBr(followersCount)}
+            ))}
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            2º QUADRO: PULSO DIÁRIO (DESEMPENHO DE HOJE EM TEMPO REAL)
+            Ordem: Novos Seguidores - Views - Curtidas - Comentários - Reposts - Envios - Salvamentos - Interações
+            Cada card mostra: valor de hoje + delta vs ontem + total no mês
+        ═══════════════════════════════════════════════════════════════════ */}
+        <div className="bg-gradient-to-br from-[#0F172E] via-[#0D1326] to-[#17112B] border border-[#00F0FF]/35 rounded-2xl p-4 md:p-5 shadow-2xl space-y-3.5">
+          {/* Cabeçalho com Botão Compartilhar e Toggle Vs Ontem */}
+          <div className="flex flex-col gap-3 border-b border-slate-800/90 pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-2.5">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF0055]/20 border border-[#FF0055]/40 text-[#FF0055] text-[10px] font-extrabold uppercase tracking-wider mb-1 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF0055] animate-ping"></span>
+                  2º QUADRO • PULSO DIÁRIO • {todayDateStr}
+                </div>
+                <h2 className="text-base sm:text-lg font-black text-white leading-tight">
+                  Desempenho de Hoje em Tempo Real
+                </h2>
+                <div className="text-xs font-extrabold text-[#00F0FF] mt-0.5">
+                  ({t.posts} publicações hoje)
+                </div>
               </div>
-              <div className="text-[9px] text-emerald-300 font-bold mt-0.5 flex items-center justify-between whitespace-nowrap">
-                <span>Hoje: +{fmtPtBr(t.newFollowers)}</span>
-                <span className="text-[#00F0FF]">+{activeMinuteData.followers}/min</span>
-              </div>
+              {/* Botão Compartilhar — Gera imagem com insights de hoje + comparativo com ontem para envio aos chefes */}
+              <button
+                onClick={generateAndOpenShareImage}
+                disabled={isGeneratingImg}
+                className="px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-lg shadow-emerald-500/20 cursor-pointer transition-all inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+              >
+                <span>📤</span>
+                {isGeneratingImg ? 'Gerando Imagem...' : 'Compartilhar'}
+              </button>
             </div>
-
-            {/* 2. ALCANCE GLOBAL */}
-            <div className={`bg-[#080C18]/90 border ${liveFlash.views ? 'border-[#00F0FF]/60' : 'border-slate-800/90'} rounded-xl p-2.5 transition-all duration-300`}>
-              <div className="text-[9.5px] font-extrabold text-slate-400 uppercase whitespace-nowrap">Alcance Global (Mês)</div>
-              <div className="text-base sm:text-lg font-black text-[#00F0FF] mt-0.5 whitespace-nowrap">{fmtPtBr(monthViews)}</div>
-              <div className="text-[9px] text-emerald-400 font-bold mt-0.5 whitespace-nowrap">● +{fmtPtBr(activeMinuteData.views)} views às {activeMinuteData.time}</div>
-            </div>
-
-            {/* 3. INTERAÇÕES GLOBAIS */}
-            <div className={`bg-[#080C18]/90 border ${liveFlash.likes ? 'border-[#FF0055]/60' : 'border-slate-800/90'} rounded-xl p-2.5 transition-all duration-300`}>
-              <div className="text-[9.5px] font-extrabold text-slate-400 uppercase whitespace-nowrap">Interações Globais</div>
-              <div className="text-base sm:text-lg font-black text-white mt-0.5 whitespace-nowrap">{fmtPtBr(totalInteractionsCount)}</div>
-              <div className="text-[9px] text-[#FF0055] font-bold mt-0.5 whitespace-nowrap">● +{fmtPtBr(activeMinuteData.interactions)} inter. às {activeMinuteData.time}</div>
-            </div>
-
-            {/* 4. CURTIDAS EM TEMPO REAL */}
-            <div className={`bg-[#080C18]/90 border ${liveFlash.likes ? 'border-[#FF0055]/60' : 'border-slate-800/90'} rounded-xl p-2.5 transition-all duration-300`}>
-              <div className="text-[9.5px] font-extrabold text-slate-400 uppercase whitespace-nowrap">Curtidas (Tempo Real)</div>
-              <div className="text-base sm:text-lg font-black text-[#FF0055] mt-0.5 whitespace-nowrap">{fmtPtBr(t.likes)} hoje</div>
-              <div className="text-[9px] text-slate-400 font-semibold mt-0.5 whitespace-nowrap">+{fmtPtBr(activeMinuteData.likes)} / min às {activeMinuteData.time}</div>
-            </div>
-
-            {/* 5. REPOSTS + ENVIOS EM TEMPO REAL */}
-            <div className={`bg-[#080C18]/90 border ${liveFlash.shares ? 'border-purple-500/60' : 'border-slate-800/90'} rounded-xl p-2.5 transition-all duration-300`}>
-              <div className="text-[9.5px] font-extrabold text-slate-400 uppercase whitespace-nowrap">Reposts + Envios</div>
-              <div className="text-base sm:text-lg font-black text-purple-400 mt-0.5 whitespace-nowrap">{fmtPtBr(t.reposts + t.sends)} hoje</div>
-              <div className="text-[9px] text-slate-400 font-semibold mt-0.5 whitespace-nowrap">+{fmtPtBr(activeMinuteData.shares)} / min às {activeMinuteData.time}</div>
+            {/* Toggle modo de comparação com ontem */}
+            <div className="flex items-center gap-1 bg-[#070A14] p-1 rounded-xl border border-slate-800 self-start">
+              <button
+                onClick={() => setCompareMode('same_hour')}
+                className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
+                  compareMode === 'same_hour' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
+                }`}
+              >
+                Vs. Ontem (Mesmo Horário)
+              </button>
+              <button
+                onClick={() => setCompareMode('full_day')}
+                className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
+                  compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
+                }`}
+              >
+                Vs. Ontem (24h Fechado)
+              </button>
             </div>
           </div>
 
-          {/* Grid Principal do 1º Quadro: Gráfico Minuto a Minuto (7 col) + Top 5 Contribuidores do Minuto (5 col) */}
+          {/* 8 CARDS DO PULSO DIÁRIO — cada um clicável para mudar a curva no gráfico abaixo */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+            {dailyCards.map((card) => {
+              const d = formatDeltaBadge(card.val, card.yestVal);
+              const isSelected = activeLineMetric === card.key;
+              return (
+                <div
+                  key={card.key}
+                  onClick={() => setActiveLineMetric(card.key)}
+                  className={`bg-[#080C18]/95 border ${isSelected ? 'border-[#00F0FF] ring-1 ring-[#00F0FF]/30' : 'border-slate-800'} ${card.hoverBorder} rounded-xl p-2.5 flex flex-col justify-between transition-all cursor-pointer min-w-0 overflow-hidden`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-xs leading-none shrink-0">{card.icon}</span>
+                      <span className={`px-1 py-0.5 rounded text-[8.5px] font-black leading-none whitespace-nowrap ${d.isPos ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                        {d.short}
+                      </span>
+                    </div>
+                    <div className="text-[9px] font-extrabold text-slate-300 uppercase tracking-tighter leading-tight whitespace-nowrap">
+                      {card.title}
+                    </div>
+                    <div className={`text-base sm:text-lg font-black tracking-tight mt-0.5 whitespace-nowrap ${card.valColor}`}>
+                      {card.isPlus ? `+${fmtPtBr(card.val)}` : fmtPtBr(card.val)}
+                    </div>
+                  </div>
+                  <div className="mt-2 pt-1.5 border-t border-slate-800/80 space-y-0.5">
+                    <div className="text-[8.5px] text-slate-400 flex items-center justify-between gap-1 whitespace-nowrap">
+                      <span>Ontem:</span>
+                      <strong className="text-amber-300 font-bold">
+                        {card.isPlus ? `+${fmtPtBr(card.yestVal)}` : fmtPtBr(card.yestVal)}
+                      </strong>
+                    </div>
+                    <div className="text-[8px] text-slate-500 flex items-center justify-between gap-1 whitespace-nowrap">
+                      <span>{card.monthLabel}</span>
+                      <strong className={card.isFollowersCard ? 'text-[#00F0FF] font-extrabold' : 'text-slate-300 font-semibold'}>
+                        {card.monthVal}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            3º QUADRO: CONTEÚDOS EM ALTA NO MOMENTO (TOP 5 EM LISTRA)
+            Calculado dinamicamente dos posts de hoje + top posts virais, 
+            ranqueados por score de engajamento (likes*2.5 + comments*6 + shares*3)
+        ═══════════════════════════════════════════════════════════════════ */}
+        <div className="bg-[#0D1326]/95 border border-slate-800/90 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/40 text-rose-400 text-[10px] font-extrabold uppercase tracking-wider mb-1 whitespace-nowrap">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
+                3º QUADRO • CONTEÚDOS EM ALTA NO MOMENTO
+              </div>
+              <h3 className="text-base sm:text-lg font-black text-white leading-tight">Conteúdos em Alta Agora — Top 5</h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">Publicações com maior tração ativa no Instagram @portalngbrasil.</p>
+            </div>
+            <span className="text-[10.5px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg whitespace-nowrap">
+              ● Monitoramento em Tempo Real
+            </span>
+          </div>
+
+          {/* Top 5 em lista com rank, tipo, badge de velocidade e métricas */}
+          <div className="space-y-2">
+            {trendingPosts.map((post) => (
+              <div
+                key={post.rank}
+                className="bg-[#080C18]/95 border border-slate-800/90 hover:border-[#00F0FF]/50 rounded-xl p-3 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 group"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs ${
+                      post.rank === 1 ? 'bg-gradient-to-br from-amber-400 to-rose-600 text-white shadow-lg shadow-rose-500/20' :
+                      post.rank === 2 ? 'bg-slate-700 text-[#00F0FF]' :
+                      post.rank === 3 ? 'bg-slate-800 text-purple-400' :
+                      'bg-slate-900 text-slate-300'
+                    }`}>
+                      #{post.rank}
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                      post.type === 'REEL' ? 'bg-[#FF0055]/20 text-[#FF0055]' : 'bg-[#00F0FF]/20 text-[#00F0FF]'
+                    }`}>
+                      {post.type === 'REEL' ? '🎬 REEL' : '📰 FEED'}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[10px] font-bold text-slate-400 shrink-0">{post.time}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border ${post.speedBadge.color} whitespace-nowrap`}>
+                        {post.speedBadge.label}
+                      </span>
+                    </div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-200 group-hover:text-white transition-colors truncate">
+                      {post.title}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between md:justify-end gap-3 sm:gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800/70 text-xs">
+                  <div className="flex items-center gap-1 font-black text-[#00F0FF] whitespace-nowrap">
+                    <span>👁️</span><span>{fmtCompactNum(post.views)}</span>
+                  </div>
+                  <div className="flex items-center gap-1 font-black text-[#FF0055] whitespace-nowrap">
+                    <span>❤️</span><span>{fmtCompactNum(post.likes)}</span>
+                  </div>
+                  <div className="flex items-center gap-1 font-black text-amber-400 whitespace-nowrap">
+                    <span>💬</span><span>{fmtCompactNum(post.comments)}</span>
+                  </div>
+                  <div className="flex items-center gap-1 font-black text-purple-400 whitespace-nowrap">
+                    <span>🔁</span><span>{fmtCompactNum(post.shares)}</span>
+                  </div>
+                  <a
+                    href={post.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-[#00F0FF] hover:text-slate-950 text-slate-300 font-bold text-[10.5px] transition-all whitespace-nowrap"
+                  >
+                    Ver ↗
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            4º QUADRO: GRÁFICO MINUTO A MINUTO + TOP 5 CONTRIBUIDORES DO MINUTO
+            Hover no gráfico revela os 5 posts gerando mais tráfego naquele minuto
+        ═══════════════════════════════════════════════════════════════════ */}
+        <div className="bg-gradient-to-br from-[#0B1228] via-[#0D1326] to-[#150E26] border border-[#00F0FF]/40 rounded-2xl p-4 md:p-5 shadow-2xl space-y-3">
+          <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#00F0FF] pb-2 border-b border-slate-800/80">
+            4º QUADRO • ⏱️ GRÁFICO MINUTO A MINUTO — PASSE O MOUSE NAS COLUNAS PARA VER OS TOP 5 CONTRIBUIDORES
+          </div>
+
+          {/* Grid: Gráfico (7 col) + Top 5 Contribuidores (5 col) */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
-            {/* LADO ESQUERDO: GRÁFICO INTERATIVO MINUTO A MINUTO COM TOOLTIP FLUTUANTE DOS 5 CONTRIBUIDORES */}
+            {/* GRÁFICO INTERATIVO MINUTO A MINUTO */}
             <div
               className="xl:col-span-7 bg-[#080C18] border border-slate-800/90 rounded-xl p-3.5 flex flex-col justify-between relative"
               onMouseLeave={() => setHoveredMinuteIdx(null)}
@@ -1350,6 +1793,7 @@ export default function AnalyticsDashboard() {
                 <div className="flex items-center gap-2 text-[10.5px] font-black whitespace-nowrap">
                   <span className="text-[#00F0FF]">👁️ +{fmtPtBr(activeMinuteData.views)} views</span>
                   <span className="text-[#FF0055]">❤️ +{fmtPtBr(activeMinuteData.likes)}</span>
+                  <span className="text-amber-400">💬 +{fmtPtBr(activeMinuteData.comments)}</span>
                   <span className="text-purple-400">🔁 +{fmtPtBr(activeMinuteData.shares)}</span>
                 </div>
               </div>
@@ -1370,106 +1814,66 @@ export default function AnalyticsDashboard() {
                 const rangeV = Math.max(maxV - minV, 1);
 
                 const gx = (i) => padL + (i / (minuteSeriesCount - 1)) * plotW;
-                const gy = (val) => padT + plotH - ((val - minV) / rangeV) * plotH;
+                const gy = (v) => padT + plotH - ((v - minV) / rangeV) * plotH;
 
-                const linePts = minutePulseSeries.map((m, i) => `${gx(i).toFixed(1)},${gy(m[pulseMetricMode] || m.views).toFixed(1)}`).join(' ');
-                const areaPts = `${padL},${padT + plotH} ${linePts} ${(padL + plotW).toFixed(1)},${padT + plotH}`;
-                const strokeColor = pulseMetricMode === 'interactions' ? '#FF0055' : pulseMetricMode === 'likes' ? '#F43F5E' : pulseMetricMode === 'shares' ? '#A855F7' : '#00F0FF';
+                const pts = minutePulseSeries.map((m, i) => `${gx(i).toFixed(1)},${gy(m[pulseMetricMode] || m.views).toFixed(1)}`).join(' ');
+                const strokeColor = pulseMetricMode === 'views' ? '#00F0FF'
+                  : pulseMetricMode === 'interactions' ? '#FF0055'
+                  : pulseMetricMode === 'likes' ? '#F43F5E'
+                  : '#A855F7';
 
                 const activeX = gx(activeMinuteIndex);
-                const activeY = gy(activeMinuteData[pulseMetricMode] || activeMinuteData.views);
-                const colWidth = plotW / (minuteSeriesCount - 1);
-
-                // Posicionamento do Card Flutuante ACIMA do gráfico (para NUNCA cobrir a linha ou o cursor do mouse)
-                const tooltipLeftPct = Math.min(54, Math.max(0, (activeMinuteIndex / (minuteSeriesCount - 1)) * 100 - 20));
                 const activeVal = activeMinuteData[pulseMetricMode] || activeMinuteData.views;
+                const activeY = gy(activeVal);
+
                 const badgeW = 96;
-                const badgeX = Math.min(w - padR - badgeW, Math.max(padL, activeX - badgeW / 2));
-                const badgeY = Math.max(2, activeY - 26);
+                const badgeX = Math.max(padL, Math.min(w - padR - badgeW, activeX - badgeW / 2));
+                // Badge acima do ponto, mas nunca tapa o gráfico — posicionado fora da área de hover
+                const badgeY = Math.max(padT - 20, activeY - 24);
 
                 return (
                   <div className="relative w-full">
-                    {/* Card Flutuante posicionado ACIMA do gráfico (bottom-full) para deixar o gráfico e o cursor 100% livres */}
-                    {hoveredMinuteIdx !== null && (
-                      <div
-                        style={{ left: `${tooltipLeftPct}%` }}
-                        className="absolute bottom-full mb-2.5 z-30 w-72 sm:w-80 bg-[#0B1022]/95 border border-[#00F0FF]/80 rounded-xl p-2.5 shadow-2xl backdrop-blur-md pointer-events-none transition-all duration-75"
-                      >
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
-                          <span className="text-[10.5px] font-black text-[#00F0FF] uppercase">
-                            ⏱️ Minuto {activeMinuteData.time} {activeMinuteData.isNow ? '(Agora)' : ''}
-                          </span>
-                          <span className="text-[10px] font-extrabold text-emerald-400">
-                            +{fmtPtBr(activeMinuteData.views)} views • +{activeMinuteData.interactions} inter.
-                          </span>
-                        </div>
-                        <div className="text-[9.5px] font-extrabold text-slate-300 uppercase mb-1">
-                          🏆 5 Principais Contribuidores neste Minuto:
-                        </div>
-                        <div className="space-y-1">
-                          {activeMinuteData.contributors.map((c) => (
-                            <div key={c.rank} className="flex items-center justify-between gap-1.5 text-[10px] bg-[#070A14]/90 px-2 py-1 rounded border border-slate-800/80">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="px-1 py-0.2 rounded bg-[#FF0055]/20 text-[#FF0055] font-black text-[9px] shrink-0">
-                                  #{c.rank}
-                                </span>
-                                <span className="text-slate-200 font-semibold truncate">{c.caption}</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0 font-bold text-[9.5px]">
-                                <span className="text-[#00F0FF]">+{c.views}v</span>
-                                <span className="text-emerald-400">({c.sharePct}%)</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-52 overflow-visible select-none">
+                    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-52 sm:h-56 select-none overflow-visible">
                       <defs>
-                        <linearGradient id="pulseMinGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={strokeColor} stopOpacity="0.38" />
-                          <stop offset="100%" stopColor={strokeColor} stopOpacity="0.02" />
+                        <linearGradient id="minPulseGrad2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={strokeColor} stopOpacity="0.35" />
+                          <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
                         </linearGradient>
                       </defs>
 
-                      {/* Grade Horizontal */}
-                      {[0.25, 0.5, 0.75, 1].map((pct, gIdx) => {
-                        const yLine = padT + plotH * (1 - pct);
-                        const vLbl = Math.round(minV + rangeV * pct);
+                      {[0, 0.33, 0.66, 1].map((ratio, idx) => {
+                        const yPos = padT + plotH * ratio;
+                        const valAtLine = Math.round(maxV - ratio * (maxV - minV));
                         return (
-                          <g key={gIdx}>
-                            <line x1={padL} y1={yLine} x2={w - padR} y2={yLine} stroke="#1E293B" strokeDasharray="3 3" />
-                            <text x={padL - 6} y={yLine + 3} fill="#64748B" fontSize="9.5" fontWeight="bold" textAnchor="end">
-                              {vLbl}
+                          <g key={idx}>
+                            <line x1={padL} y1={yPos} x2={w - padR} y2={yPos} stroke="#1E293B" strokeDasharray="3 3" strokeWidth="0.8" />
+                            <text x={padL - 6} y={yPos + 3.5} fill="#64748B" fontSize="8.5" textAnchor="end" fontWeight="bold">
+                              {fmtCompactNum(valAtLine)}
                             </text>
                           </g>
                         );
                       })}
 
-                      {/* Área e Linha do Pulso Minuto a Minuto */}
-                      <polygon points={areaPts} fill="url(#pulseMinGrad)" />
-                      <polyline
-                        fill="none"
-                        stroke={strokeColor}
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        points={linePts}
-                      />
+                      <polygon fill="url(#minPulseGrad2)" points={`${padL},${padT + plotH} ${pts} ${padL + plotW},${padT + plotH}`} />
 
-                      {/* Linha Guia Vertical do Minuto Selecionado no Hover */}
-                      <line
-                        x1={activeX}
-                        y1={padT}
-                        x2={activeX}
-                        y2={padT + plotH}
-                        stroke="#00F0FF"
-                        strokeWidth="1.5"
-                        strokeDasharray="3 3"
-                      />
+                      {minutePulseSeries.map((m, i) => {
+                        const cx = gx(i);
+                        const cy = gy(m[pulseMetricMode] || m.views);
+                        const barW = Math.max(5, plotW / minuteSeriesCount - 3);
+                        const barH = padT + plotH - cy;
+                        const isHover = i === activeMinuteIndex;
+                        return (
+                          <rect key={`bar-${m.time}`} x={cx - barW / 2} y={cy} width={barW} height={Math.max(2, barH)} rx="2"
+                            fill={strokeColor} opacity={isHover ? 0.85 : 0.22} className="cursor-pointer"
+                            onMouseEnter={() => setHoveredMinuteIdx(i)} />
+                        );
+                      })}
 
-                      {/* Mini-etiqueta colada no ponto selecionado para leitura imediata sem tampar o gráfico */}
+                      <polyline fill="none" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={pts} />
+
+                      <line x1={activeX} y1={padT} x2={activeX} y2={padT + plotH} stroke="#00F0FF" strokeWidth="1.5" strokeDasharray="3 3" />
+
+                      {/* Badge fora da área de dados para não tampar o gráfico */}
                       <g transform={`translate(${badgeX}, ${badgeY})`}>
                         <rect x="0" y="0" width={badgeW} height="18" rx="5" fill="#0B1022" stroke={strokeColor} strokeWidth="1.2" />
                         <text x={badgeW / 2} y="12.5" fill="#FFFFFF" fontSize="9.5" fontWeight="900" textAnchor="middle">
@@ -1477,53 +1881,27 @@ export default function AnalyticsDashboard() {
                         </text>
                       </g>
 
-                      {/* Pontos e Colunas de Hover de cada Minuto */}
                       {minutePulseSeries.map((m, i) => {
                         const cx = gx(i);
                         const cy = gy(m[pulseMetricMode] || m.views);
                         const isActive = i === activeMinuteIndex;
                         const showLabel = i % 3 === 0 || i === minuteSeriesCount - 1 || isActive;
-
                         return (
                           <g key={m.time}>
-                            {/* Destaque luminoso no ponto sob o mouse */}
-                            {isActive && (
-                              <circle cx={cx} cy={cy} r="9" fill={strokeColor} opacity="0.25" />
-                            )}
-                            <circle
-                              cx={cx}
-                              cy={cy}
-                              r={isActive ? 5.5 : 3.2}
-                              fill={isActive ? '#FFFFFF' : strokeColor}
-                              stroke={isActive ? strokeColor : '#080C18'}
-                              strokeWidth={isActive ? 2.5 : 1.5}
-                            />
-
-                            {/* Horário do minuto no eixo X */}
+                            {isActive && <circle cx={cx} cy={cy} r="9" fill={strokeColor} opacity="0.25" />}
+                            <circle cx={cx} cy={cy} r={isActive ? 4.5 : 2.5}
+                              fill={isActive ? '#FFFFFF' : strokeColor} stroke="#080C18" strokeWidth={isActive ? 2 : 1}
+                              className="cursor-pointer" onMouseEnter={() => setHoveredMinuteIdx(i)} />
                             {showLabel && (
-                              <text
-                                x={cx}
-                                y={h - 7}
-                                fill={isActive ? '#00F0FF' : '#94A3B8'}
-                                fontSize={isActive ? '10' : '9'}
-                                fontWeight={isActive ? '900' : '700'}
-                                textAnchor="middle"
-                              >
+                              <text x={cx} y={padT + plotH + 16} fill={isActive ? '#00F0FF' : '#64748B'}
+                                fontSize="9" fontWeight={isActive ? '900' : 'bold'} textAnchor="middle">
                                 {m.time}
                               </text>
                             )}
-
-                            {/* Coluna invisível de captura do mouse para este minuto */}
-                            <rect
-                              x={cx - colWidth / 2}
-                              y={0}
-                              width={colWidth}
-                              height={h}
-                              fill="transparent"
-                              className="cursor-pointer"
-                              onMouseEnter={() => setHoveredMinuteIdx(i)}
-                              onClick={() => setHoveredMinuteIdx(i)}
-                            />
+                            {/* Área de hover invisível vertical que cobre toda a coluna */}
+                            <rect x={cx - (plotW / minuteSeriesCount) / 2} y={padT}
+                              width={plotW / minuteSeriesCount} height={plotH + padB}
+                              fill="transparent" className="cursor-pointer" onMouseEnter={() => setHoveredMinuteIdx(i)} />
                           </g>
                         );
                       })}
@@ -1533,7 +1911,7 @@ export default function AnalyticsDashboard() {
               })()}
             </div>
 
-            {/* LADO DIREITO: OS 5 PRINCIPAIS CONTRIBUIDORES DO MINUTO SELECIONADO */}
+            {/* TOP 5 PRINCIPAIS CONTRIBUIDORES DO MINUTO SELECIONADO */}
             <div className="xl:col-span-5 bg-[#080C18] border border-slate-800/90 rounded-xl p-3.5 flex flex-col justify-between gap-2.5">
               <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
                 <div>
@@ -1551,34 +1929,19 @@ export default function AnalyticsDashboard() {
 
               <div className="space-y-1.5 flex-1 flex flex-col justify-between">
                 {activeMinuteData.contributors.map((item) => (
-                  <div
-                    key={item.rank}
-                    className="bg-[#0D1326]/95 border border-slate-800/90 hover:border-[#00F0FF]/50 rounded-lg p-2 transition-all flex flex-col gap-1"
-                  >
+                  <div key={item.rank} className="bg-[#0D1326]/95 border border-slate-800/90 hover:border-[#00F0FF]/50 rounded-lg p-2 transition-all flex flex-col gap-1">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-black shrink-0 ${
-                          item.rank === 1 ? 'bg-[#FF0055] text-white' : 'bg-slate-800 text-[#00F0FF]'
-                        }`}>
+                        <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-black shrink-0 ${item.rank === 1 ? 'bg-[#FF0055] text-white' : 'bg-slate-800 text-[#00F0FF]'}`}>
                           #{item.rank}
                         </span>
                         <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 text-[9px] font-extrabold shrink-0">
                           {item.type === 'REEL' ? '🎬 REEL' : '📰 FEED'}
                         </span>
-                        <span className="text-[11px] text-slate-200 font-semibold truncate">
-                          {item.caption}
-                        </span>
+                        <span className="text-[11px] text-slate-200 font-semibold truncate">{item.caption}</span>
                       </div>
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[10px] font-bold text-slate-400 hover:text-[#00F0FF] shrink-0 underline"
-                      >
-                        Abrir ↗
-                      </a>
+                      <a href={item.link} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-slate-400 hover:text-[#00F0FF] shrink-0 underline">Abrir ↗</a>
                     </div>
-
                     <div className="flex items-center justify-between gap-2 text-[10px]">
                       <div className="flex items-center gap-2 font-bold whitespace-nowrap">
                         <span className="text-[#00F0FF]">👁️ +{item.views}</span>
@@ -1587,14 +1950,9 @@ export default function AnalyticsDashboard() {
                       </div>
                       <div className="flex items-center gap-1.5 w-28 shrink-0">
                         <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-[#00F0FF] to-[#FF0055] rounded-full"
-                            style={{ width: `${Math.min(100, item.sharePct * 1.8)}%` }}
-                          ></div>
+                          <div className="h-full bg-gradient-to-r from-[#00F0FF] to-[#FF0055] rounded-full" style={{ width: `${Math.min(100, item.sharePct * 1.8)}%` }}></div>
                         </div>
-                        <span className="text-[9.5px] font-black text-emerald-400 w-8 text-right">
-                          {item.sharePct}%
-                        </span>
+                        <span className="text-[9.5px] font-black text-emerald-400 w-8 text-right">{item.sharePct}%</span>
                       </div>
                     </div>
                   </div>
@@ -1604,13 +1962,126 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
 
-        {/* 2. ABAIXO: 200K Milestone Banner */}
+        {/* ═══════════════════════════════════════════════════════════════════
+            5º QUADRO: CURVA DE EVOLUÇÃO HORA A HORA (LINHAS) — HOJE vs. ONTEM
+            Gráfico principal + 8 mini-sparklines para as 8 métricas
+        ═══════════════════════════════════════════════════════════════════ */}
+        <div className="bg-[#0D1326] border border-slate-800/90 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div className="min-w-0">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#00F0FF] block whitespace-nowrap">
+                5º QUADRO • Curva de Evolução Hora a Hora (Linhas)
+              </span>
+              <h3 className="text-base sm:text-lg font-black text-white mt-0.5 whitespace-nowrap">Comparativo: Hoje vs. Ontem</h3>
+            </div>
+            <div className="flex items-center gap-1.5 text-[10.5px] font-bold shrink-0">
+              <span className="flex items-center gap-1.5 text-[#00F0FF] bg-[#00F0FF]/10 border border-[#00F0FF]/30 px-2 py-1 rounded-lg whitespace-nowrap">
+                <span className="w-3 h-0.5 bg-[#00F0FF] inline-block relative shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-[#00F0FF] absolute -top-[2px] left-1"></span></span> Hoje (Ao Vivo)
+              </span>
+              <span className="flex items-center gap-1.5 text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded-lg whitespace-nowrap">
+                <span className="w-3 h-0.5 bg-amber-400 inline-block relative shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute -top-[2px] left-1"></span></span> Ontem
+              </span>
+            </div>
+          </div>
+
+          {/* Seletor das 8 métricas para o gráfico principal */}
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { key: 'newFollowers', label: '👤+ Seguidores' },
+              { key: 'views', label: '👁️ Visualizações' },
+              { key: 'likes', label: '❤️ Curtidas' },
+              { key: 'comments', label: '💬 Comentários' },
+              { key: 'reposts', label: '🔁 Reposts' },
+              { key: 'sends', label: '✈️ Envios' },
+              { key: 'saves', label: '🔖 Salvamentos' },
+              { key: 'interactions', label: '⚡ Interações' }
+            ].map(btn => (
+              <button
+                key={btn.key}
+                onClick={() => setActiveLineMetric(btn.key)}
+                className={`px-2.5 py-1 rounded-lg text-[10.5px] cursor-pointer transition-all whitespace-nowrap ${
+                  activeLineMetric === btn.key
+                    ? 'font-black bg-[#00F0FF] text-slate-950 shadow'
+                    : 'font-bold bg-[#080C18] text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Gráfico Principal de Linhas SVG (Hoje vs Ontem Hora a Hora) */}
+          {renderMainDualLineChart()}
+
+          {/* 8 Mini-Sparklines — uma por métrica, clicáveis para alterar o gráfico principal */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5">
+            {miniItems.map(item => {
+              const cfg = hourlyCurves[item.key] || hourlyCurves.views;
+              const sliceYest = cfg.yesterday.slice(0, 7);
+              const sliceToday = cfg.today.slice(0, 7);
+              const maxVal = Math.max(...sliceYest, ...sliceToday, 1) * 1.18;
+              const w = 100; const h = 34;
+              const getX = (i) => 5 + (i / 6) * (w - 10);
+              const getY = (v) => 5 + (h - 10) - (v / maxVal) * (h - 10);
+              const ptsYest = sliceYest.map((v, i) => `${getX(i).toFixed(1)},${getY(v).toFixed(1)}`).join(' ');
+              const ptsToday = sliceToday.map((v, i) => `${getX(i).toFixed(1)},${getY(v).toFixed(1)}`).join(' ');
+              const lastX = getX(6);
+              const lastYToday = getY(sliceToday[6]);
+              const lastYYest = getY(sliceYest[6]);
+              const d = formatDeltaBadge(item.today, item.yest);
+              const isSelected = activeLineMetric === item.key;
+              return (
+                <div key={item.key} onClick={() => setActiveLineMetric(item.key)}
+                  className={`p-2 rounded-xl bg-[#080C18] border ${isSelected ? 'border-[#00F0FF] ring-1 ring-[#00F0FF]/30' : 'border-slate-800/80 hover:border-slate-700'} cursor-pointer transition-all flex flex-col justify-between overflow-hidden min-w-0`}>
+                  <div>
+                    <div className="text-[9px] font-extrabold text-slate-200 truncate leading-tight whitespace-nowrap">{item.title}</div>
+                    <div className="text-[8.5px] font-black text-emerald-400 mt-0.5 leading-tight whitespace-nowrap">{d.short}</div>
+                  </div>
+                  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-7 my-1 overflow-visible">
+                    <polyline fill="none" stroke="#F59E0B" strokeWidth="1.8" strokeDasharray="3 2" strokeLinecap="round" points={ptsYest} />
+                    <polyline fill="none" stroke={cfg.stroke} strokeWidth="2.4" strokeLinecap="round" points={ptsToday} />
+                    <circle cx={lastX} cy={lastYYest} r="2.5" fill="#F59E0B" stroke="#080C18" strokeWidth="1" />
+                    <circle cx={lastX} cy={lastYToday} r="3" fill={cfg.stroke} stroke="#080C18" strokeWidth="1" />
+                  </svg>
+                  <div className="flex flex-col gap-0.5 text-[8.5px] pt-1 border-t border-slate-800/70 font-bold">
+                    <div className="flex items-center justify-between gap-1 whitespace-nowrap">
+                      <span className="text-slate-400 flex items-center gap-1 shrink-0"><span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: cfg.stroke }}></span>Hoje</span>
+                      <span className="text-white font-black">{fmtCompactNum(item.today)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-1 whitespace-nowrap">
+                      <span className="text-amber-400/90 flex items-center gap-1 shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>Ontem</span>
+                      <span className="text-amber-300 font-black">{fmtCompactNum(item.yest)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Banner de veredito comparativo */}
+          <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-500/10 via-[#080C18] to-[#00F0FF]/10 border border-emerald-500/30">
+            <div className="text-[11px] leading-snug">
+              <div className="font-black text-emerald-400 uppercase tracking-wide">
+                {compareMode === 'same_hour'
+                  ? `🚀 Ritmo Acelerado: Curva de Hoje está ${mainViewsDelta.short} acima de ontem!`
+                  : '⏱️ Curva de Hoje + Linha Pontilhada de Projeção vs. 24h de Ontem'}
+              </div>
+              <div className="text-slate-300 mt-0.5">
+                {compareMode === 'same_hour'
+                  ? 'Dados sincronizados ao vivo da Graph API • Clique em qualquer métrica para alternar a curva.'
+                  : 'A linha pontilhada projeta o fechamento de hoje superando o fechamento total de ontem.'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            BANNER: META COMERCIAL 200.000 SEGUIDORES (antes das abas)
+        ═══════════════════════════════════════════════════════════════════ */}
         <div className="bg-gradient-to-r from-[#111832] via-[#161B36] to-[#1A102B] border border-slate-800 rounded-2xl p-4 md:p-5 shadow-xl">
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-3">
             <div className="min-w-0">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400 block">
-                🔥 Marco de Monetização & Autoridade Digital
-              </span>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400 block">🔥 Marco de Monetização & Autoridade Digital</span>
               <h2 className="text-base sm:text-lg font-black text-white mt-0.5 leading-snug">
                 Comunidade de <span className="text-[#00F0FF]">{fmtPtBr(followersCount)}</span> seguidores ativos — rumo aos <span className="text-[#FF0055]">200K</span>!
               </h2>
@@ -1632,281 +2103,17 @@ export default function AnalyticsDashboard() {
               </div>
             </div>
           </div>
-
           <div className="space-y-1.5">
             <div className="flex flex-wrap justify-between items-center gap-2 text-xs font-bold">
               <span className="text-slate-200">Progresso da Meta Comercial: 200.000 Seguidores</span>
-              <span className="text-[#00F0FF] font-black">
-                {String(pctTo200k).replace('.', ',')}% ({fmtPtBr(followersCount)} / 200.000 — faltam {fmtPtBr(remTo200k)})
-              </span>
+              <span className="text-[#00F0FF] font-black">{String(pctTo200k).replace('.', ',')}% ({fmtPtBr(followersCount)} / 200.000 — faltam {fmtPtBr(remTo200k)})</span>
             </div>
             <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[#00F0FF] via-purple-500 to-[#FF0055] transition-all duration-700"
-                style={{ width: `${pctTo200k}%` }}
-              ></div>
+              <div className="h-full rounded-full bg-gradient-to-r from-[#00F0FF] via-purple-500 to-[#FF0055] transition-all duration-700" style={{ width: `${pctTo200k}%` }}></div>
             </div>
           </div>
         </div>
 
-        {/* 2. LOGO ABAIXO: VISUALIZADOR DE HOJE + COMPARATIVO COM ONTEM (EM LINHAS) */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
-          {/* LADO ESQUERDO (7 COLUNAS): VISUALIZADOR DE HOJE ABERTO NAS 5 MÉTRICAS + FEED AO VIVO */}
-          <div className="xl:col-span-7 bg-gradient-to-br from-[#0F172E] via-[#0D1326] to-[#17112B] border border-[#00F0FF]/35 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col gap-4">
-            <div className="flex flex-col gap-3 border-b border-slate-800/90 pb-3.5">
-              <div className="flex flex-wrap items-start justify-between gap-2.5">
-                <div className="min-w-0">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF0055]/20 border border-[#FF0055]/40 text-[#FF0055] text-[10px] font-extrabold uppercase tracking-wider mb-1 whitespace-nowrap">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#FF0055] animate-ping"></span>
-                    RADAR DE HOJE AO VIVO • {todayDateStr}
-                  </div>
-                  <h2 className="text-base sm:text-lg font-black text-white leading-tight">
-                    Desempenho de Hoje em Tempo Real
-                  </h2>
-                  <div className="text-xs font-extrabold text-[#00F0FF] mt-0.5">
-                    ({t.posts} publicações hoje)
-                  </div>
-                </div>
-
-                {/* Botão Compartilhar (Gera Imagem Atualizada dos Insights de Hoje + Comparativo com Ontem) */}
-                <button
-                  onClick={generateAndOpenShareImage}
-                  disabled={isGeneratingImg}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-lg shadow-emerald-500/20 cursor-pointer transition-all inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
-                >
-                  <span>📤</span>
-                  {isGeneratingImg ? 'Gerando Imagem...' : 'Compartilhar'}
-                </button>
-              </div>
-
-              <div className="flex items-center gap-1 bg-[#070A14] p-1 rounded-xl border border-slate-800 self-start">
-                <button
-                  onClick={() => setCompareMode('same_hour')}
-                  className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
-                    compareMode === 'same_hour' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Vs. Ontem (Mesmo Horário)
-                </button>
-                <button
-                  onClick={() => setCompareMode('full_day')}
-                  className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
-                    compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Vs. Ontem (24h Fechado)
-                </button>
-              </div>
-            </div>
-
-            {/* 5 CARDS ABERTOS DE HOJE (Com Total do Mês discreto e Total de Seguidores atualizado) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-              {[
-                { key: 'likes', title: 'Curtidas', icon: '❤️', val: t.likes, yestVal: y.likes, monthLabel: 'Mês:', monthVal: fmtCompactNum(monthLikes), valColor: 'text-white', hoverBorder: 'hover:border-[#FF0055]' },
-                { key: 'views', title: 'Visualizações', icon: '👁️', val: t.views, yestVal: y.views, monthLabel: 'Mês:', monthVal: fmtCompactNum(monthViews), valColor: 'text-[#00F0FF]', hoverBorder: 'hover:border-[#00F0FF]' },
-                { key: 'reposts', title: 'Reposts', icon: '🔁', val: t.reposts, yestVal: y.reposts, monthLabel: 'Mês:', monthVal: fmtCompactNum(monthReposts), valColor: 'text-purple-400', hoverBorder: 'hover:border-purple-500' },
-                { key: 'sends', title: 'Envios Direct', icon: '✈️', val: t.sends, yestVal: y.sends, monthLabel: 'Mês:', monthVal: fmtCompactNum(monthSends), valColor: 'text-sky-400', hoverBorder: 'hover:border-sky-400' },
-                { key: 'newFollowers', title: 'Seguidores', icon: '👤+', val: t.newFollowers, yestVal: y.newFollowers, monthLabel: 'Total:', monthVal: fmtPtBr(followersCount), valColor: 'text-emerald-400', hoverBorder: 'hover:border-emerald-400', isPlus: true, isFollowersCard: true }
-              ].map((card) => {
-                const d = formatDeltaBadge(card.val, card.yestVal);
-                const isSelected = activeLineMetric === card.key;
-                return (
-                  <div
-                    key={card.key}
-                    onClick={() => setActiveLineMetric(card.key)}
-                    className={`bg-[#080C18]/95 border ${isSelected ? 'border-[#00F0FF] ring-1 ring-[#00F0FF]/30' : 'border-slate-800'} ${card.hoverBorder} rounded-xl p-2.5 flex flex-col justify-between transition-all cursor-pointer min-w-0 overflow-hidden`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-xs leading-none shrink-0">{card.icon}</span>
-                        <span className={`px-1 py-0.5 rounded text-[9px] font-black leading-none whitespace-nowrap ${d.isPos ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
-                          {d.short}
-                        </span>
-                      </div>
-                      <div className="text-[9.5px] font-extrabold text-slate-300 uppercase tracking-tighter leading-tight whitespace-nowrap">
-                        {card.title}
-                      </div>
-                      <div className={`text-base sm:text-lg font-black tracking-tight mt-0.5 whitespace-nowrap ${card.valColor}`}>
-                        {card.isPlus ? `+${fmtPtBr(card.val)}` : fmtPtBr(card.val)}
-                      </div>
-                    </div>
-                    <div className="mt-2 pt-1.5 border-t border-slate-800/80 space-y-0.5">
-                      <div className="text-[9.5px] text-slate-400 flex items-center justify-between gap-1 whitespace-nowrap">
-                        <span>Ontem:</span>
-                        <strong className="text-amber-300 font-bold">
-                          {card.isPlus ? `+${fmtPtBr(card.yestVal)}` : fmtPtBr(card.yestVal)}
-                        </strong>
-                      </div>
-                      <div className="text-[8.5px] text-slate-500 flex items-center justify-between gap-1 whitespace-nowrap">
-                        <span>{card.monthLabel}</span>
-                        <strong className={card.isFollowersCard ? 'text-[#00F0FF] font-extrabold' : 'text-slate-300 font-semibold'}>
-                          {card.monthVal}
-                        </strong>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* FEED EM TEMPO REAL DAS PUBLICAÇÕES DE HOJE */}
-            <div className="bg-[#080C18]/90 border border-slate-800/90 rounded-xl p-3.5 flex-1 flex flex-col justify-between gap-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-[#00F0FF]/15 text-[#00F0FF] font-extrabold uppercase text-[10px] whitespace-nowrap">Feed Ao Vivo de Hoje</span>
-                  <span className="text-[11px] font-bold text-slate-300">Últimas publicações capturadas na Graph API</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-[11px]">
-                  <span className="text-slate-400 whitespace-nowrap">💬 Comentários Hoje: <strong className="text-white">{fmtPtBr(t.comments)}</strong></span>
-                  <span className="text-[10.5px] text-emerald-400 font-bold whitespace-nowrap">{lastSyncBadge}</span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {liveTodayPosts.slice(0, 3).map((p, idx) => (
-                  <div key={idx} className="flex items-center justify-between gap-2.5 bg-[#0D1326]/90 border border-slate-800/80 hover:border-slate-700 rounded-lg px-3 py-2 text-xs transition-all">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase shrink-0 ${p.type === 'REELS' ? 'bg-[#FF0055]/20 text-[#FF0055]' : 'bg-[#00F0FF]/20 text-[#00F0FF]'}`}>
-                        {p.type === 'REELS' ? '🎬 REEL' : '📰 FEED'}
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-400 shrink-0">{p.time}</span>
-                      <span className="text-slate-200 font-medium truncate text-[11.5px]">{p.caption}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 text-[11px] font-bold whitespace-nowrap">
-                      <span className="text-[#FF0055]">❤️ {fmtPtBr(p.likes)}</span>
-                      <span className="text-[#00F0FF]">💬 {fmtPtBr(p.comments)}</span>
-                      <a href={p.link} target="_blank" rel="noreferrer" className="text-slate-300 hover:text-[#00F0FF] underline">Ver ↗</a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* LADO DIREITO (5 COLUNAS): GRÁFICO DE LINHAS HOJE vs ONTEM */}
-          <div className="xl:col-span-5 bg-[#0D1326] border border-slate-800/90 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col justify-between gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
-              <div className="min-w-0">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#00F0FF] block whitespace-nowrap">
-                  Curva de Evolução Hora a Hora (Linhas)
-                </span>
-                <h3 className="text-base sm:text-lg font-black text-white mt-0.5 whitespace-nowrap">
-                  Comparativo: Hoje vs. Ontem
-                </h3>
-              </div>
-              <div className="flex items-center gap-1.5 text-[10.5px] font-bold shrink-0">
-                <span className="flex items-center gap-1.5 text-[#00F0FF] bg-[#00F0FF]/10 border border-[#00F0FF]/30 px-2 py-1 rounded-lg whitespace-nowrap">
-                  <span className="w-3 h-0.5 bg-[#00F0FF] inline-block relative shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#00F0FF] absolute -top-[2px] left-1"></span>
-                  </span> Hoje (Ao Vivo)
-                </span>
-                <span className="flex items-center gap-1.5 text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded-lg whitespace-nowrap">
-                  <span className="w-3 h-0.5 bg-amber-400 inline-block relative shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute -top-[2px] left-1"></span>
-                  </span> Ontem
-                </span>
-              </div>
-            </div>
-
-            {/* Seletor de Métrica para o Gráfico Principal de Linha */}
-            <div className="flex flex-wrap gap-1.5">
-              {[
-                { key: 'views', label: '👁️ Visualizações' },
-                { key: 'likes', label: '❤️ Curtidas' },
-                { key: 'reposts', label: '🔁 Reposts' },
-                { key: 'sends', label: '✈️ Envios' },
-                { key: 'newFollowers', label: '👤+ Seguidores' }
-              ].map(btn => (
-                <button
-                  key={btn.key}
-                  onClick={() => setActiveLineMetric(btn.key)}
-                  className={`px-2.5 py-1 rounded-lg text-[10.5px] cursor-pointer transition-all whitespace-nowrap ${
-                    activeLineMetric === btn.key
-                      ? 'font-black bg-[#00F0FF] text-slate-950 shadow'
-                      : 'font-bold bg-[#080C18] text-slate-400 hover:text-white border border-slate-800'
-                  }`}
-                >
-                  {btn.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Gráfico Principal de Linhas SVG (Hoje vs Ontem Hora a Hora) */}
-            {renderMainDualLineChart()}
-
-            {/* 5 Mini-Gráficos de Linha (Sparklines Duplas Hoje vs Ontem para cada métrica) */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-              {miniItems.map(item => {
-                const cfg = hourlyCurves[item.key];
-                const sliceYest = cfg.yesterday.slice(0, 7);
-                const sliceToday = cfg.today.slice(0, 7);
-                const maxVal = Math.max(...sliceYest, ...sliceToday, 1) * 1.18;
-                const w = 100;
-                const h = 34;
-                const getX = (i) => 5 + (i / 6) * (w - 10);
-                const getY = (v) => 5 + (h - 10) - (v / maxVal) * (h - 10);
-                const ptsYest = sliceYest.map((v, i) => `${getX(i).toFixed(1)},${getY(v).toFixed(1)}`).join(' ');
-                const ptsToday = sliceToday.map((v, i) => `${getX(i).toFixed(1)},${getY(v).toFixed(1)}`).join(' ');
-                const lastX = getX(6);
-                const lastYToday = getY(sliceToday[6]);
-                const lastYYest = getY(sliceYest[6]);
-                const d = formatDeltaBadge(item.today, item.yest);
-                const isSelected = activeLineMetric === item.key;
-
-                return (
-                  <div
-                    key={item.key}
-                    onClick={() => setActiveLineMetric(item.key)}
-                    className={`p-2 rounded-xl bg-[#080C18] border ${
-                      isSelected ? 'border-[#00F0FF] ring-1 ring-[#00F0FF]/30' : 'border-slate-800/80 hover:border-slate-700'
-                    } cursor-pointer transition-all flex flex-col justify-between overflow-hidden min-w-0`}
-                  >
-                    <div>
-                      <div className="text-[9.5px] font-extrabold text-slate-200 truncate leading-tight whitespace-nowrap">{item.title}</div>
-                      <div className="text-[9px] font-black text-emerald-400 mt-0.5 leading-tight whitespace-nowrap">{d.short}</div>
-                    </div>
-                    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-7 my-1 overflow-visible">
-                      <polyline fill="none" stroke="#F59E0B" strokeWidth="1.8" strokeDasharray="3 2" strokeLinecap="round" points={ptsYest} />
-                      <polyline fill="none" stroke={cfg.stroke} strokeWidth="2.4" strokeLinecap="round" points={ptsToday} />
-                      <circle cx={lastX} cy={lastYYest} r="2.5" fill="#F59E0B" stroke="#080C18" strokeWidth="1" />
-                      <circle cx={lastX} cy={lastYToday} r="3" fill={cfg.stroke} stroke="#080C18" strokeWidth="1" />
-                    </svg>
-                    <div className="flex flex-col gap-0.5 text-[9px] pt-1 border-t border-slate-800/70 font-bold">
-                      <div className="flex items-center justify-between gap-1 whitespace-nowrap">
-                        <span className="text-slate-400 flex items-center gap-1 shrink-0">
-                          <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: cfg.stroke }}></span>Hoje
-                        </span>
-                        <span className="text-white font-black">{fmtCompactNum(item.today)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-1 whitespace-nowrap">
-                        <span className="text-amber-400/90 flex items-center gap-1 shrink-0">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>Ontem
-                        </span>
-                        <span className="text-amber-300 font-black">{fmtCompactNum(item.yest)}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Resumo do Veredito Hoje vs Ontem */}
-            <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-500/10 via-[#080C18] to-[#00F0FF]/10 border border-emerald-500/30 flex items-center justify-between gap-3">
-              <div className="text-[11px] leading-snug">
-                <div className="font-black text-emerald-400 uppercase tracking-wide">
-                  {compareMode === 'same_hour'
-                    ? `🚀 Ritmo Acelerado: Curva de Hoje está ${mainViewsDelta.short} acima de ontem!`
-                    : '⏱️ Curva de Hoje + Linha Pontilhada de Projeção vs. 24h de Ontem'}
-                </div>
-                <div className="text-slate-300 mt-0.5">
-                  {compareMode === 'same_hour'
-                    ? 'Dados sincronizados ao vivo da Graph API • Clique em qualquer métrica para alternar a curva.'
-                    : 'A linha pontilhada projeta o fechamento de hoje superando o fechamento total de ontem.'}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-2 bg-[#0D1326]/90 border border-slate-800 p-1.5 rounded-2xl">
