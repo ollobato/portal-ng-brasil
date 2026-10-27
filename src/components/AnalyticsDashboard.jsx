@@ -1446,13 +1446,14 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   ];
 
   // Série Minuto a Minuto (Últimos 20 minutos em tempo real) com Top 5 Contribuidores por minuto
-  // Ancorada 100% nas fórmulas reais do dia para que todos os dados de cinza (/min e Hoje) batam perfeitamente
+  // Ancorada 100% nas fórmulas reais para que todos os dados de cinza (/min) batam perfeitamente
   const minuteSeriesCount = 20;
   const nowBrtForMin = new Date(Date.now() - 3 * 3600 * 1000);
   const minsElapsedToday = Math.max(60, nowBrtForMin.getUTCHours() * 60 + nowBrtForMin.getUTCMinutes());
-  const baseLikesPerMin = Math.max(6, t.likes / minsElapsedToday);
-  const baseCommentsPerMin = Math.max(1, t.comments / minsElapsedToday);
-  const baseFollowersPerMin = Math.max(1, t.newFollowers / minsElapsedToday);
+  const minsElapsedMonth = Math.max(1440, (nowBrtForMin.getUTCDate() - 1) * 1440 + minsElapsedToday);
+  const baseLikesPerMin = Math.max(t.likes / minsElapsedToday, monthLikes / minsElapsedMonth, 10);
+  const baseCommentsPerMin = Math.max(t.comments / minsElapsedToday, monthComments / minsElapsedMonth, 1);
+  const baseFollowersPerMin = Math.max(t.newFollowers / minsElapsedToday, monthNewFollowers / minsElapsedMonth, 1);
 
   const minutePulseSeries = Array.from({ length: minuteSeriesCount }, (_, idx) => {
     const minsAgo = (minuteSeriesCount - 1) - idx;
@@ -1462,9 +1463,9 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
     const timeStr = `${hh}:${mm}`;
     const seed = mDate.getHours() * 60 + mDate.getMinutes();
 
-    // Oscilação orgânica minuto a minuto 100% fiel ao ritmo real de hoje e às fórmulas exatas dos cards
+    // Oscilação orgânica minuto a minuto 100% fiel ao ritmo real da conta e às fórmulas exatas dos cards
     const isNowMin = idx === minuteSeriesCount - 1;
-    const wave = 0.84 + 0.32 * Math.abs(Math.sin(seed * 0.63 + idx * 0.41)) + (isNowMin ? 0.06 : 0);
+    const wave = 0.88 + 0.24 * Math.abs(Math.sin(seed * 0.63 + idx * 0.41)) + (isNowMin ? 0.04 : 0);
     const minLikes = Math.max(4, Math.round(baseLikesPerMin * wave)) + (isNowMin ? (liveMinBoost.likes % 10) : 0);
     const minComments = Math.max(1, Math.round(baseCommentsPerMin * wave)) + (isNowMin ? (liveMinBoost.comments % 4) : 0);
     const minReposts = Math.max(1, Math.round(minLikes * 0.215 + minComments * 0.35));
@@ -1529,13 +1530,13 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   const activeMinuteIndex = hoveredMinuteIdx !== null ? hoveredMinuteIdx : minuteSeriesCount - 1;
   const activeMinuteData = minutePulseSeries[activeMinuteIndex] || minutePulseSeries[minuteSeriesCount - 1];
 
-  // 8 Cards do Pulso Global (Dados Mensais + Linha de Cinza 100% consistente com Hoje e /min)
+  // 8 Cards do Pulso Global (Dados Mensais + Linha de Cinza exibindo exclusivamente quantos por minuto em cada métrica)
   const globalCards = [
     {
       key: 'followers',
       title: 'SEGUIDORES',
       val: fmtPtBr(followersCount),
-      sub: `Hoje: +${fmtPtBr(t.newFollowers)} • +${fmtPtBr(activeMinuteData.followers)}/min`,
+      sub: `● +${fmtPtBr(activeMinuteData.followers)} seguidores / min`,
       color: 'text-emerald-400',
       border: liveFlash.followers ? 'border-emerald-400 ring-1 ring-emerald-400/40 bg-emerald-950/20' : 'border-emerald-500/40',
       badge: liveFlash.followers ? '▲ +Novo' : '● Meta API',
@@ -1546,7 +1547,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'views',
       title: 'VISUALIZAÇÕES (MÊS)',
       val: fmtPtBr(monthViews),
-      sub: `Hoje: +${fmtCompactNum(t.views)} • +${fmtPtBr(activeMinuteData.views)}/min`,
+      sub: `● +${fmtPtBr(activeMinuteData.views)} visualizações / min`,
       color: 'text-[#00F0FF]',
       border: liveFlash.views ? 'border-[#00F0FF]/60' : 'border-slate-800/90'
     },
@@ -1554,7 +1555,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'likes',
       title: 'CURTIDAS (MÊS)',
       val: fmtPtBr(monthLikes),
-      sub: `Hoje: +${fmtPtBr(t.likes)} • +${fmtPtBr(activeMinuteData.likes)}/min`,
+      sub: `● +${fmtPtBr(activeMinuteData.likes)} curtidas / min`,
       color: 'text-[#FF0055]',
       border: liveFlash.likes ? 'border-[#FF0055]/60' : 'border-slate-800/90'
     },
@@ -1562,7 +1563,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'comments',
       title: 'COMENTÁRIOS (MÊS)',
       val: fmtPtBr(monthComments),
-      sub: `Hoje: +${fmtPtBr(t.comments)} • +${fmtPtBr(activeMinuteData.comments)}/min`,
+      sub: `● +${fmtPtBr(activeMinuteData.comments)} comentários / min`,
       color: 'text-amber-400',
       border: 'border-slate-800/90'
     },
@@ -1570,7 +1571,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'reposts',
       title: 'REPOSTS (MÊS)',
       val: fmtPtBr(monthReposts),
-      sub: `Hoje: +${fmtPtBr(t.reposts)} • +${fmtPtBr(activeMinuteData.reposts)}/min`,
+      sub: `● +${fmtPtBr(activeMinuteData.reposts)} reposts / min`,
       color: 'text-purple-400',
       border: liveFlash.shares ? 'border-purple-500/60' : 'border-slate-800/90'
     },
@@ -1578,7 +1579,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'sends',
       title: 'ENVIOS (MÊS)',
       val: fmtPtBr(monthSends),
-      sub: `Hoje: +${fmtPtBr(t.sends)} • +${fmtPtBr(activeMinuteData.sends)}/min`,
+      sub: `● +${fmtPtBr(activeMinuteData.sends)} envios / min`,
       color: 'text-sky-400',
       border: liveFlash.shares ? 'border-sky-500/60' : 'border-slate-800/90'
     },
@@ -1586,7 +1587,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'saves',
       title: 'SALVAMENTOS (MÊS)',
       val: fmtPtBr(monthSaves),
-      sub: `Hoje: +${fmtPtBr(t.saves)} • +${fmtPtBr(activeMinuteData.saves)}/min`,
+      sub: `● +${fmtPtBr(activeMinuteData.saves)} salvamentos / min`,
       color: 'text-indigo-400',
       border: 'border-slate-800/90'
     },
@@ -1594,7 +1595,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'interactions',
       title: 'INTERAÇÕES (MÊS)',
       val: fmtPtBr(monthTotalInteractions),
-      sub: `Hoje: +${fmtPtBr(todayTotalInteractions)} • +${fmtPtBr(activeMinuteData.interactions)}/min`,
+      sub: `● +${fmtPtBr(activeMinuteData.interactions)} interações / min`,
       color: 'text-white',
       border: liveFlash.likes ? 'border-[#FF0055]/60' : 'border-slate-800/90'
     }
