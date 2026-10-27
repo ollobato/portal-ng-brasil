@@ -1,7 +1,7 @@
 import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { uploadImageForSocial } from './imageUploader';
-import { formatInstagramCaption } from './socialExporter';
+import { formatInstagramCaption, formatFacebookCaption } from './socialExporter';
 
 export const FALLBACK_META_SETTINGS = {
   metaToken: "EAAfkmL0QDnwBShl80MRmZBTLC0zM1xliUQViccwO4beeR26NpOZBawVgFRIOmLdtHGZC2sZBzKykWtyHcKth5GxbT0wmaC2AhsnXWmZAOqRZA2efBiFPhWytZCILlXNFQCijh0VRwxil0ZAk4cmKdB8vH7Ew2DNQKZCJ9At5xmSVHxGbuwNs3NfQeMVhbI25c",
@@ -13,28 +13,445 @@ export const FALLBACK_META_SETTINGS = {
 export async function getLiveMetaSettings(customSettings = {}) {
   const merged = { ...FALLBACK_META_SETTINGS };
   try {
-    const snap = await getDoc(doc(db, 'config', 'settings'));
-    if (snap.exists()) {
-      const data = snap.data();
-      if (data.metaToken) merged.metaToken = data.metaToken;
-      if (data.metaFbPageId) merged.metaFbPageId = data.metaFbPageId;
-      if (data.metaIgAccountId) merged.metaIgAccountId = data.metaIgAccountId;
-      if (data.imgbbKey) merged.imgbbKey = data.imgbbKey;
-    }
+    const [globalSnap, configSnap] = await Promise.all([
+      getDoc(doc(db, 'settings', 'global')).catch(() => null),
+      getDoc(doc(db, 'config', 'settings')).catch(() => null)
+    ]);
+
+    const applyNonEmpty = (data) => {
+      if (!data) return;
+      if (data.metaToken && String(data.metaToken).trim()) merged.metaToken = String(data.metaToken).trim();
+      if (data.metaFbPageId && String(data.metaFbPageId).trim()) merged.metaFbPageId = String(data.metaFbPageId).trim();
+      if (data.metaIgAccountId && String(data.metaIgAccountId).trim()) merged.metaIgAccountId = String(data.metaIgAccountId).trim();
+      if (data.imgbbKey && String(data.imgbbKey).trim()) merged.imgbbKey = String(data.imgbbKey).trim();
+    };
+
+    if (configSnap && configSnap.exists()) applyNonEmpty(configSnap.data());
+    if (globalSnap && globalSnap.exists()) applyNonEmpty(globalSnap.data());
   } catch (e) {
     console.warn("Falha ao carregar settings do Firestore, usando fallback local:", e.message);
   }
 
-  // Override com localStorage se existir
+  // Override com localStorage se existir (e não estiver em branco)
   if (typeof window !== 'undefined') {
-    if (localStorage.getItem('portal_ng_meta_token')) merged.metaToken = localStorage.getItem('portal_ng_meta_token');
-    if (localStorage.getItem('portal_ng_meta_fb_page_id')) merged.metaFbPageId = localStorage.getItem('portal_ng_meta_fb_page_id');
-    if (localStorage.getItem('portal_ng_meta_ig_account_id')) merged.metaIgAccountId = localStorage.getItem('portal_ng_meta_ig_account_id');
-    if (localStorage.getItem('portal_ng_imgbb_key')) merged.imgbbKey = localStorage.getItem('portal_ng_imgbb_key');
+    const lsToken = localStorage.getItem('portal_ng_meta_token');
+    const lsFbId = localStorage.getItem('portal_ng_meta_fb_page_id');
+    const lsIgId = localStorage.getItem('portal_ng_meta_ig_account_id');
+    const lsImgbb = localStorage.getItem('portal_ng_imgbb_key');
+    if (lsToken && lsToken.trim()) merged.metaToken = lsToken.trim();
+    if (lsFbId && lsFbId.trim()) merged.metaFbPageId = lsFbId.trim();
+    if (lsIgId && lsIgId.trim()) merged.metaIgAccountId = lsIgId.trim();
+    if (lsImgbb && lsImgbb.trim()) merged.imgbbKey = lsImgbb.trim();
   }
 
-  // Override com customSettings passadas explicitamente
-  return { ...merged, ...customSettings };
+  // Override com customSettings passadas explicitamente (apenas chaves preenchidas)
+  Object.entries(customSettings || {}).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && String(v).trim() !== '') {
+      merged[k] = typeof v === 'string' ? v.trim() : v;
+    }
+  });
+
+  return merged;
+}
+
+/**
+ * Resolve o Page Access Token dedicado da página do Facebook a partir de um User Token ou Page Token.
+ */
+export async function resolveFacebookPageToken(token, pageId = FALLBACK_META_SETTINGS.metaFbPageId) {
+  const cleanToken = (token || '').trim();
+  const cleanPageId = (pageId || FALLBACK_META_SETTINGS.metaFbPageId).trim();
+  if (!cleanToken) throw new Error("Token da Meta não configurado.");
+
+  // 1. Consulta direta ao nó da Página (funciona tanto com User Token quanto com Page Token)
+  try {
+    const pageRes = await fetch(
+      `https://graph.facebook.com/v20.0/${cleanPageId}?fields=id,name,access_token&access_token=${encodeURIComponent(cleanToken)}`
+    );
+    if (pageRes.ok) {
+      const pageData = await pageRes.json();
+      if (pageData && pageData.access_token) {
+        return {
+          pageToken: pageData.access_token,
+          pageName: pageData.name || 'Portal NG Brasil',
+          pageId: pageData.id || cleanPageId,
+          source: 'page_node'
+        };
+      }
+    }
+  } catch (e) {
+    console.warn("Aviso ao consultar nó da página directamente:", e.message);
+  }
+
+  // 2. Fallback via /me/accounts
+  try {
+    const accRes = await fetch(
+      `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,tasks&access_token=${encodeURIComponent(cleanToken)}`
+    );
+    if (accRes.ok) {
+      const accData = await accRes.json();
+      const targetPage =
+        accData.data?.find(p => String(p.id) === String(cleanPageId)) ||
+        accData.data?.[0];
+      if (targetPage && targetPage.access_token) {
+        return {
+          pageToken: targetPage.access_token,
+          pageName: targetPage.name || 'Portal NG Brasil',
+          pageId: targetPage.id || cleanPageId,
+          source: 'me_accounts'
+        };
+      }
+    }
+  } catch (e) {
+    console.warn("Aviso ao consultar /me/accounts:", e.message);
+  }
+
+  // 3. Caso o próprio token colado pelo usuário já seja um Page Token
+  return {
+    pageToken: cleanToken,
+    pageName: 'Portal NG Brasil',
+    pageId: cleanPageId,
+    source: 'direct_token'
+  };
+}
+
+/**
+ * Formata erros da Graph API do Facebook em mensagens claras e acionáveis em português.
+ */
+export function formatFacebookGraphError(errorObj) {
+  if (!errorObj) return 'Erro desconhecido na API do Facebook.';
+  const rawMsg = errorObj.error_user_msg || errorObj.message || String(errorObj);
+  const code = errorObj.code;
+
+  if (code === 200 || rawMsg.includes('pages_manage_posts')) {
+    return 'Falta a permissão "pages_manage_posts" no Token da Meta (#200). Gere um novo token no Meta Graph API Explorer marcando a permissão "pages_manage_posts" e salve nas Configurações.';
+  }
+  if (code === 190 || rawMsg.toLowerCase().includes('session has expired') || rawMsg.toLowerCase().includes('access token')) {
+    return 'O Token de Acesso da Meta expirou ou foi invalidado (#190). Gere um novo token nas Configurações.';
+  }
+  return rawMsg;
+}
+
+/**
+ * Publica na Página do Facebook com resolução automática de Page Token e fallbacks (Blob -> URL -> Link Feed).
+ */
+export async function publishToFacebookPage({
+  pageId = FALLBACK_META_SETTINGS.metaFbPageId,
+  token,
+  blob = null,
+  publicImageUrl = null,
+  blobs = null,
+  publicImageUrls = null,
+  message = '',
+  linkUrl = null
+}) {
+  const effectivePageId = (pageId || FALLBACK_META_SETTINGS.metaFbPageId).trim();
+  const { pageToken } = await resolveFacebookPageToken(token, effectivePageId);
+
+  let lastError = null;
+
+  // Suporte a Carrossel / Múltiplas Fotos no Facebook
+  const multiBlobs = Array.isArray(blobs) && blobs.length > 1 ? blobs : null;
+  const multiUrls = Array.isArray(publicImageUrls) && publicImageUrls.length > 1 ? publicImageUrls : null;
+  const totalMulti = Math.max(multiBlobs ? multiBlobs.length : 0, multiUrls ? multiUrls.length : 0);
+
+  if (totalMulti > 1) {
+    try {
+      const attachedMedia = [];
+      for (let i = 0; i < totalMulti; i++) {
+        let photoId = null;
+        const itemBlob = multiBlobs?.[i];
+        const itemUrl = multiUrls?.[i];
+
+        if (itemBlob) {
+          try {
+            const fbFormData = new FormData();
+            fbFormData.append('source', itemBlob, `ng_carousel_${i + 1}_${Date.now()}.jpg`);
+            fbFormData.append('published', 'false');
+            fbFormData.append('access_token', pageToken);
+
+            const fbRes = await fetch(`https://graph.facebook.com/v20.0/${effectivePageId}/photos`, {
+              method: 'POST',
+              body: fbFormData
+            });
+            const fbData = await fbRes.json();
+            if (!fbData.error && fbData.id) {
+              photoId = fbData.id;
+            }
+          } catch (_) {}
+        }
+
+        if (!photoId && itemUrl) {
+          try {
+            const fbRes = await fetch(`https://graph.facebook.com/v20.0/${effectivePageId}/photos`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: itemUrl,
+                published: false,
+                access_token: pageToken
+              })
+            });
+            const fbData = await fbRes.json();
+            if (!fbData.error && fbData.id) {
+              photoId = fbData.id;
+            }
+          } catch (_) {}
+        }
+
+        if (photoId) {
+          attachedMedia.push({ media_fbid: photoId });
+        }
+      }
+
+      if (attachedMedia.length > 0) {
+        const feedRes = await fetch(`https://graph.facebook.com/v20.0/${effectivePageId}/feed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message,
+            attached_media: attachedMedia,
+            access_token: pageToken
+          })
+        });
+        const feedData = await feedRes.json();
+        if (!feedData.error && feedData.id) {
+          return {
+            success: true,
+            postId: feedData.id,
+            url: `https://www.facebook.com/${feedData.id}`
+          };
+        }
+        if (feedData.error) {
+          lastError = feedData.error;
+        }
+      }
+    } catch (multiErr) {
+      console.warn("Aviso ao publicar múltiplas fotos no Facebook, tentando fallback para foto única:", multiErr.message);
+    }
+  }
+
+  // Tentativa 1: Upload binário direto da imagem via FormData em /{page-id}/photos
+  if (blob) {
+    try {
+      const fbFormData = new FormData();
+      fbFormData.append('source', blob, `ng_post_${Date.now()}.jpg`);
+      fbFormData.append('message', message);
+      fbFormData.append('access_token', pageToken);
+
+      const fbRes = await fetch(`https://graph.facebook.com/v20.0/${effectivePageId}/photos`, {
+        method: 'POST',
+        body: fbFormData
+      });
+      const fbData = await fbRes.json();
+      if (!fbData.error && (fbData.post_id || fbData.id)) {
+        const postId = fbData.post_id || fbData.id;
+        return {
+          success: true,
+          postId,
+          url: `https://www.facebook.com/${postId}`
+        };
+      }
+      if (fbData.error) {
+        lastError = fbData.error;
+        // Se for erro de permissão (#200) ou token (#190), não adianta tentar fallback
+        if (fbData.error.code === 200 || fbData.error.code === 190) {
+          throw new Error(formatFacebookGraphError(fbData.error));
+        }
+      }
+    } catch (err) {
+      if (err.message.includes('pages_manage_posts') || err.message.includes('#190')) throw err;
+      lastError = { message: err.message };
+    }
+  }
+
+  // Tentativa 2: Publicar foto via URL pública hospedada em /{page-id}/photos
+  if (publicImageUrl) {
+    try {
+      const fbRes = await fetch(`https://graph.facebook.com/v20.0/${effectivePageId}/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: publicImageUrl,
+          message,
+          access_token: pageToken
+        })
+      });
+      const fbData = await fbRes.json();
+      if (!fbData.error && (fbData.post_id || fbData.id)) {
+        const postId = fbData.post_id || fbData.id;
+        return {
+          success: true,
+          postId,
+          url: `https://www.facebook.com/${postId}`
+        };
+      }
+      if (fbData.error) {
+        lastError = fbData.error;
+        if (fbData.error.code === 200 || fbData.error.code === 190) {
+          throw new Error(formatFacebookGraphError(fbData.error));
+        }
+      }
+    } catch (err) {
+      if (err.message.includes('pages_manage_posts') || err.message.includes('#190')) throw err;
+      lastError = { message: err.message };
+    }
+  }
+
+  // Tentativa 3: Publicar Link / Texto direto no /{page-id}/feed
+  try {
+    const payload = {
+      message,
+      access_token: pageToken
+    };
+    if (linkUrl) payload.link = linkUrl;
+
+    const fbRes = await fetch(`https://graph.facebook.com/v20.0/${effectivePageId}/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const fbData = await fbRes.json();
+    if (!fbData.error && fbData.id) {
+      return {
+        success: true,
+        postId: fbData.id,
+        url: `https://www.facebook.com/${fbData.id}`
+      };
+    }
+    if (fbData.error) {
+      lastError = fbData.error;
+    }
+  } catch (err) {
+    lastError = { message: err.message };
+  }
+
+  throw new Error(formatFacebookGraphError(lastError));
+}
+
+/**
+ * Executa diagnóstico completo ao vivo da conexão com Facebook e Instagram na Meta Graph API v20.0.
+ */
+export async function diagnoseMetaConnection(customSettings = {}) {
+  const conf = await getLiveMetaSettings(customSettings);
+  const token = (conf.metaToken || '').trim();
+  const pageId = (conf.metaFbPageId || FALLBACK_META_SETTINGS.metaFbPageId).trim();
+  const igId = (conf.metaIgAccountId || FALLBACK_META_SETTINGS.metaIgAccountId).trim();
+
+  const REQUIRED_SCOPES = [
+    { scope: 'pages_show_list', label: 'Listar Páginas (pages_show_list)', channel: 'facebook' },
+    { scope: 'pages_read_engagement', label: 'Ler Engajamento da Página (pages_read_engagement)', channel: 'facebook' },
+    { scope: 'pages_manage_posts', label: 'Publicar na Página do Facebook (pages_manage_posts)', channel: 'facebook', criticalForFbPost: true },
+    { scope: 'instagram_basic', label: 'Acesso Básico Instagram (instagram_basic)', channel: 'instagram' },
+    { scope: 'instagram_content_publish', label: 'Publicar no Instagram (instagram_content_publish)', channel: 'instagram' }
+  ];
+
+  const report = {
+    checkedAt: new Date().toISOString(),
+    tokenValid: false,
+    appId: '2221669495082620',
+    appName: 'Portal NG Brasil',
+    userName: null,
+    grantedScopes: [],
+    missingScopes: [],
+    scopeDetails: [],
+    facebook: {
+      connected: false,
+      canPublish: false,
+      pageId,
+      pageName: null,
+      followersCount: null,
+      hasPageToken: false,
+      error: null
+    },
+    instagram: {
+      connected: false,
+      canPublish: false,
+      igId,
+      username: null,
+      followersCount: null,
+      error: null
+    }
+  };
+
+  if (!token) {
+    report.facebook.error = 'Nenhum Token de Acesso configurado.';
+    report.instagram.error = 'Nenhum Token de Acesso configurado.';
+    return report;
+  }
+
+  try {
+    const [meRes, permRes, pageRes, igRes] = await Promise.all([
+      fetch(`https://graph.facebook.com/v20.0/me?fields=id,name&access_token=${encodeURIComponent(token)}`).catch(() => null),
+      fetch(`https://graph.facebook.com/v20.0/me/permissions?access_token=${encodeURIComponent(token)}`).catch(() => null),
+      fetch(`https://graph.facebook.com/v20.0/${pageId}?fields=id,name,fan_count,followers_count,access_token,instagram_business_account&access_token=${encodeURIComponent(token)}`).catch(() => null),
+      fetch(`https://graph.facebook.com/v20.0/${igId}?fields=id,username,name,followers_count&access_token=${encodeURIComponent(token)}`).catch(() => null)
+    ]);
+
+    if (meRes && meRes.ok) {
+      const meData = await meRes.json();
+      if (!meData.error) {
+        report.tokenValid = true;
+        report.userName = meData.name || null;
+      } else {
+        report.facebook.error = formatFacebookGraphError(meData.error);
+      }
+    }
+
+    if (permRes && permRes.ok) {
+      const permData = await permRes.json();
+      if (Array.isArray(permData.data)) {
+        report.grantedScopes = permData.data
+          .filter(p => p.status === 'granted')
+          .map(p => p.permission);
+      }
+    }
+
+    report.scopeDetails = REQUIRED_SCOPES.map(req => {
+      const granted = report.grantedScopes.includes(req.scope);
+      return { ...req, granted };
+    });
+    report.missingScopes = report.scopeDetails.filter(s => !s.granted).map(s => s.scope);
+
+    if (pageRes) {
+      const pageData = await pageRes.json();
+      if (!pageData.error && pageData.id) {
+        report.tokenValid = true;
+        report.facebook.connected = true;
+        report.facebook.pageId = pageData.id;
+        report.facebook.pageName = pageData.name || 'Portal NG Brasil';
+        report.facebook.followersCount = pageData.followers_count || pageData.fan_count || null;
+        report.facebook.hasPageToken = Boolean(pageData.access_token);
+
+        const hasManagePosts = report.grantedScopes.includes('pages_manage_posts');
+        if (hasManagePosts && pageData.access_token) {
+          report.facebook.canPublish = true;
+        } else if (!hasManagePosts) {
+          report.facebook.canPublish = false;
+          report.facebook.error = 'O token está conectado à página "Portal NG Brasil", mas NÃO possui a permissão "pages_manage_posts". Por isso o Instagram publica normalmente, mas o Facebook bloqueia a postagem com erro #200.';
+        }
+      } else if (pageData.error) {
+        report.facebook.error = formatFacebookGraphError(pageData.error);
+      }
+    }
+
+    if (igRes) {
+      const igData = await igRes.json();
+      if (!igData.error && igData.id) {
+        report.tokenValid = true;
+        report.instagram.connected = true;
+        report.instagram.igId = igData.id;
+        report.instagram.username = igData.username || 'portalngbrasil';
+        report.instagram.followersCount = igData.followers_count || null;
+        report.instagram.canPublish = report.grantedScopes.includes('instagram_content_publish') || report.grantedScopes.length === 0;
+      } else if (igData.error) {
+        report.instagram.error = igData.error.message;
+      }
+    }
+  } catch (err) {
+    report.facebook.error = err.message;
+  }
+
+  return report;
 }
 
 import { safeLoadImageForCanvas } from './imageLoader';
@@ -324,7 +741,8 @@ export async function publishArticleToAllChannels({
       }
     }
 
-    const caption = formatInstagramCaption(publishedPayload, shareUrl);
+    const caption = formatInstagramCaption(publishedPayload);
+    const fbCaption = formatFacebookCaption(publishedPayload, shareUrl);
 
     // -------------------------------------------------------------
     // ETAPA 3: PUBLICAR NO FACEBOOK
@@ -332,45 +750,16 @@ export async function publishArticleToAllChannels({
     if (conf.metaFbPageId && conf.metaToken) {
       onProgress({ step: 'facebook', message: '📘 Publicando na Página do Facebook...' });
       try {
-        // Tenta obter o Page Access Token específico da página via /me/accounts para evitar bloqueio #200
-        let fbToken = conf.metaToken;
-        try {
-          const accRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?access_token=${conf.metaToken}`);
-          if (accRes.ok) {
-            const accData = await accRes.json();
-            const targetPage = accData.data?.find(p => String(p.id) === String(conf.metaFbPageId));
-            if (targetPage && targetPage.access_token) {
-              fbToken = targetPage.access_token;
-              console.log("Utilizando Page Access Token dedicado para:", targetPage.name);
-            }
-          }
-        } catch (e) {
-          console.warn("Não foi possível obter Page Token:", e.message);
-        }
-
-        const fbFormData = new FormData();
-        if (blob) {
-          fbFormData.append('source', blob, `ng_post_${finalArticleId}.jpg`);
-        } else if (publicImageUrl) {
-          fbFormData.append('url', publicImageUrl);
-        }
-        fbFormData.append('message', caption);
-        fbFormData.append('access_token', fbToken);
-
-        const fbRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaFbPageId}/photos`, {
-          method: 'POST',
-          body: fbFormData
+        const fbRes = await publishToFacebookPage({
+          pageId: conf.metaFbPageId,
+          token: conf.metaToken,
+          blob,
+          publicImageUrl,
+          message: fbCaption,
+          linkUrl: shareUrl
         });
-
-        const fbData = await fbRes.json();
-        if (fbData.error) {
-          console.error("Erro Facebook:", fbData.error);
-          result.errors.facebook = fbData.error.message;
-        } else {
-          const postId = fbData.post_id || fbData.id;
-          result.links.facebook = postId ? `https://www.facebook.com/${postId}` : `https://www.facebook.com/${conf.metaFbPageId}`;
-          console.log("Facebook postado com sucesso:", result.links.facebook);
-        }
+        result.links.facebook = fbRes.url || `https://www.facebook.com/${conf.metaFbPageId}`;
+        console.log("Facebook postado com sucesso:", result.links.facebook);
       } catch (fbErr) {
         console.error("Exceção ao postar no Facebook:", fbErr);
         result.errors.facebook = fbErr.message;
