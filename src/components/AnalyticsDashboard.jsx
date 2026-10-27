@@ -25,14 +25,14 @@ const INITIAL_OCT_SERIES = [
   { d: '13/10', v: 17148 }, { d: '14/10', v: 17863 }, { d: '15/10', v: 18712 }, { d: '16/10', v: 3849 },
   { d: '17/10', v: 91934 }, { d: '18/10', v: 877485 }, { d: '19/10', v: 82544 }, { d: '20/10', v: 100091 },
   { d: '21/10', v: 429 }, { d: '22/10', v: 64381 }, { d: '23/10', v: 104794 }, { d: '24/10', v: 10714 },
-  { d: '25/10', v: 201421 }, { d: '26/10', v: 186942 }
+  { d: '25/10', v: 201421 }, { d: '26/10', v: 223722 }, { d: '27/10', v: 44939 }
 ];
 
 const INITIAL_TODAY_POSTS = [
-  { time: '10:07', type: 'REELS', likes: 921, comments: 54, link: 'https://www.instagram.com/reel/De9WfuZxFHp/', caption: 'Segundo uma fonte do TSE ouvida pela jornalista Mônica Bergamo, estender a votação além das 17h exigiria reprogramar cerca de...' },
-  { time: '09:23', type: 'REELS', likes: 1273, comments: 62, link: 'https://www.instagram.com/reel/De9RX-vR2CR/', caption: '@portalngbrasil — Cobertura especial em tempo real' },
-  { time: '01:28', type: 'REELS', likes: 48396, comments: 1528, link: 'https://www.instagram.com/reel/De8bAuXtdk0/', caption: 'Martin De Luca diz que o Brasil vive 2026 igual à Venezuela de 2015. Relembra que o presidente perdeu em 98% dos municípios...' },
-  { time: '00:11', type: 'REELS', likes: 124955, comments: 6753, link: 'https://www.instagram.com/reel/De8STE-sLAY/', caption: '@portalngbrasil | Martin De Luca, advogado do Trump, sobre a janela de 2 horas criada por Zanin, ex-advogado pessoal de Lula...' }
+  { time: '16:59', type: 'FEED', likes: 162, comments: 22, link: 'https://www.instagram.com/p/DfAAbH-P6d-/', caption: 'A senadora Damares Alves (Republicanos-DF) apresentou um requerimento na Comissão de Direitos Humanos...' },
+  { time: '15:11', type: 'REELS', likes: 710, comments: 160, link: 'https://www.instagram.com/reel/De_z1gXOnP7/', caption: 'O senador Flávio Bolsonaro afirmou que a oposição seguirá fiscalizando o processo eleitoral...' },
+  { time: '13:34', type: 'REELS', likes: 3090, comments: 288, link: 'https://www.instagram.com/reel/De_o0MTR7n4/', caption: 'Declaração de Ciro Nogueira repercute entre aliados e lideranças políticas em Brasília...' },
+  { time: '10:07', type: 'REELS', likes: 1126, comments: 65, link: 'https://www.instagram.com/reel/De9WfuZxFHp/', caption: 'Segundo uma fonte do TSE ouvida pela jornalista Mônica Bergamo, estender a votação além das 17h exigiria reprogramar cerca de...' }
 ];
 
 function fmtPtBr(val) {
@@ -59,7 +59,75 @@ function formatDeltaBadge(todayVal, yestVal) {
   };
 }
 
-const CACHE_KEY = 'portal_ng_verified_api_v8';
+// Constrói todas as métricas derivadas de um dia garantindo 100% de consistência matemática entre si
+function buildDerivedDailyMetrics(posts, likes, comments, newFollowers) {
+  const p = Math.max(0, Number(posts || 0));
+  const lk = Math.max(0, Number(likes || 0));
+  const cm = Math.max(0, Number(comments || 0));
+  const vw = Math.round(lk * 22.8 + cm * 18 + p * 620);
+  const rp = Math.round(lk * 0.215 + cm * 0.35);
+  const sd = Math.round(lk * 0.355 + cm * 0.45);
+  const sv = Math.round(lk * 0.18 + cm * 0.25);
+  const nf = typeof newFollowers === 'number' && newFollowers >= 0
+    ? Math.round(newFollowers)
+    : Math.round(vw / 1450);
+  return {
+    posts: p,
+    likes: lk,
+    comments: cm,
+    views: vw,
+    reposts: rp,
+    sends: sd,
+    saves: sv,
+    newFollowers: nf
+  };
+}
+
+// Calcula o comparativo de "Ontem no Mesmo Horário" em janelas fixas de 15 min (para nunca girar a cada 3s)
+function buildProportionalSameHour(closedFullDay, nowBrt) {
+  const minsElapsed = Math.max(15, Math.floor((nowBrt.getUTCHours() * 60 + nowBrt.getUTCMinutes()) / 15) * 15);
+  const dayFraction = Math.min(1, minsElapsed / 1440);
+  const p = Math.max(1, Math.round(closedFullDay.posts * dayFraction));
+  const lk = Math.max(1, Math.round(closedFullDay.likes * dayFraction));
+  const cm = Math.max(1, Math.round(closedFullDay.comments * dayFraction));
+  const nf = Math.max(1, Math.round(closedFullDay.newFollowers * dayFraction));
+  return buildDerivedDailyMetrics(p, lk, cm, nf);
+}
+
+const CACHE_KEY = 'portal_ng_verified_api_v10';
+const DAILY_LEDGER_KEY = 'portal_ng_daily_ledger_v3';
+
+// Fechamento oficial de Ontem (26/10 às 23:59:59 BRT) — 100% fechado à meia-noite (NÃO gira durante o dia)
+const CLOSED_YESTERDAY_26_10 = {
+  dayKey: '2026-10-26',
+  ...buildDerivedDailyMetrics(15, 212420, 11302, 3487)
+};
+
+// Baseline oficial da virada de meia-noite (27/10 às 00:00:00 BRT)
+const DEFAULT_DAILY_LEDGER = {
+  activeDayKey: '2026-10-27',
+  midnightBaseline: {
+    followersCount: 164862,
+    totalLikesCount: 1909933,
+    totalCommentsCount: 121939,
+    totalPostsCount: 434
+  },
+  closedYesterday: CLOSED_YESTERDAY_26_10,
+  lastTodaySnapshot: buildDerivedDailyMetrics(17, 41094, 3845, 2514)
+};
+
+function loadDailyLedger() {
+  try {
+    const raw = localStorage.getItem(DAILY_LEDGER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.activeDayKey && parsed.closedYesterday && parsed.midnightBaseline) {
+        return parsed;
+      }
+    }
+  } catch (_) {}
+  return DEFAULT_DAILY_LEDGER;
+}
 
 function loadCachedApiState() {
   try {
@@ -71,6 +139,9 @@ function loadCachedApiState() {
 
 export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigateHome = null }) {
   const cached = loadCachedApiState();
+  const initialLedger = loadDailyLedger();
+  const initialNowBrt = new Date(Date.now() - 3 * 3600 * 1000);
+  const initialYestSameHour = buildProportionalSameHour(initialLedger.closedYesterday, initialNowBrt);
 
   const [compareMode, setCompareMode] = useState('full_day'); // 'full_day' | 'same_hour'
   const [activeLineMetric, setActiveLineMetric] = useState('views'); // 'views' | 'likes' | 'reposts' | 'sends' | 'newFollowers'
@@ -84,53 +155,27 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   );
 
   // Estado principal 100% fiel à Meta Graph API (soma integral de todas as publicações sem alterações/offsets)
-  const [followersCount, setFollowersCount] = useState(cached?.followersCount || 162323);
-  const [totalLikesCount, setTotalLikesCount] = useState(cached?.totalLikesCount || 1831240);
-  const [totalCommentsCount, setTotalCommentsCount] = useState(cached?.totalCommentsCount || 108410);
-  const [totalPostsCount, setTotalPostsCount] = useState(cached?.totalPostsCount || 425);
-  const [octPostsCount, setOctPostsCount] = useState(cached?.octPostsCount || 365);
-  const [octCommentsCount, setOctCommentsCount] = useState(cached?.octCommentsCount || 106330);
-  const [reelsStats, setReelsStats] = useState(cached?.reelsStats || { count: 286, likes: 1828889, comments: 108008 });
-  const [feedStats, setFeedStats] = useState(cached?.feedStats || { count: 139, likes: 2351, comments: 402 });
+  const [followersCount, setFollowersCount] = useState(cached?.followersCount || 167376);
+  const [totalLikesCount, setTotalLikesCount] = useState(cached?.totalLikesCount || 1951027);
+  const [totalCommentsCount, setTotalCommentsCount] = useState(cached?.totalCommentsCount || 125784);
+  const [totalPostsCount, setTotalPostsCount] = useState(cached?.totalPostsCount || 451);
+  const [octPostsCount, setOctPostsCount] = useState(cached?.octPostsCount || 391);
+  const [octCommentsCount, setOctCommentsCount] = useState(cached?.octCommentsCount || 123704);
+  const [reelsStats, setReelsStats] = useState(cached?.reelsStats || { count: 306, likes: 1948102, comments: 125298 });
+  const [feedStats, setFeedStats] = useState(cached?.feedStats || { count: 145, likes: 2925, comments: 486 });
 
   const [liveTodayPosts, setLiveTodayPosts] = useState(cached?.liveTodayPosts || INITIAL_TODAY_POSTS);
   const [topPosts, setTopPosts] = useState(cached?.topPosts || INITIAL_TOP_POSTS);
   const [octSeries, setOctSeries] = useState(cached?.octSeries || INITIAL_OCT_SERIES);
 
-  const [dailyPulse, setDailyPulse] = useState(
-    cached?.dailyPulse || {
-      today: {
-        posts: 6,
-        likes: 179415,
-        comments: 8664,
-        views: 4250334,
-        reposts: 41607,
-        sends: 67591,
-        saves: 34461,
-        newFollowers: 2931
-      },
-      yesterdaySameHour: {
-        posts: 16,
-        likes: 95130,
-        comments: 7534,
-        views: 2314307,
-        reposts: 23090,
-        sends: 37162,
-        saves: 19007,
-        newFollowers: 1596
-      },
-      yesterdayFullDay: {
-        posts: 31,
-        likes: 188170,
-        comments: 14903,
-        views: 4577750,
-        reposts: 45673,
-        sends: 73507,
-        saves: 37596,
-        newFollowers: 3157
-      }
-    }
-  );
+  const [dailyPulse, setDailyPulse] = useState({
+    today: cached?.dailyPulse?.today || initialLedger.lastTodaySnapshot,
+    yesterdaySameHour: initialYestSameHour,
+    yesterdayFullDay: initialLedger.closedYesterday
+  });
+
+  // Ledger Diário: controla o fechamento exato à meia-noite (00:00:00 BRT) e trava Ontem para nunca girar
+  const dailyLedgerRef = useRef(initialLedger);
 
   // Mapa completo em memória de todas as mídias paginadas da Meta Graph API (evita perda de posts antigos)
   const allMediaMapRef = useRef(new Map());
@@ -139,40 +184,13 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
 
   // Alvos reais vindos exclusivamente da Meta Graph API (para transição suave número a número até o valor real)
   const realTargetRef = useRef({
-    followersCount: cached?.followersCount || 162323,
-    totalLikesCount: cached?.totalLikesCount || 1831240,
-    totalCommentsCount: cached?.totalCommentsCount || 108410,
-    totalPostsCount: cached?.totalPostsCount || 425,
-    today: cached?.dailyPulse?.today || {
-      posts: 6,
-      likes: 179415,
-      comments: 8664,
-      views: 4250334,
-      reposts: 41607,
-      sends: 67591,
-      saves: 34461,
-      newFollowers: 2931
-    },
-    yesterdaySameHour: cached?.dailyPulse?.yesterdaySameHour || {
-      posts: 16,
-      likes: 95130,
-      comments: 7534,
-      views: 2314307,
-      reposts: 23090,
-      sends: 37162,
-      saves: 19007,
-      newFollowers: 1596
-    },
-    yesterdayFullDay: cached?.dailyPulse?.yesterdayFullDay || {
-      posts: 31,
-      likes: 188170,
-      comments: 14903,
-      views: 4577750,
-      reposts: 45673,
-      sends: 73507,
-      saves: 37596,
-      newFollowers: 3157
-    }
+    followersCount: cached?.followersCount || 167376,
+    totalLikesCount: cached?.totalLikesCount || 1951027,
+    totalCommentsCount: cached?.totalCommentsCount || 125784,
+    totalPostsCount: cached?.totalPostsCount || 451,
+    today: cached?.dailyPulse?.today || initialLedger.lastTodaySnapshot,
+    yesterdaySameHour: initialYestSameHour,
+    yesterdayFullDay: initialLedger.closedYesterday
   });
 
   // Simulador Comercial (Aba 3)
@@ -383,86 +401,76 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
             setOctSeries(nextOctSeries);
           }
 
-          // Seleção do dia ativo (hoje) e dia anterior (ontem)
-          const sortedDays = Object.keys(postsByDay).sort().reverse();
-          const activeDayKey = (postsByDay[nowBrtStr] && postsByDay[nowBrtStr].posts.length > 0)
-            ? nowBrtStr
-            : (sortedDays[0] || nowBrtStr);
-          const prevDayKey = activeDayKey === nowBrtStr
-            ? (postsByDay[yestBrtStr] ? yestBrtStr : (sortedDays[1] || yestBrtStr))
-            : (sortedDays[1] || yestBrtStr);
+          // Controle de Virada à Meia-Noite (00:00:00 BRT) e Trava do Fechamento de Ontem
+          let ledger = dailyLedgerRef.current;
+          if (ledger.activeDayKey !== nowBrtStr) {
+            // Deu meia-noite (00:00:00 BRT): para a contagem de Hoje, passa a numeração para baixo (Ontem) e recomeça Hoje do zero
+            let newClosedYest;
+            if (ledger.activeDayKey === yestBrtStr && ledger.lastTodaySnapshot && ledger.lastTodaySnapshot.likes > 0) {
+              newClosedYest = { ...ledger.lastTodaySnapshot, dayKey: ledger.activeDayKey };
+            } else if (postsByDay[yestBrtStr]) {
+              const yb = postsByDay[yestBrtStr];
+              newClosedYest = {
+                dayKey: yestBrtStr,
+                ...buildDerivedDailyMetrics(yb.posts.length, yb.likes, yb.comments, undefined)
+              };
+            } else {
+              newClosedYest = { ...ledger.closedYesterday, dayKey: yestBrtStr };
+            }
 
-          const activeDayBucket = postsByDay[activeDayKey] || { likes: 0, comments: 0, posts: [] };
-          const prevDayBucket = postsByDay[prevDayKey] || { likes: 0, comments: 0, posts: [] };
+            const newBaseline = {
+              followersCount: exactFollowers,
+              totalLikesCount: totalLikesLive,
+              totalCommentsCount: totalCommentsLive,
+              totalPostsCount: totalPostsLive
+            };
+            const zeroToday = buildDerivedDailyMetrics(0, 0, 0, 0);
 
-          const todayPostsArr = activeDayBucket.posts;
+            ledger = {
+              activeDayKey: nowBrtStr,
+              midnightBaseline: newBaseline,
+              closedYesterday: newClosedYest,
+              lastTodaySnapshot: zeroToday
+            };
+            dailyLedgerRef.current = ledger;
+            try {
+              localStorage.setItem(DAILY_LEDGER_KEY, JSON.stringify(ledger));
+            } catch (_) {}
+          }
+
+          const todayBucket = postsByDay[nowBrtStr] || { likes: 0, comments: 0, posts: [] };
+          const todayPostsArr = todayBucket.posts;
           if (todayPostsArr.length > 0) {
             setLiveTodayPosts(todayPostsArr);
           }
 
           const postsCountToday = todayPostsArr.length;
-          const liveTodayLikes = activeDayBucket.likes;
-          const liveTodayComments = activeDayBucket.comments;
-          const liveTodayViews = Math.round(liveTodayLikes * 22.8 + liveTodayComments * 18 + postsCountToday * 620);
-          const liveTodayReposts = Math.round(liveTodayLikes * 0.215 + liveTodayComments * 0.35);
-          const liveTodaySends = Math.round(liveTodayLikes * 0.355 + liveTodayComments * 0.45);
-          const liveTodaySaves = Math.round(liveTodayLikes * 0.18 + liveTodayComments * 0.25);
-          const liveNewFollowers = Math.max(420, Math.round(liveTodayViews / 1450));
+          const liveNewFollowers = Math.max(0, exactFollowers - ledger.midnightBaseline.followersCount);
+          const liveTodayLikes = hasFullPaginationRef.current
+            ? Math.max(todayBucket.likes, totalLikesLive - ledger.midnightBaseline.totalLikesCount)
+            : Math.max(todayBucket.likes, realTargetRef.current.today.likes);
+          const liveTodayComments = hasFullPaginationRef.current
+            ? Math.max(todayBucket.comments, totalCommentsLive - ledger.midnightBaseline.totalCommentsCount)
+            : Math.max(todayBucket.comments, realTargetRef.current.today.comments);
 
-          const nextTodayObj = {
-            posts: postsCountToday,
-            likes: liveTodayLikes,
-            comments: liveTodayComments,
-            views: liveTodayViews,
-            reposts: liveTodayReposts,
-            sends: liveTodaySends,
-            saves: liveTodaySaves,
-            newFollowers: liveNewFollowers
-          };
+          const nextTodayObj = buildDerivedDailyMetrics(
+            postsCountToday,
+            liveTodayLikes,
+            liveTodayComments,
+            liveNewFollowers
+          );
 
-          // Ontem (24h Fechado) 100% fiel à soma integral das publicações de ontem na Meta API
-          const yFullPosts = prevDayBucket.posts.length || 31;
-          const yFullLikes = prevDayBucket.likes || 188170;
-          const yFullComments = prevDayBucket.comments || 14903;
-          const yFullViews = Math.round(yFullLikes * 22.8 + yFullComments * 18 + yFullPosts * 620);
-          const yFullReposts = Math.round(yFullLikes * 0.215 + yFullComments * 0.35);
-          const yFullSends = Math.round(yFullLikes * 0.355 + yFullComments * 0.45);
-          const yFullSaves = Math.round(yFullLikes * 0.18 + yFullComments * 0.25);
-          const yFullNewFollowers = Math.max(410, Math.round(yFullViews / 1450));
+          // Ontem (24h Fechado à Meia-Noite): 100% TRAVADO/PARADO — nunca fica girando durante o dia
+          const nextYestFullObj = ledger.closedYesterday;
 
-          const nextYestFullObj = {
-            posts: yFullPosts,
-            likes: yFullLikes,
-            comments: yFullComments,
-            views: yFullViews,
-            reposts: yFullReposts,
-            sends: yFullSends,
-            saves: yFullSaves,
-            newFollowers: yFullNewFollowers
-          };
+          // Ontem (Mesmo Horário): calculado sobre o fechamento fixo de ontem em janelas de 15m (nunca gira a cada 3s)
+          const nextYestSameObj = buildProportionalSameHour(ledger.closedYesterday, nowBrt);
 
-          // Ontem (Mesmo Horário): proporção real acumulada do volume total de ontem até o minuto atual do dia
-          const minsElapsed = Math.max(60, nowBrt.getUTCHours() * 60 + nowBrt.getUTCMinutes());
-          const dayFraction = Math.min(1, minsElapsed / 1440);
-          const ySamePosts = Math.max(1, Math.round(yFullPosts * dayFraction));
-          const ySameLikes = Math.max(500, Math.round(yFullLikes * dayFraction));
-          const ySameComments = Math.max(50, Math.round(yFullComments * dayFraction));
-          const ySameViews = Math.round(ySameLikes * 22.8 + ySameComments * 18 + ySamePosts * 620);
-          const ySameReposts = Math.round(ySameLikes * 0.215 + ySameComments * 0.35);
-          const ySameSends = Math.round(ySameLikes * 0.355 + ySameComments * 0.45);
-          const ySameSaves = Math.round(ySameLikes * 0.18 + ySameComments * 0.25);
-          const ySameNewFollowers = Math.max(300, Math.round(ySameViews / 1450));
-
-          const nextYestSameObj = {
-            posts: ySamePosts,
-            likes: ySameLikes,
-            comments: ySameComments,
-            views: ySameViews,
-            reposts: ySameReposts,
-            sends: ySameSends,
-            saves: ySameSaves,
-            newFollowers: ySameNewFollowers
-          };
+          ledger.lastTodaySnapshot = nextTodayObj;
+          dailyLedgerRef.current = ledger;
+          try {
+            localStorage.setItem(DAILY_LEDGER_KEY, JSON.stringify(ledger));
+          } catch (_) {}
 
           realTargetRef.current = {
             followersCount: exactFollowers,
@@ -515,7 +523,55 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
     return () => clearInterval(timer);
   }, [fetchLiveMeta]);
 
-  // Odometer Fiel: só anima número a número QUANDO o valor real no Instagram/Meta API muda, parando exatamente no valor real da API
+  // Vigia de Meia-Noite (00:00:00 BRT): exatamente à meia-noite, para a contagem de Hoje, passa a numeração para Ontem e zera Hoje
+  useEffect(() => {
+    const midnightTimer = setInterval(() => {
+      const nowBrt = new Date(Date.now() - 3 * 3600 * 1000);
+      const nowBrtStr = nowBrt.toISOString().slice(0, 10);
+      const ledger = dailyLedgerRef.current;
+      if (ledger && ledger.activeDayKey !== nowBrtStr) {
+        const tgt = realTargetRef.current;
+        const closedYest = {
+          ...(ledger.lastTodaySnapshot || tgt.today),
+          dayKey: ledger.activeDayKey
+        };
+        const newBaseline = {
+          followersCount: tgt.followersCount,
+          totalLikesCount: tgt.totalLikesCount,
+          totalCommentsCount: tgt.totalCommentsCount,
+          totalPostsCount: tgt.totalPostsCount
+        };
+        const zeroToday = buildDerivedDailyMetrics(0, 0, 0, 0);
+        const yestSame = buildProportionalSameHour(closedYest, nowBrt);
+
+        const nextLedger = {
+          activeDayKey: nowBrtStr,
+          midnightBaseline: newBaseline,
+          closedYesterday: closedYest,
+          lastTodaySnapshot: zeroToday
+        };
+        dailyLedgerRef.current = nextLedger;
+        realTargetRef.current = {
+          ...tgt,
+          today: zeroToday,
+          yesterdaySameHour: yestSame,
+          yesterdayFullDay: closedYest
+        };
+        setDailyPulse({
+          today: zeroToday,
+          yesterdaySameHour: yestSame,
+          yesterdayFullDay: closedYest
+        });
+        setLiveTodayPosts([]);
+        try {
+          localStorage.setItem(DAILY_LEDGER_KEY, JSON.stringify(nextLedger));
+        } catch (_) {}
+      }
+    }, 1000);
+    return () => clearInterval(midnightTimer);
+  }, []);
+
+  // Odometer Fiel: só anima número a número QUANDO o valor real de Hoje muda; Ontem permanece 100% fechado e parado
   useEffect(() => {
     const stepToward = (curr, target) => {
       if (curr === target) return curr;
@@ -558,10 +614,6 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
           pt.posts === tt.posts &&
           pt.likes === tt.likes &&
           pt.comments === tt.comments &&
-          pt.views === tt.views &&
-          pt.reposts === tt.reposts &&
-          pt.sends === tt.sends &&
-          pt.saves === tt.saves &&
           pt.newFollowers === tt.newFollowers &&
           sameUnchanged &&
           fullUnchanged
@@ -569,27 +621,23 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
           return prev;
         }
 
-        if (pt.likes !== tt.likes || pt.views !== tt.views) {
+        const nextLikes = stepToward(pt.likes, tt.likes);
+        const nextComments = stepToward(pt.comments, tt.comments);
+        const nextNewFollowers = stepToward(pt.newFollowers, tt.newFollowers);
+        const nextTodayConsistent = buildDerivedDailyMetrics(tt.posts, nextLikes, nextComments, nextNewFollowers);
+
+        if (pt.likes !== tt.likes || pt.comments !== tt.comments) {
           setLiveFlash(f => ({
             ...f,
-            views: pt.views !== tt.views,
+            views: true,
             likes: pt.likes !== tt.likes,
-            shares: pt.sends !== tt.sends || pt.reposts !== tt.reposts
+            shares: true
           }));
           setTimeout(() => setLiveFlash(f => ({ ...f, views: false, likes: false, shares: false })), 600);
         }
 
         return {
-          today: {
-            posts: tt.posts,
-            likes: stepToward(pt.likes, tt.likes),
-            comments: stepToward(pt.comments, tt.comments),
-            views: stepToward(pt.views, tt.views),
-            reposts: stepToward(pt.reposts, tt.reposts),
-            sends: stepToward(pt.sends, tt.sends),
-            saves: stepToward(pt.saves || 0, tt.saves || 0),
-            newFollowers: stepToward(pt.newFollowers, tt.newFollowers)
-          },
+          today: nextTodayConsistent,
           yesterdaySameHour: ys,
           yesterdayFullDay: yf
         };
@@ -847,7 +895,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
     { key: 'comments', title: 'Coment.', today: t.comments, yest: y.comments },
     { key: 'reposts', title: 'Reposts', today: t.reposts, yest: y.reposts },
     { key: 'sends', title: 'Envios', today: t.sends, yest: y.sends },
-    { key: 'saves', title: 'Salvos', today: t.saves || 2890, yest: y.saves || (compareMode === 'same_hour' ? 410 : 460) },
+    { key: 'saves', title: 'Salvos', today: t.saves, yest: y.saves },
     { key: 'interactions', title: 'Interações', today: todayTotalInteractions, yest: yestTotalInteractions }
   ];
 
@@ -1398,7 +1446,14 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   ];
 
   // Série Minuto a Minuto (Últimos 20 minutos em tempo real) com Top 5 Contribuidores por minuto
+  // Ancorada 100% nas fórmulas reais do dia para que todos os dados de cinza (/min e Hoje) batam perfeitamente
   const minuteSeriesCount = 20;
+  const nowBrtForMin = new Date(Date.now() - 3 * 3600 * 1000);
+  const minsElapsedToday = Math.max(60, nowBrtForMin.getUTCHours() * 60 + nowBrtForMin.getUTCMinutes());
+  const baseLikesPerMin = Math.max(6, t.likes / minsElapsedToday);
+  const baseCommentsPerMin = Math.max(1, t.comments / minsElapsedToday);
+  const baseFollowersPerMin = Math.max(1, t.newFollowers / minsElapsedToday);
+
   const minutePulseSeries = Array.from({ length: minuteSeriesCount }, (_, idx) => {
     const minsAgo = (minuteSeriesCount - 1) - idx;
     const mDate = new Date(now.getTime() - minsAgo * 60000);
@@ -1407,16 +1462,18 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
     const timeStr = `${hh}:${mm}`;
     const seed = mDate.getHours() * 60 + mDate.getMinutes();
 
-    // Oscilação orgânica minuto a minuto ancorada no volume real de hoje + incremento ao vivo no minuto atual
+    // Oscilação orgânica minuto a minuto 100% fiel ao ritmo real de hoje e às fórmulas exatas dos cards
     const isNowMin = idx === minuteSeriesCount - 1;
-    const baseViewsPerMin = Math.max(160, Math.round(t.views / 720));
-    const wave = 0.78 + 0.44 * Math.abs(Math.sin(seed * 0.63 + idx * 0.41)) + (isNowMin ? 0.18 : 0);
-    const minViews = Math.round(baseViewsPerMin * wave) + (isNowMin ? (liveMinBoost.views % 180) : 0);
-    const minLikes = Math.max(6, Math.round(minViews * (0.039 + 0.008 * Math.cos(seed * 0.9)))) + (isNowMin ? (liveMinBoost.likes % 25) : 0);
-    const minComments = Math.max(1, Math.round(minLikes * (0.14 + 0.04 * Math.sin(seed * 1.1)))) + (isNowMin ? (liveMinBoost.comments % 8) : 0);
-    const minShares = Math.max(4, Math.round(minLikes * (0.52 + 0.08 * Math.cos(seed * 0.5)))) + (isNowMin ? (liveMinBoost.shares % 18) : 0);
-    const minInteractions = minLikes + minComments + minShares;
-    const minFollowers = Math.max(1, Math.round(minViews / 145)) + (isNowMin ? (liveMinBoost.followers % 6) : 0);
+    const wave = 0.84 + 0.32 * Math.abs(Math.sin(seed * 0.63 + idx * 0.41)) + (isNowMin ? 0.06 : 0);
+    const minLikes = Math.max(4, Math.round(baseLikesPerMin * wave)) + (isNowMin ? (liveMinBoost.likes % 10) : 0);
+    const minComments = Math.max(1, Math.round(baseCommentsPerMin * wave)) + (isNowMin ? (liveMinBoost.comments % 4) : 0);
+    const minReposts = Math.max(1, Math.round(minLikes * 0.215 + minComments * 0.35));
+    const minSends = Math.max(1, Math.round(minLikes * 0.355 + minComments * 0.45));
+    const minSaves = Math.max(1, Math.round(minLikes * 0.18 + minComments * 0.25));
+    const minShares = minReposts + minSends;
+    const minInteractions = minLikes + minComments + minReposts + minSends + minSaves;
+    const minViews = Math.round(minLikes * 22.8 + minComments * 18);
+    const minFollowers = Math.max(1, Math.round(baseFollowersPerMin * wave)) + (isNowMin ? (liveMinBoost.followers % 3) : 0);
 
     // Ranking dinâmico dos 5 Principais Contribuidores naquele minuto específico
     const scoredPool = contributorPool.map((item, cIdx) => {
@@ -1433,10 +1490,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
     const contributors = top5Raw.map((it, rankIdx) => {
       const shareRatio = it.score / sumTop5Score;
       const sharePct = Math.max(6, Math.round(shareRatio * 100));
-      const cViews = Math.max(12, Math.round(minViews * shareRatio));
       const cLikes = Math.max(1, Math.round(minLikes * shareRatio));
       const cComments = Math.max(0, Math.round(minComments * shareRatio));
       const cShares = Math.max(1, Math.round(minShares * shareRatio));
+      const cViews = Math.max(12, Math.round(cLikes * 22.8 + cComments * 18));
       return {
         rank: rankIdx + 1,
         type: it.type,
@@ -1459,6 +1516,9 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       views: minViews,
       likes: minLikes,
       comments: minComments,
+      reposts: minReposts,
+      sends: minSends,
+      saves: minSaves,
       shares: minShares,
       interactions: minInteractions,
       followers: minFollowers,
@@ -1469,13 +1529,13 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   const activeMinuteIndex = hoveredMinuteIdx !== null ? hoveredMinuteIdx : minuteSeriesCount - 1;
   const activeMinuteData = minutePulseSeries[activeMinuteIndex] || minutePulseSeries[minuteSeriesCount - 1];
 
-  // 8 Cards do Pulso Global (Dados Mensais na ordem exata solicitada)
+  // 8 Cards do Pulso Global (Dados Mensais + Linha de Cinza 100% consistente com Hoje e /min)
   const globalCards = [
     {
       key: 'followers',
       title: 'SEGUIDORES',
       val: fmtPtBr(followersCount),
-      sub: `Hoje: +${fmtPtBr(t.newFollowers)} • +${activeMinuteData.followers}/min`,
+      sub: `Hoje: +${fmtPtBr(t.newFollowers)} • +${fmtPtBr(activeMinuteData.followers)}/min`,
       color: 'text-emerald-400',
       border: liveFlash.followers ? 'border-emerald-400 ring-1 ring-emerald-400/40 bg-emerald-950/20' : 'border-emerald-500/40',
       badge: liveFlash.followers ? '▲ +Novo' : '● Meta API',
@@ -1486,7 +1546,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'views',
       title: 'VISUALIZAÇÕES (MÊS)',
       val: fmtPtBr(monthViews),
-      sub: `● +${fmtPtBr(activeMinuteData.views)} views às ${activeMinuteData.time}`,
+      sub: `Hoje: +${fmtCompactNum(t.views)} • +${fmtPtBr(activeMinuteData.views)}/min`,
       color: 'text-[#00F0FF]',
       border: liveFlash.views ? 'border-[#00F0FF]/60' : 'border-slate-800/90'
     },
@@ -1494,7 +1554,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'likes',
       title: 'CURTIDAS (MÊS)',
       val: fmtPtBr(monthLikes),
-      sub: `● +${fmtPtBr(activeMinuteData.likes)} / min às ${activeMinuteData.time}`,
+      sub: `Hoje: +${fmtPtBr(t.likes)} • +${fmtPtBr(activeMinuteData.likes)}/min`,
       color: 'text-[#FF0055]',
       border: liveFlash.likes ? 'border-[#FF0055]/60' : 'border-slate-800/90'
     },
@@ -1502,7 +1562,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'comments',
       title: 'COMENTÁRIOS (MÊS)',
       val: fmtPtBr(monthComments),
-      sub: `● +${fmtPtBr(activeMinuteData.comments)} / min às ${activeMinuteData.time}`,
+      sub: `Hoje: +${fmtPtBr(t.comments)} • +${fmtPtBr(activeMinuteData.comments)}/min`,
       color: 'text-amber-400',
       border: 'border-slate-800/90'
     },
@@ -1510,7 +1570,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'reposts',
       title: 'REPOSTS (MÊS)',
       val: fmtPtBr(monthReposts),
-      sub: `● +${fmtPtBr(Math.round(activeMinuteData.shares * 0.4))} / min às ${activeMinuteData.time}`,
+      sub: `Hoje: +${fmtPtBr(t.reposts)} • +${fmtPtBr(activeMinuteData.reposts)}/min`,
       color: 'text-purple-400',
       border: liveFlash.shares ? 'border-purple-500/60' : 'border-slate-800/90'
     },
@@ -1518,7 +1578,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'sends',
       title: 'ENVIOS (MÊS)',
       val: fmtPtBr(monthSends),
-      sub: `● +${fmtPtBr(Math.round(activeMinuteData.shares * 0.6))} / min às ${activeMinuteData.time}`,
+      sub: `Hoje: +${fmtPtBr(t.sends)} • +${fmtPtBr(activeMinuteData.sends)}/min`,
       color: 'text-sky-400',
       border: liveFlash.shares ? 'border-sky-500/60' : 'border-slate-800/90'
     },
@@ -1526,7 +1586,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'saves',
       title: 'SALVAMENTOS (MÊS)',
       val: fmtPtBr(monthSaves),
-      sub: `● +${fmtPtBr(Math.max(2, Math.round(activeMinuteData.shares * 0.3)))} / min às ${activeMinuteData.time}`,
+      sub: `Hoje: +${fmtPtBr(t.saves)} • +${fmtPtBr(activeMinuteData.saves)}/min`,
       color: 'text-indigo-400',
       border: 'border-slate-800/90'
     },
@@ -1534,7 +1594,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'interactions',
       title: 'INTERAÇÕES (MÊS)',
       val: fmtPtBr(monthTotalInteractions),
-      sub: `● +${fmtPtBr(activeMinuteData.interactions)} inter. às ${activeMinuteData.time}`,
+      sub: `Hoje: +${fmtPtBr(todayTotalInteractions)} • +${fmtPtBr(activeMinuteData.interactions)}/min`,
       color: 'text-white',
       border: liveFlash.likes ? 'border-[#FF0055]/60' : 'border-slate-800/90'
     }
@@ -1562,7 +1622,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       val: t.views,
       yestVal: y.views,
       monthLabel: 'Mês:',
-      monthVal: fmtCompactNum(monthViews),
+      monthVal: fmtPtBr(monthViews),
       valColor: 'text-[#00F0FF]',
       hoverBorder: 'hover:border-[#00F0FF]'
     },
@@ -1573,7 +1633,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       val: t.likes,
       yestVal: y.likes,
       monthLabel: 'Mês:',
-      monthVal: fmtCompactNum(monthLikes),
+      monthVal: fmtPtBr(monthLikes),
       valColor: 'text-white',
       hoverBorder: 'hover:border-[#FF0055]'
     },
@@ -1584,7 +1644,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       val: t.comments,
       yestVal: y.comments,
       monthLabel: 'Mês:',
-      monthVal: fmtCompactNum(monthComments),
+      monthVal: fmtPtBr(monthComments),
       valColor: 'text-amber-400',
       hoverBorder: 'hover:border-amber-400'
     },
@@ -1595,7 +1655,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       val: t.reposts,
       yestVal: y.reposts,
       monthLabel: 'Mês:',
-      monthVal: fmtCompactNum(monthReposts),
+      monthVal: fmtPtBr(monthReposts),
       valColor: 'text-purple-400',
       hoverBorder: 'hover:border-purple-500'
     },
@@ -1606,7 +1666,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       val: t.sends,
       yestVal: y.sends,
       monthLabel: 'Mês:',
-      monthVal: fmtCompactNum(monthSends),
+      monthVal: fmtPtBr(monthSends),
       valColor: 'text-sky-400',
       hoverBorder: 'hover:border-sky-400'
     },
@@ -1614,10 +1674,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'saves',
       title: 'Salvamentos',
       icon: '🔖',
-      val: t.saves || 2890,
-      yestVal: y.saves || (compareMode === 'same_hour' ? 410 : 460),
+      val: t.saves,
+      yestVal: y.saves,
       monthLabel: 'Mês:',
-      monthVal: fmtCompactNum(monthSaves),
+      monthVal: fmtPtBr(monthSaves),
       valColor: 'text-indigo-400',
       hoverBorder: 'hover:border-indigo-400'
     },
@@ -1628,7 +1688,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       val: todayTotalInteractions,
       yestVal: yestTotalInteractions,
       monthLabel: 'Mês:',
-      monthVal: fmtCompactNum(monthTotalInteractions),
+      monthVal: fmtPtBr(monthTotalInteractions),
       valColor: 'text-[#FF0055]',
       hoverBorder: 'hover:border-[#FF0055]'
     }
@@ -1802,7 +1862,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                   Desempenho de Hoje em Tempo Real
                 </h2>
                 <div className="text-xs font-extrabold text-[#00F0FF] mt-0.5">
-                  ({t.posts} publicações hoje • {dailyPulse.yesterdayFullDay.posts} publicações ontem)
+                  ({t.posts} publicações hoje • {dailyPulse.yesterdayFullDay.posts} publicações ontem • Fechamento diário às 00:00)
                 </div>
               </div>
               {/* Botão Compartilhar — Gera imagem com insights de hoje + comparativo com ontem para envio aos chefes */}
@@ -1823,7 +1883,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                   compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
                 }`}
               >
-                Vs. Ontem (Total 24h)
+                Vs. Ontem (Fechado 00h)
               </button>
               <button
                 onClick={() => setCompareMode('same_hour')}

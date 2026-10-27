@@ -74,6 +74,29 @@ Link na bio ou acesse: portalngbrasil.com.br
 }
 
 /**
+ * Formata a legenda para postagem na Página do Facebook com link clicável da matéria
+ */
+export function formatFacebookCaption(article, shareUrl = '') {
+  if (!article) return '';
+
+  const title = (article.title || '').trim();
+  const subtitle = (article.subtitle || '').trim();
+  const category = (article.categoryLabel || article.category || 'Notícias').replace(/\s+/g, '');
+  const praca = (article.praca || 'Brasil').replace(/\s+/g, '');
+  const linkLine = shareUrl || `https://portalngbrasil.com.br/#/noticia/${article.id || ''}`;
+
+  return `📰 ${title}
+
+${subtitle}
+
+📖 Leia a matéria completa no Portal NG Brasil:
+👉 ${linkLine}
+
+---
+#PortalNGBrasil #${category} #${praca} #Noticias #Brasil`;
+}
+
+/**
  * Copia um texto para a área de transferência do usuário
  */
 export async function copyToClipboard(text) {
