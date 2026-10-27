@@ -45,7 +45,7 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
     $pathParts = pathinfo($origName);
     if (!empty($pathParts['extension'])) {
         $cleanExt = strtolower($pathParts['extension']);
-        if (in_array($cleanExt, ['jpg', 'jpeg', 'png', 'webp'])) {
+        if (in_array($cleanExt, ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'webm', 'm4v'])) {
             $ext = $cleanExt;
         }
     }
@@ -55,7 +55,7 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
     $pathParts = pathinfo($origName);
     if (!empty($pathParts['extension'])) {
         $cleanExt = strtolower($pathParts['extension']);
-        if (in_array($cleanExt, ['jpg', 'jpeg', 'png', 'webp'])) {
+        if (in_array($cleanExt, ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'webm', 'm4v'])) {
             $ext = $cleanExt;
         }
     }
@@ -66,11 +66,14 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
         $json = json_decode($rawInput, true);
         $data = ($json && isset($json['image'])) ? $json['image'] : $rawInput;
         
-        if (strpos($data, 'data:image') === 0) {
+        if (strpos($data, 'data:image') === 0 || strpos($data, 'data:video') === 0) {
             $parts = explode(';', $data);
             if (count($parts) > 1) {
                 if (strpos($parts[0], 'png') !== false) $ext = 'png';
                 if (strpos($parts[0], 'webp') !== false) $ext = 'webp';
+                if (strpos($parts[0], 'mp4') !== false) $ext = 'mp4';
+                if (strpos($parts[0], 'quicktime') !== false || strpos($parts[0], 'mov') !== false) $ext = 'mov';
+                if (strpos($parts[0], 'webm') !== false) $ext = 'webm';
                 $dataParts = explode(',', $parts[1]);
                 if (count($dataParts) > 1) {
                     $data = $dataParts[1];

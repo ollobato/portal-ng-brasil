@@ -14,12 +14,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
-  LayoutTemplate
+  LayoutTemplate,
+  Video
 } from 'lucide-react';
-import { formatInstagramCaption, formatFacebookCaption, formatWhatsAppMessage, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
-import { uploadImageForSocial } from '../utils/imageUploader';
+import { formatInstagramCaption, formatFacebookCaption, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
+import { uploadImageForSocial, uploadVideoForSocial } from '../utils/imageUploader';
 import { safeLoadImageForCanvas } from '../utils/imageLoader';
-import { publishToFacebookPage, FALLBACK_META_SETTINGS } from '../utils/metaPublisher';
+import { publishToFacebookPage, resolveFacebookPageToken, FALLBACK_META_SETTINGS } from '../utils/metaPublisher';
 
 const formatText = (text) => {
   if (!text) return '';
@@ -38,10 +39,28 @@ const getInitialImage = (art) => {
   return img;
 };
 
+const isVideoFileOrUrl = (fileOrUrl) => {
+  if (!fileOrUrl) return false;
+  if (typeof fileOrUrl === 'object' && fileOrUrl.type) {
+    if (fileOrUrl.type.startsWith('video/')) return true;
+    const name = (fileOrUrl.name || '').toLowerCase();
+    return /\.(mp4|mov|webm|m4v|avi|mkv)$/.test(name);
+  }
+  if (typeof fileOrUrl === 'string') {
+    if (fileOrUrl.startsWith('data:video/')) return true;
+    const clean = fileOrUrl.split('?')[0].toLowerCase();
+    return /\.(mp4|mov|webm|m4v)$/.test(clean);
+  }
+  return false;
+};
+
 const createDefaultFirstCard = (article) => ({
   id: 'card-1',
   mode: 'template', // 'template' | 'full_image'
+  mediaType: 'image', // 'image' | 'video'
   imageUrl: getInitialImage(article),
+  videoUrl: '',
+  videoFile: null,
   customImage: false,
   customTitle: false,
   customSubtitle: false,
@@ -134,13 +153,16 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     }
     const newCard = {
       id: `card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      mode: initialMode, // 'full_image' ou 'template'
+      mode: initialMode,
+      mediaType: 'image',
       imageUrl: initialImageUrl,
+      videoUrl: '',
+      videoFile: null,
       customImage: Boolean(initialImageUrl),
       customTitle: false,
       customSubtitle: false,
       title: formatText(article?.title) || 'Título do Card.',
-      subtitle: formatText(article?.subtitle) || ' Adicione informações complementares neste slide.',
+      subtitle: formatText(article?.subtitle) || 'Adicione informações complementares neste slide.',
       useTwoPhotos: false,
       secondImageUrl: '',
       objectFit: 'cover',
@@ -151,36 +173,64 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     setActiveCardIndex(nextIndex);
   };
 
-  // Upload de 1 ou mais imagens criando/preenchendo cards do carrossel
+  // Upload de 1 ou mais fotos OU vídeos criando/preenchendo cards do carrossel
   const handleFilesToCarousel = (fileList, targetMode = 'replace_or_add') => {
-    const files = Array.from(fileList || []).filter(f => f.type && f.type.startsWith('image/'));
+    const files = Array.from(fileList || []).filter(
+      f => (f.type && (f.type.startsWith('image/') || f.type.startsWith('video/'))) || isVideoFileOrUrl(f)
+    );
     if (!files.length) return;
 
     Promise.all(
       files.map(
         file =>
           new Promise(resolve => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.readAsDataURL(file);
+            if (isVideoFileOrUrl(file)) {
+              const objUrl = URL.createObjectURL(file);
+              resolve({
+                mediaType: 'video',
+                url: objUrl,
+                videoFile: file
+              });
+            } else {
+              const reader = new FileReader();
+              reader.onloadend = () =>
+                resolve({
+                  mediaType: 'image',
+                  url: reader.result,
+                  videoFile: null
+                });
+              reader.readAsDataURL(file);
+            }
           })
       )
-    ).then(dataUrls => {
-      const validUrls = dataUrls.filter(Boolean);
-      if (!validUrls.length) return;
+    ).then(items => {
+      const validItems = items.filter(it => it && it.url);
+      if (!validItems.length) return;
 
       if (targetMode === 'replace_active') {
-        // Primeiro arquivo substitui o card ativo; se enviou vários, os demais viram novos cards
-        const [firstUrl, ...restUrls] = validUrls;
+        const [firstItem, ...restItems] = validItems;
         setCards(prev => {
           const updated = prev.map((c, idx) =>
-            idx === safeActiveIndex ? { ...c, imageUrl: firstUrl, customImage: true } : c
+            idx === safeActiveIndex
+              ? {
+                  ...c,
+                  mediaType: firstItem.mediaType,
+                  imageUrl: firstItem.mediaType === 'image' ? firstItem.url : c.imageUrl,
+                  videoUrl: firstItem.mediaType === 'video' ? firstItem.url : '',
+                  videoFile: firstItem.mediaType === 'video' ? firstItem.videoFile : null,
+                  mode: firstItem.mediaType === 'video' && idx > 0 ? 'full_image' : c.mode,
+                  customImage: true
+                }
+              : c
           );
           const remainingSlots = Math.max(0, 10 - updated.length);
-          const extraCards = restUrls.slice(0, remainingSlots).map((url, i) => ({
+          const extraCards = restItems.slice(0, remainingSlots).map((item, i) => ({
             id: `card-${Date.now()}-${i}`,
             mode: 'full_image',
-            imageUrl: url,
+            mediaType: item.mediaType,
+            imageUrl: item.mediaType === 'image' ? item.url : '',
+            videoUrl: item.mediaType === 'video' ? item.url : '',
+            videoFile: item.mediaType === 'video' ? item.videoFile : null,
             customImage: true,
             customTitle: false,
             customSubtitle: false,
@@ -194,7 +244,6 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
           return [...updated, ...extraCards];
         });
       } else {
-        // Modo '+' (adicionar novos cards com as imagens enviadas)
         setCards(prev => {
           const remainingSlots = Math.max(0, 10 - prev.length);
           if (remainingSlots <= 0) {
@@ -202,10 +251,13 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             showToast ? showToast(msg, true) : alert(msg);
             return prev;
           }
-          const extraCards = validUrls.slice(0, remainingSlots).map((url, i) => ({
+          const extraCards = validItems.slice(0, remainingSlots).map((item, i) => ({
             id: `card-${Date.now()}-${i}`,
             mode: 'full_image',
-            imageUrl: url,
+            mediaType: item.mediaType,
+            imageUrl: item.mediaType === 'image' ? item.url : '',
+            videoUrl: item.mediaType === 'video' ? item.url : '',
+            videoFile: item.mediaType === 'video' ? item.videoFile : null,
             customImage: true,
             customTitle: false,
             customSubtitle: false,
@@ -248,7 +300,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   };
 
   // Renderiza qualquer card em um elemento canvas específico
-  const drawCardOnCanvas = async (targetCanvas, cardData, ratio = aspectRatio) => {
+  const drawCardOnCanvas = async (targetCanvas, cardData, ratio = aspectRatio, transparentVideoTop = false) => {
     if (!targetCanvas || !cardData) return;
     const ctx = targetCanvas.getContext('2d');
 
@@ -257,12 +309,25 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     targetCanvas.width = width;
     targetCanvas.height = height;
 
-    // Background base
-    ctx.fillStyle = '#040f1d';
-    ctx.fillRect(0, 0, width, height);
+    ctx.clearRect(0, 0, width, height);
 
-    // MODO 1: APENAS IMAGEM INTEIRA (ARTE PRONTA / FOTO CHEIA)
+    if (!transparentVideoTop) {
+      ctx.fillStyle = '#040f1d';
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    // MODO 1: APENAS IMAGEM/VÍDEO INTEIRO
     if (cardData.mode === 'full_image') {
+      if (cardData.mediaType === 'video') {
+        if (cardData.showLogoOnFullImage) {
+          const logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
+          if (logo) {
+            ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
+          }
+        }
+        return;
+      }
+
       const img = await safeLoadImageForCanvas(cardData.imageUrl);
       if (img) {
         if (cardData.objectFit === 'contain') {
@@ -287,7 +352,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
         ctx.font = 'bold 42px "Barlow Condensed", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('FAÇA UPLOAD DA IMAGEM DESTE CARD', width / 2, height / 2);
+        ctx.fillText('FAÇA UPLOAD DA FOTO OU VÍDEO', width / 2, height / 2);
       }
 
       if (cardData.showLogoOnFullImage) {
@@ -299,71 +364,80 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       return;
     }
 
-    // MODO 2: TEMPLATE OFICIAL PORTAL NG BRASIL (FOTO + TEXTO)
-    const [img1, img2] = await Promise.all([
-      safeLoadImageForCanvas(cardData.imageUrl),
-      cardData.useTwoPhotos ? safeLoadImageForCanvas(cardData.secondImageUrl) : Promise.resolve(null)
-    ]);
-
+    // MODO 2: TEMPLATE OFICIAL PORTAL NG BRASIL (FOTO/VÍDEO + TEXTO)
     const targetHeight = height * 0.58;
 
-    if (!cardData.useTwoPhotos || !img2) {
-      if (img1) {
-        const scale = Math.max(width / img1.width, targetHeight / img1.height);
-        const x = (width / 2) - (img1.width / 2) * scale;
-        const y = (targetHeight / 2) - (img1.height / 2) * scale;
-        ctx.drawImage(img1, x, y, img1.width * scale, img1.height * scale);
-
-        const grad = ctx.createLinearGradient(0, targetHeight - 160, 0, targetHeight);
-        grad.addColorStop(0, 'rgba(0, 23, 46, 0)');
-        grad.addColorStop(1, '#00172e');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, targetHeight - 160, width, 160);
-      } else {
-        ctx.fillStyle = '#020617';
-        ctx.fillRect(0, 0, width, targetHeight);
-      }
+    if (cardData.mediaType === 'video' && transparentVideoTop) {
+      // Deixa o topo transparente para o elemento <video> aparecer ao vivo e aplica apenas o gradiente na transição
+      const grad = ctx.createLinearGradient(0, targetHeight - 160, 0, targetHeight);
+      grad.addColorStop(0, 'rgba(0, 23, 46, 0)');
+      grad.addColorStop(1, '#00172e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, targetHeight - 160, width, 160);
     } else {
-      const halfWidth = width / 2;
+      const [img1, img2] = await Promise.all([
+        safeLoadImageForCanvas(cardData.imageUrl),
+        cardData.useTwoPhotos ? safeLoadImageForCanvas(cardData.secondImageUrl) : Promise.resolve(null)
+      ]);
 
-      if (img1) {
-        const scale1 = Math.max(halfWidth / img1.width, targetHeight / img1.height);
-        const w1 = img1.width * scale1;
-        const h1 = img1.height * scale1;
-        const x1 = (halfWidth / 2) - (w1 / 2);
-        const y1 = (targetHeight / 2) - (h1 / 2);
+      if (!cardData.useTwoPhotos || !img2) {
+        if (img1) {
+          const scale = Math.max(width / img1.width, targetHeight / img1.height);
+          const x = (width / 2) - (img1.width / 2) * scale;
+          const y = (targetHeight / 2) - (img1.height / 2) * scale;
+          ctx.drawImage(img1, x, y, img1.width * scale, img1.height * scale);
 
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(0, 0, halfWidth, targetHeight);
-        ctx.clip();
-        ctx.drawImage(img1, x1, y1, w1, h1);
-        ctx.restore();
+          const grad = ctx.createLinearGradient(0, targetHeight - 160, 0, targetHeight);
+          grad.addColorStop(0, 'rgba(0, 23, 46, 0)');
+          grad.addColorStop(1, '#00172e');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, targetHeight - 160, width, 160);
+        } else {
+          ctx.fillStyle = '#020617';
+          ctx.fillRect(0, 0, width, targetHeight);
+        }
       } else {
-        ctx.fillStyle = '#020617';
-        ctx.fillRect(0, 0, halfWidth, targetHeight);
+        const halfWidth = width / 2;
+
+        if (img1) {
+          const scale1 = Math.max(halfWidth / img1.width, targetHeight / img1.height);
+          const w1 = img1.width * scale1;
+          const h1 = img1.height * scale1;
+          const x1 = (halfWidth / 2) - (w1 / 2);
+          const y1 = (targetHeight / 2) - (h1 / 2);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, halfWidth, targetHeight);
+          ctx.clip();
+          ctx.drawImage(img1, x1, y1, w1, h1);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = '#020617';
+          ctx.fillRect(0, 0, halfWidth, targetHeight);
+        }
+
+        if (img2) {
+          const scale2 = Math.max(halfWidth / img2.width, targetHeight / img2.height);
+          const w2 = img2.width * scale2;
+          const h2 = img2.height * scale2;
+          const x2 = halfWidth + (halfWidth / 2) - (w2 / 2);
+          const y2 = (targetHeight / 2) - (h2 / 2);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(halfWidth, 0, halfWidth, targetHeight);
+          ctx.clip();
+          ctx.drawImage(img2, x2, y2, w2, h2);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = '#020617';
+          ctx.fillRect(halfWidth, 0, halfWidth, targetHeight);
+        }
+
+        ctx.fillStyle = '#00172e';
+        ctx.fillRect(halfWidth - 2, 0, 4, targetHeight);
       }
-
-      if (img2) {
-        const scale2 = Math.max(halfWidth / img2.width, targetHeight / img2.height);
-        const w2 = img2.width * scale2;
-        const h2 = img2.height * scale2;
-        const x2 = halfWidth + (halfWidth / 2) - (w2 / 2);
-        const y2 = (targetHeight / 2) - (h2 / 2);
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(halfWidth, 0, halfWidth, targetHeight);
-        ctx.clip();
-        ctx.drawImage(img2, x2, y2, w2, h2);
-        ctx.restore();
-      } else {
-        ctx.fillStyle = '#020617';
-        ctx.fillRect(halfWidth, 0, halfWidth, targetHeight);
-      }
-
-      ctx.fillStyle = '#00172e';
-      ctx.fillRect(halfWidth - 2, 0, 4, targetHeight);
     }
 
     const logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
@@ -506,17 +580,18 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     ctx.fillText(sigaText, width - 60 - sigaWidth, height - 55);
   };
 
-  // Renderiza um card específico em um Blob (offscreen)
+  // Renderiza um card de imagem em um Blob (offscreen)
   const renderCardToBlob = async (cardData, mimeType = 'image/jpeg', quality = 0.95) => {
     const offscreen = document.createElement('canvas');
-    await drawCardOnCanvas(offscreen, cardData, aspectRatio);
+    await drawCardOnCanvas(offscreen, cardData, aspectRatio, false);
     return new Promise(resolve => offscreen.toBlob(resolve, mimeType, quality));
   };
 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (canvasRef.current && activeCard) {
-        drawCardOnCanvas(canvasRef.current, activeCard, aspectRatio);
+        const isVideoOverlay = activeCard.mediaType === 'video' && Boolean(activeCard.videoUrl);
+        drawCardOnCanvas(canvasRef.current, activeCard, aspectRatio, isVideoOverlay);
       }
     }, 80);
     return () => clearTimeout(timer);
@@ -533,25 +608,31 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     }
   };
 
-  const handleDownloadCurrent = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const downloadSingleCard = async (cardData, index) => {
+    if (cardData.mediaType === 'video' && cardData.videoUrl) {
+      const link = document.createElement('a');
+      link.download = `carrossel-video-${index + 1}-${Date.now()}.mp4`;
+      link.href = cardData.videoUrl;
+      link.click();
+      return;
+    }
+    const offscreen = document.createElement('canvas');
+    await drawCardOnCanvas(offscreen, cardData, aspectRatio, false);
     const link = document.createElement('a');
     link.download = cards.length > 1
-      ? `carrossel-card-${safeActiveIndex + 1}-${Date.now()}.png`
+      ? `carrossel-card-${index + 1}-${Date.now()}.png`
       : `card-instagram-${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
+    link.href = offscreen.toDataURL('image/png');
     link.click();
+  };
+
+  const handleDownloadCurrent = () => {
+    downloadSingleCard(activeCard, safeActiveIndex);
   };
 
   const handleDownloadAll = async () => {
     for (let i = 0; i < cards.length; i++) {
-      const offscreen = document.createElement('canvas');
-      await drawCardOnCanvas(offscreen, cards[i], aspectRatio);
-      const link = document.createElement('a');
-      link.download = `carrossel-card-${i + 1}-${Date.now()}.png`;
-      link.href = offscreen.toDataURL('image/png');
-      link.click();
+      await downloadSingleCard(cards[i], i);
       await new Promise(r => setTimeout(r, 250));
     }
   };
@@ -590,26 +671,48 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       setIsPosting(true);
       const isCarousel = cards.length > 1;
 
-      // 1. Renderizar todos os cards e hospedar em URLs públicas
-      const blobs = [];
-      const publicImageUrls = [];
+      // 1. Renderizar / Hospedar todos os cards (fotos e vídeos)
+      const mediaItems = [];
+      const imageBlobs = [];
+      const imageUrls = [];
 
       for (let i = 0; i < cards.length; i++) {
-        setPostStatus(
-          isCarousel
-            ? `Renderizando e hospedando card ${i + 1} de ${cards.length}...`
-            : 'Hospedando arte para redes sociais...'
-        );
-        const blob = await renderCardToBlob(cards[i], 'image/jpeg', 0.95);
-        blobs.push(blob);
-        try {
-          const uploadedUrl = await uploadImageForSocial(blob, effectiveImgbbKey);
-          if (uploadedUrl) publicImageUrls.push(uploadedUrl);
-        } catch (upErr) {
-          if (platforms.includes('instagram')) {
-            throw upErr;
+        const c = cards[i];
+        if (c.mediaType === 'video' && (c.videoFile || c.videoUrl)) {
+          setPostStatus(
+            isCarousel
+              ? `Hospedando vídeo do card ${i + 1} de ${cards.length}...`
+              : 'Hospedando vídeo para redes sociais...'
+          );
+          const uploadedVideoUrl = await uploadVideoForSocial(c.videoFile || c.videoUrl);
+          mediaItems.push({
+            type: 'video',
+            url: uploadedVideoUrl,
+            blob: c.videoFile || null
+          });
+        } else {
+          setPostStatus(
+            isCarousel
+              ? `Renderizando e hospedando card ${i + 1} de ${cards.length}...`
+              : 'Hospedando arte para redes sociais...'
+          );
+          const blob = await renderCardToBlob(c, 'image/jpeg', 0.95);
+          imageBlobs.push(blob);
+          let uploadedUrl = null;
+          try {
+            uploadedUrl = await uploadImageForSocial(blob, effectiveImgbbKey);
+            if (uploadedUrl) imageUrls.push(uploadedUrl);
+          } catch (upErr) {
+            if (platforms.includes('instagram')) {
+              throw upErr;
+            }
+            console.warn(`Aviso no upload da imagem ${i + 1}:`, upErr.message);
           }
-          console.warn(`Aviso no upload da imagem ${i + 1}:`, upErr.message);
+          mediaItems.push({
+            type: 'image',
+            url: uploadedUrl,
+            blob
+          });
         }
       }
 
@@ -618,26 +721,46 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       let fbError = null;
       let igError = null;
 
-      // 2. Postar no Facebook (foto única ou múltiplas fotos se carrossel)
+      // 2. Postar no Facebook
       if (effectiveFbPageId && platforms.includes('facebook')) {
-        setPostStatus(isCarousel ? `Postando ${cards.length} cards na Página do Facebook...` : 'Postando na Página do Facebook...');
+        setPostStatus(isCarousel ? `Postando ${cards.length} itens na Página do Facebook...` : 'Postando na Página do Facebook...');
         try {
           const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
           const fbMessage = captionText && !captionText.includes('Link na bio')
             ? captionText
             : formatFacebookCaption({ title: firstCardTitle, subtitle: firstCardSubtitle, categoryLabel: category, id: article?.id }, shareUrl);
 
-          const fbRes = await publishToFacebookPage({
-            pageId: effectiveFbPageId,
-            token: effectiveToken,
-            blob: blobs[0],
-            publicImageUrl: publicImageUrls[0],
-            blobs,
-            publicImageUrls,
-            message: fbMessage,
-            linkUrl: shareUrl
-          });
-          fbPostUrl = fbRes.url || `https://www.facebook.com/${effectiveFbPageId}`;
+          if (mediaItems.length === 1 && mediaItems[0].type === 'video') {
+            // Post de vídeo único no Facebook Page
+            const { pageToken } = await resolveFacebookPageToken(effectiveToken, effectiveFbPageId);
+            const fbVidRes = await fetch(`https://graph.facebook.com/v20.0/${effectiveFbPageId}/videos`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                file_url: mediaItems[0].url,
+                description: fbMessage,
+                access_token: pageToken
+              })
+            });
+            const fbVidData = await fbVidRes.json();
+            if (!fbVidData.error && fbVidData.id) {
+              fbPostUrl = `https://www.facebook.com/${fbVidData.id}`;
+            } else {
+              throw new Error(fbVidData.error?.message || 'Falha ao publicar vídeo no Facebook');
+            }
+          } else {
+            const fbRes = await publishToFacebookPage({
+              pageId: effectiveFbPageId,
+              token: effectiveToken,
+              blob: imageBlobs[0] || null,
+              publicImageUrl: imageUrls[0] || null,
+              blobs: imageBlobs,
+              publicImageUrls: imageUrls,
+              message: fbMessage,
+              linkUrl: shareUrl
+            });
+            fbPostUrl = fbRes.url || `https://www.facebook.com/${effectiveFbPageId}`;
+          }
           console.log("Facebook publicado com sucesso:", fbPostUrl);
         } catch (e) {
           console.error("Erro ao publicar no Facebook:", e);
@@ -645,18 +768,22 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
         }
       }
 
-      // 3. Postar no Instagram (Imagem Única ou Carrossel)
+      // 3. Postar no Instagram (Imagem Única, Vídeo Único ou Carrossel Misto Fotos + Vídeos)
       if (effectiveIgAccountId && platforms.includes('instagram')) {
         try {
           const safeCaption = captionText.length > 2100 ? captionText.substring(0, 2100) + "..." : captionText;
 
           if (!isCarousel) {
-            // Publicação de Card Único
+            const single = mediaItems[0];
             setPostStatus('Criando container no Instagram...');
+            const payload = single.type === 'video'
+              ? { media_type: 'REELS', video_url: single.url, caption: safeCaption, access_token: effectiveToken }
+              : { image_url: single.url, caption: safeCaption, access_token: effectiveToken };
+
             const igMediaRes = await fetch(`https://graph.facebook.com/v20.0/${effectiveIgAccountId}/media`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image_url: publicImageUrls[0], caption: safeCaption, access_token: effectiveToken })
+              body: JSON.stringify(payload)
             });
             const igMediaData = await igMediaRes.json();
             if (igMediaData.error) {
@@ -664,18 +791,18 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             }
 
             const creationId = igMediaData.id;
-            setPostStatus('Aguardando processamento da imagem pelo Instagram...');
+            setPostStatus('Aguardando processamento da mídia pelo Instagram...');
 
-            let retries = 12;
+            let retries = single.type === 'video' ? 24 : 12;
             while (retries > 0) {
-              await new Promise(r => setTimeout(r, 3000));
+              await new Promise(r => setTimeout(r, 3500));
               try {
                 const statusRes = await fetch(`https://graph.facebook.com/v20.0/${creationId}?fields=status_code,status&access_token=${effectiveToken}`);
                 const statusData = await statusRes.json();
                 if (statusData.status_code === 'FINISHED') {
                   break;
                 } else if (statusData.status_code === 'ERROR') {
-                  throw new Error("Processamento Instagram falhou: " + (statusData.status || "Formato de imagem rejeitado"));
+                  throw new Error("Processamento Instagram falhou: " + (statusData.status || "Formato de mídia rejeitado"));
                 }
               } catch (stErr) {
                 if (stErr.message.includes('Processamento Instagram')) throw stErr;
@@ -704,24 +831,55 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               }
             } catch (_) {}
           } else {
-            // Publicação de CARROSSEL no Instagram
+            // Publicação de CARROSSEL no Instagram (Suporta Fotos e Vídeos!)
             const childrenIds = [];
-            for (let i = 0; i < publicImageUrls.length; i++) {
-              setPostStatus(`Preparando slide ${i + 1} de ${publicImageUrls.length} no Instagram...`);
+            for (let i = 0; i < mediaItems.length; i++) {
+              const item = mediaItems[i];
+              setPostStatus(`Preparando slide ${i + 1} de ${mediaItems.length} (${item.type === 'video' ? 'Vídeo' : 'Foto'}) no Instagram...`);
+
+              const childPayload = item.type === 'video'
+                ? {
+                    media_type: 'VIDEO',
+                    video_url: item.url,
+                    is_carousel_item: true,
+                    access_token: effectiveToken
+                  }
+                : {
+                    image_url: item.url,
+                    is_carousel_item: true,
+                    access_token: effectiveToken
+                  };
+
               const itemRes = await fetch(`https://graph.facebook.com/v20.0/${effectiveIgAccountId}/media`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  image_url: publicImageUrls[i],
-                  is_carousel_item: true,
-                  access_token: effectiveToken
-                })
+                body: JSON.stringify(childPayload)
               });
               const itemData = await itemRes.json();
               if (itemData.error) {
                 throw new Error(`Slide ${i + 1} Instagram: ` + (itemData.error.error_user_msg || itemData.error.message));
               }
               if (itemData.id) {
+                // Para vídeos em carrossel, a Meta exige que o container filho termine de processar (FINISHED) antes de criar o CAROUSEL pai
+                if (item.type === 'video') {
+                  let childRetries = 24;
+                  while (childRetries > 0) {
+                    setPostStatus(`Instagram processando vídeo do slide ${i + 1}...`);
+                    await new Promise(r => setTimeout(r, 4000));
+                    try {
+                      const stRes = await fetch(`https://graph.facebook.com/v20.0/${itemData.id}?fields=status_code,status&access_token=${effectiveToken}`);
+                      const stData = await stRes.json();
+                      if (stData.status_code === 'FINISHED') {
+                        break;
+                      } else if (stData.status_code === 'ERROR') {
+                        throw new Error(`Processamento do vídeo (Slide ${i + 1}) falhou: ` + (stData.status || 'Formato de vídeo não suportado'));
+                      }
+                    } catch (errVid) {
+                      if (errVid.message.includes('Processamento do vídeo')) throw errVid;
+                    }
+                    childRetries--;
+                  }
+                }
                 childrenIds.push(itemData.id);
               }
             }
@@ -746,7 +904,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             setPostStatus('Aguardando processamento do Carrossel pelo Instagram...');
 
             let igPublishData = null;
-            let retries = 14;
+            let retries = 18;
             while (retries > 0) {
               await new Promise(r => setTimeout(r, 3500));
               try {
@@ -843,14 +1001,16 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     }
   };
 
+  const hasMediaInActiveCard = activeCard?.mediaType === 'video' ? Boolean(activeCard?.videoUrl) : Boolean(activeCard?.imageUrl);
+
   const content = (
     <div className={`bg-white shadow-sm overflow-hidden flex flex-col ${inline ? 'rounded-xl border border-slate-200 h-full' : 'md:flex-row rounded-2xl max-w-5xl w-full my-8 border border-slate-200'}`}>
       
-      {/* Inputs ocultos para upload rápido no preview */}
+      {/* Inputs ocultos para upload rápido de Fotos e Vídeos no preview */}
       <input
         ref={directUploadInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/mp4,video/quicktime,video/webm,video/*"
         multiple
         className="hidden"
         onChange={(e) => {
@@ -863,7 +1023,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       <input
         ref={multiUploadInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/mp4,video/quicktime,video/webm,video/*"
         multiple
         className="hidden"
         onChange={(e) => {
@@ -889,7 +1049,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
           <button
             type="button"
             onClick={handleForceImageRefresh}
-            title="Forçar recarregamento da imagem"
+            title="Forçar recarregamento da mídia"
             className="ml-1 bg-slate-800 hover:bg-slate-700 p-1 rounded-full text-slate-300 transition-colors flex items-center justify-center"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -918,23 +1078,50 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
 
           {/* Card Preview Box */}
           <div className="relative w-full max-w-[340px] aspect-[4/5] rounded-xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex items-center justify-center group">
-            <canvas ref={canvasRef} className="w-full h-full object-contain" />
+            
+            {/* Player de Vídeo integrado ao card quando o slide atual é um vídeo */}
+            {activeCard?.mediaType === 'video' && activeCard?.videoUrl && (
+              <video
+                key={activeCard.videoUrl}
+                src={activeCard.videoUrl}
+                controls={activeCard.mode === 'full_image'}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className={
+                  activeCard.mode === 'full_image'
+                    ? `w-full h-full ${activeCard.objectFit === 'contain' ? 'object-contain' : 'object-cover'}`
+                    : 'absolute top-0 left-0 w-full h-[58%] object-cover'
+                }
+              />
+            )}
+
+            <canvas
+              ref={canvasRef}
+              className={`w-full h-full object-contain ${
+                activeCard?.mediaType === 'video' && activeCard?.videoUrl
+                  ? 'absolute inset-0 pointer-events-none'
+                  : ''
+              }`}
+            />
 
             {/* Badge superior indicando o card atual e ações rápidas */}
-            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
-              <span className="bg-slate-950/80 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full border border-slate-700/80 shadow">
-                Card {safeActiveIndex + 1} de {cards.length}
+            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none z-10">
+              <span className="bg-slate-950/80 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full border border-slate-700/80 shadow flex items-center gap-1">
+                {activeCard?.mediaType === 'video' && <Video className="w-3 h-3 text-red-400" />}
+                <span>Card {safeActiveIndex + 1} de {cards.length}</span>
               </span>
 
               <div className="flex items-center gap-1.5 pointer-events-auto">
                 <button
                   type="button"
                   onClick={() => directUploadInputRef.current?.click()}
-                  title="Fazer upload / trocar imagem deste card"
+                  title="Fazer upload de foto ou vídeo para este card"
                   className="bg-slate-950/80 hover:bg-red-600 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full border border-slate-700/80 transition-colors flex items-center gap-1 shadow"
                 >
                   <Upload className="w-3 h-3" />
-                  <span>{activeCard?.imageUrl ? 'Trocar Foto' : 'Subir Foto'}</span>
+                  <span>{hasMediaInActiveCard ? 'Trocar Mídia' : 'Subir Foto/Vídeo'}</span>
                 </button>
 
                 {cards.length > 1 && (
@@ -950,8 +1137,8 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               </div>
             </div>
 
-            {/* Overlay clicável quando o card ainda não possui imagem */}
-            {!activeCard?.imageUrl && (
+            {/* Overlay clicável quando o card ainda não possui imagem ou vídeo */}
+            {!hasMediaInActiveCard && (
               <div
                 onClick={() => directUploadInputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
@@ -961,7 +1148,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                     handleFilesToCarousel(e.dataTransfer.files, 'replace_active');
                   }
                 }}
-                className={`absolute inset-x-4 ${
+                className={`absolute inset-x-4 z-10 ${
                   activeCard?.mode === 'full_image' ? 'inset-y-12' : 'top-12 h-[44%]'
                 } border-2 border-dashed border-slate-600 hover:border-red-500 rounded-xl bg-slate-950/75 hover:bg-slate-900/85 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center cursor-pointer transition-all`}
               >
@@ -969,10 +1156,10 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                   <Upload className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-bold text-white">
-                  Clique ou solte a imagem do Card {safeActiveIndex + 1}
+                  Clique ou solte Foto ou Vídeo no Card {safeActiveIndex + 1}
                 </span>
                 <span className="text-[11px] text-slate-400 mt-1">
-                  Você também pode selecionar várias fotos de uma vez
+                  Suporta imagens (JPG/PNG) e vídeos (MP4/MOV)
                 </span>
               </div>
             )}
@@ -995,7 +1182,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             </button>
           )}
 
-          {/* Botão "+" ao lado do card para adicionar mais cards / criar carrossel */}
+          {/* Botão "+" ao lado do card para adicionar mais cards / subir fotos ou vídeos */}
           <div className="flex flex-col items-center gap-2.5 shrink-0">
             <button
               type="button"
@@ -1017,12 +1204,12 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             <button
               type="button"
               onClick={() => multiUploadInputRef.current?.click()}
-              title="Fazer upload de uma ou várias imagens direto para o carrossel"
+              title="Fazer upload de fotos ou vídeos direto para o carrossel"
               className="flex flex-col items-center justify-center w-16 sm:w-20 py-2.5 px-2 rounded-xl border border-slate-800 hover:border-slate-600 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-center"
             >
               <Upload className="w-4 h-4 text-red-400 mb-1" />
               <span className="text-[10px] font-bold leading-tight">
-                Subir Fotos
+                Subir Foto/Vídeo
               </span>
             </button>
           </div>
@@ -1048,7 +1235,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                 </span>
                 <span>{idx === 0 ? 'Capa' : `Card ${idx + 1}`}</span>
                 <span className="text-[10px] opacity-75">
-                  ({c.mode === 'full_image' ? 'Imagem' : 'Template'})
+                  ({c.mediaType === 'video' ? '🎬 Vídeo' : c.mode === 'full_image' ? 'Imagem' : 'Template'})
                 </span>
               </button>
             );
@@ -1104,7 +1291,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               )}
             </h2>
             <p className="text-xs text-slate-500">
-              Personalize cada card individualmente ou envie imagens prontas para carrossel
+              Personalize cada card individualmente ou envie fotos e vídeos para carrossel
             </p>
           </div>
           {onClose && (
@@ -1165,7 +1352,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             </div>
           </div>
 
-          {/* Seletor de Estilo do Card: Imagem Inteira vs Template NG com Texto */}
+          {/* Seletor de Estilo do Card: Mídia Inteira vs Template NG com Texto */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
             <button
               type="button"
@@ -1177,7 +1364,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               }`}
             >
               <LayoutTemplate className="w-4 h-4 text-red-600" />
-              <span>Template NG (Foto + Texto)</span>
+              <span>Template NG (Mídia + Texto)</span>
             </button>
 
             <button
@@ -1189,21 +1376,33 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <ImageIcon className="w-4 h-4 text-indigo-600" />
-              <span>Apenas Imagem Inteira</span>
+              {activeCard?.mediaType === 'video' ? (
+                <Video className="w-4 h-4 text-indigo-600" />
+              ) : (
+                <ImageIcon className="w-4 h-4 text-indigo-600" />
+              )}
+              <span>Apenas Foto/Vídeo Inteiro</span>
             </button>
           </div>
 
-          {/* Upload da Imagem Principal deste Card */}
+          {/* Upload da Mídia (Foto ou Vídeo) deste Card */}
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <span>📸 Imagem do Card {safeActiveIndex + 1}</span>
+                <span>{activeCard?.mediaType === 'video' ? '🎬 Vídeo' : '📸 Foto / Vídeo'} do Card {safeActiveIndex + 1}</span>
               </label>
               {safeActiveIndex === 0 && activeCard?.customImage && article?.image && (
                 <button
                   type="button"
-                  onClick={() => updateActiveCard({ imageUrl: getInitialImage(article), customImage: false })}
+                  onClick={() =>
+                    updateActiveCard({
+                      mediaType: 'image',
+                      imageUrl: getInitialImage(article),
+                      videoUrl: '',
+                      videoFile: null,
+                      customImage: false
+                    })
+                  }
                   className="text-[11px] font-bold text-red-600 hover:underline"
                 >
                   Restaurar foto da matéria
@@ -1215,29 +1414,31 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               className="w-full h-20 border-2 border-dashed border-slate-300 hover:border-red-500 rounded-lg flex items-center justify-center bg-white cursor-pointer hover:bg-slate-50 transition-colors relative"
               onPaste={(e) => {
                 const items = e.clipboardData?.items || [];
+                const pastedFiles = [];
                 for (let i = 0; i < items.length; i++) {
-                  if (items[i].type.indexOf('image') !== -1) {
-                    const blob = items[i].getAsFile();
-                    const reader = new FileReader();
-                    reader.onloadend = () => updateActiveCard({ imageUrl: reader.result, customImage: true });
-                    reader.readAsDataURL(blob);
-                    e.preventDefault();
+                  if (items[i].type.indexOf('image') !== -1 || items[i].type.indexOf('video') !== -1) {
+                    const f = items[i].getAsFile();
+                    if (f) pastedFiles.push(f);
                   }
+                }
+                if (pastedFiles.length) {
+                  handleFilesToCarousel(pastedFiles, 'replace_active');
+                  e.preventDefault();
                 }
               }}
             >
               <div className="text-center text-slate-500 pointer-events-none flex flex-col items-center px-2">
                 <Upload className="w-4 h-4 mb-1 text-red-500" />
                 <span className="text-xs font-bold text-slate-700">
-                  Clique para enviar foto(s) ou cole com Ctrl+V
+                  Clique para enviar Foto(s) ou Vídeo(s) (MP4/MOV) ou cole com Ctrl+V
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  Selecione várias imagens de uma vez se quiser criar múltiplos cards automaticamente
+                  Selecione vários arquivos de uma vez para criar múltiplos slides no carrossel
                 </span>
               </div>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/mp4,video/quicktime,video/webm,video/*"
                 multiple
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 onChange={(e) => {
@@ -1251,13 +1452,28 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
 
             <input
               type="text"
-              placeholder="Ou cole o link (URL) da imagem para este card..."
-              value={activeCard?.imageUrl && activeCard.imageUrl.startsWith('http') ? activeCard.imageUrl : ''}
-              onChange={(e) => updateActiveCard({ imageUrl: e.target.value, customImage: true })}
+              placeholder="Ou cole o link (URL) de uma imagem ou vídeo (.mp4)..."
+              value={
+                activeCard?.mediaType === 'video'
+                  ? activeCard.videoUrl && activeCard.videoUrl.startsWith('http')
+                    ? activeCard.videoUrl
+                    : ''
+                  : activeCard?.imageUrl && activeCard.imageUrl.startsWith('http')
+                    ? activeCard.imageUrl
+                    : ''
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (isVideoFileOrUrl(val)) {
+                  updateActiveCard({ mediaType: 'video', videoUrl: val, videoFile: null, customImage: true });
+                } else {
+                  updateActiveCard({ mediaType: 'image', imageUrl: val, videoUrl: '', videoFile: null, customImage: true });
+                }
+              }}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-red-500 focus:outline-none"
             />
 
-            {/* Opções extras quando em modo Imagem Inteira */}
+            {/* Opções extras quando em modo Foto/Vídeo Inteiro */}
             {activeCard?.mode === 'full_image' && (
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200">
                 <div className="flex items-center gap-2">
@@ -1282,7 +1498,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                         : 'bg-slate-200 text-slate-700'
                     }`}
                   >
-                    Inteira (sem corte)
+                    Inteiro (sem corte)
                   </button>
                 </div>
 
@@ -1302,66 +1518,68 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
           {/* Controles exclusivos do modo Template NG (Foto Dupla, Título e Subtítulo) */}
           {activeCard?.mode === 'template' && (
             <>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-xs">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(activeCard.useTwoPhotos)}
-                    onChange={(e) => updateActiveCard({ useTwoPhotos: e.target.checked })}
-                    className="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500"
-                  />
-                  <span className="text-xs font-bold text-slate-700">
-                    Usar duas fotos lado a lado neste card (Tela Dividida)
-                  </span>
-                </label>
+              {activeCard?.mediaType !== 'video' && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-xs">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(activeCard.useTwoPhotos)}
+                      onChange={(e) => updateActiveCard({ useTwoPhotos: e.target.checked })}
+                      className="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500"
+                    />
+                    <span className="text-xs font-bold text-slate-700">
+                      Usar duas fotos lado a lado neste card (Tela Dividida)
+                    </span>
+                  </label>
 
-                {activeCard.useTwoPhotos && (
-                  <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
-                    <label className="block text-xs font-bold text-slate-700">
-                      📸 Segunda Imagem (Metade Direita)
-                    </label>
-                    <div
-                      className="w-full h-14 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-white cursor-pointer hover:bg-slate-50 transition-colors relative"
-                      onPaste={(e) => {
-                        const items = e.clipboardData?.items || [];
-                        for (let i = 0; i < items.length; i++) {
-                          if (items[i].type.indexOf('image') !== -1) {
-                            const blob = items[i].getAsFile();
+                  {activeCard.useTwoPhotos && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                      <label className="block text-xs font-bold text-slate-700">
+                        📸 Segunda Imagem (Metade Direita)
+                      </label>
+                      <div
+                        className="w-full h-14 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-white cursor-pointer hover:bg-slate-50 transition-colors relative"
+                        onPaste={(e) => {
+                          const items = e.clipboardData?.items || [];
+                          for (let i = 0; i < items.length; i++) {
+                            if (items[i].type.indexOf('image') !== -1) {
+                              const blob = items[i].getAsFile();
+                              const reader = new FileReader();
+                              reader.onloadend = () => updateActiveCard({ secondImageUrl: reader.result });
+                              reader.readAsDataURL(blob);
+                              e.preventDefault();
+                            }
+                          }
+                        }}
+                      >
+                        <div className="text-center text-slate-500 pointer-events-none flex items-center gap-1.5">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-bold">Upload ou Ctrl+V da segunda foto</span>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
                             const reader = new FileReader();
                             reader.onloadend = () => updateActiveCard({ secondImageUrl: reader.result });
-                            reader.readAsDataURL(blob);
-                            e.preventDefault();
-                          }
-                        }
-                      }}
-                    >
-                      <div className="text-center text-slate-500 pointer-events-none flex items-center gap-1.5">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-bold">Upload ou Ctrl+V da segunda foto</span>
+                            reader.readAsDataURL(file);
+                          }}
+                        />
                       </div>
                       <input
-                        type="file"
-                        accept="image/*"
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onloadend = () => updateActiveCard({ secondImageUrl: reader.result });
-                          reader.readAsDataURL(file);
-                        }}
+                        type="text"
+                        placeholder="Ou cole o link da segunda imagem..."
+                        value={activeCard.secondImageUrl && activeCard.secondImageUrl.startsWith('http') ? activeCard.secondImageUrl : ''}
+                        onChange={(e) => updateActiveCard({ secondImageUrl: e.target.value })}
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-red-500 focus:outline-none"
                       />
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Ou cole o link da segunda imagem..."
-                      value={activeCard.secondImageUrl && activeCard.secondImageUrl.startsWith('http') ? activeCard.secondImageUrl : ''}
-                      onChange={(e) => updateActiveCard({ secondImageUrl: e.target.value })}
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-red-500 focus:outline-none"
-                    />
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -1416,7 +1634,9 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               className="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all text-xs"
             >
               <Download className="w-3.5 h-3.5" />
-              {cards.length > 1 ? `Baixar Card ${safeActiveIndex + 1} (PNG)` : 'Baixar Arte (PNG)'}
+              {cards.length > 1
+                ? `Baixar Card ${safeActiveIndex + 1} (${activeCard?.mediaType === 'video' ? 'MP4' : 'PNG'})`
+                : `Baixar Arte (${activeCard?.mediaType === 'video' ? 'MP4' : 'PNG'})`}
             </button>
             {cards.length > 1 && (
               <button
@@ -1460,7 +1680,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                 className="flex-1 bg-[#d40a38] hover:bg-red-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs"
               >
                 <Download className="w-3 h-3" />
-                {cards.length > 1 ? `Baixar Todos (${cards.length} PNGs)` : 'Baixar (PNG)'}
+                {cards.length > 1 ? `Baixar Todos (${cards.length})` : 'Baixar Mídia'}
               </button>
 
               <button

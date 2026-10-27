@@ -1,11 +1,93 @@
 /**
- * Image Uploader para Redes Sociais (Instagram e Facebook)
+ * Image & Video Uploader para Redes Sociais (Instagram e Facebook)
  * Fornece URLs públicas diretas e compatíveis com a Meta Graph API.
  */
+
+export async function uploadVideoForSocial(videoBlobOrUrl) {
+  if (!videoBlobOrUrl) {
+    throw new Error("Nenhum vídeo fornecido para upload.");
+  }
+
+  // Se já for uma URL pública http(s), retorna diretamente
+  if (typeof videoBlobOrUrl === 'string' && videoBlobOrUrl.startsWith('http')) {
+    return videoBlobOrUrl;
+  }
+
+  let blob = videoBlobOrUrl;
+  if (typeof videoBlobOrUrl === 'string' && (videoBlobOrUrl.startsWith('data:') || videoBlobOrUrl.startsWith('blob:'))) {
+    const res = await fetch(videoBlobOrUrl);
+    blob = await res.blob();
+  }
+
+  const errors = [];
+  const ext = blob.type?.includes('quicktime') ? 'mov' : blob.type?.includes('webm') ? 'webm' : 'mp4';
+
+  // 1. Upload via FormData para upload.php no servidor do Portal NG Brasil
+  try {
+    const formData = new FormData();
+    formData.append('file', blob, `social_video_${Date.now()}.${ext}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    const res = await fetch('https://portalngbrasil.com.br/upload.php', {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.url) {
+        console.log("Vídeo hospedado com sucesso no Portal NG:", data.url);
+        return data.url;
+      } else if (data && data.error) {
+        errors.push(`Portal: ${data.error}`);
+      }
+    } else {
+      errors.push(`Portal HTTP ${res.status}`);
+    }
+  } catch (err) {
+    console.warn("Falha no upload de vídeo do Portal NG:", err.message);
+    errors.push(`Portal: ${err.message}`);
+  }
+
+  // 2. Fallback Base64 para upload.php
+  try {
+    const base64Data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    const res = await fetch('https://portalngbrasil.com.br/upload.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64Data })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.url) {
+        return data.url;
+      }
+    }
+  } catch (err) {
+    errors.push(`Fallback Base64: ${err.message}`);
+  }
+
+  throw new Error(`Não foi possível hospedar o vídeo para o Instagram: ${errors.join(' | ')}`);
+}
 
 export async function uploadImageForSocial(blob, customImgbbKey = null) {
   if (!blob) {
     throw new Error("Nenhuma imagem fornecida para upload.");
+  }
+
+  if (blob.type && blob.type.startsWith('video/')) {
+    return uploadVideoForSocial(blob);
   }
 
   const errors = [];
