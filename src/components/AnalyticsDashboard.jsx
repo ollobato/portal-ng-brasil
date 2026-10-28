@@ -47,6 +47,7 @@ function fmtCompactNum(val) {
 }
 
 function formatDeltaBadge(todayVal, yestVal) {
+  if (!todayVal && !yestVal) return { text: '— Estável', short: '0,0%', isPos: true, pct: 0 };
   if (!yestVal) return { text: '▲ Novo', short: '▲ Novo', isPos: true, pct: 100 };
   const diff = ((todayVal - yestVal) / yestVal) * 100;
   const sign = diff >= 0 ? '▲ +' : '▼ ';
@@ -190,8 +191,8 @@ const YEAR_2026_MONTHS = [
     saves: 141,
     interactions: 1359,
     newFollowers: 1150,
-    closedFollowers: 60150,
-    prevMonth: { posts: 1, likes: 120, comments: 5, views: 3376, reposts: 28, sends: 45, saves: 23, newFollowers: 450, closedFollowers: 59000, interactions: 180 }
+    closedFollowers: 55800,
+    prevMonth: { posts: 0, likes: 0, comments: 0, views: 0, reposts: 0, sends: 0, saves: 0, newFollowers: 0, closedFollowers: 54650, interactions: 0 }
   },
   {
     key: '2026-02',
@@ -201,17 +202,17 @@ const YEAR_2026_MONTHS = [
     prevMonthName: 'Janeiro/2026',
     isCurrent: false,
     isFuture: false,
-    posts: 1,
-    likes: 105,
-    comments: 4,
-    views: 3086,
-    reposts: 24,
-    sends: 39,
-    saves: 20,
-    interactions: 192,
-    newFollowers: 550,
-    closedFollowers: 60700,
-    prevMonth: { posts: 3, likes: 742, comments: 29, views: 19303, reposts: 170, sends: 277, saves: 141, newFollowers: 1150, closedFollowers: 60150, interactions: 1359 }
+    posts: 0,
+    likes: 0,
+    comments: 0,
+    views: 0,
+    reposts: 0,
+    sends: 0,
+    saves: 0,
+    interactions: 0,
+    newFollowers: 700,
+    closedFollowers: 56500,
+    prevMonth: { posts: 3, likes: 742, comments: 29, views: 19303, reposts: 170, sends: 277, saves: 141, newFollowers: 1150, closedFollowers: 55800, interactions: 1359 }
   },
   {
     key: '2026-03',
@@ -221,17 +222,17 @@ const YEAR_2026_MONTHS = [
     prevMonthName: 'Fevereiro/2026',
     isCurrent: false,
     isFuture: false,
-    posts: 1,
-    likes: 110,
-    comments: 5,
-    views: 3218,
-    reposts: 25,
-    sends: 41,
-    saves: 21,
-    interactions: 202,
-    newFollowers: 600,
-    closedFollowers: 61300,
-    prevMonth: { posts: 1, likes: 105, comments: 4, views: 3086, reposts: 24, sends: 39, saves: 20, newFollowers: 550, closedFollowers: 60700, interactions: 192 }
+    posts: 0,
+    likes: 0,
+    comments: 0,
+    views: 0,
+    reposts: 0,
+    sends: 0,
+    saves: 0,
+    interactions: 0,
+    newFollowers: 1300,
+    closedFollowers: 57800,
+    prevMonth: { posts: 0, likes: 0, comments: 0, views: 0, reposts: 0, sends: 0, saves: 0, newFollowers: 700, closedFollowers: 56500, interactions: 0 }
   },
   {
     key: '2026-04',
@@ -241,17 +242,17 @@ const YEAR_2026_MONTHS = [
     prevMonthName: 'Março/2026',
     isCurrent: false,
     isFuture: false,
-    posts: 1,
-    likes: 120,
-    comments: 6,
-    views: 3464,
-    reposts: 28,
-    sends: 45,
-    saves: 23,
-    interactions: 222,
-    newFollowers: 700,
-    closedFollowers: 62000,
-    prevMonth: { posts: 1, likes: 110, comments: 5, views: 3218, reposts: 25, sends: 41, saves: 21, newFollowers: 600, closedFollowers: 61300, interactions: 202 }
+    posts: 0,
+    likes: 0,
+    comments: 0,
+    views: 0,
+    reposts: 0,
+    sends: 0,
+    saves: 0,
+    interactions: 0,
+    newFollowers: 1700,
+    closedFollowers: 59500,
+    prevMonth: { posts: 0, likes: 0, comments: 0, views: 0, reposts: 0, sends: 0, saves: 0, newFollowers: 1300, closedFollowers: 57800, interactions: 0 }
   },
   {
     key: '2026-05',
@@ -261,17 +262,17 @@ const YEAR_2026_MONTHS = [
     prevMonthName: 'Abril/2026',
     isCurrent: false,
     isFuture: false,
-    posts: 1,
-    likes: 140,
-    comments: 8,
-    views: 3956,
-    reposts: 33,
-    sends: 53,
-    saves: 27,
-    interactions: 261,
-    newFollowers: 850,
-    closedFollowers: 62850,
-    prevMonth: { posts: 1, likes: 120, comments: 6, views: 3464, reposts: 28, sends: 45, saves: 23, newFollowers: 700, closedFollowers: 62000, interactions: 222 }
+    posts: 0,
+    likes: 0,
+    comments: 0,
+    views: 0,
+    reposts: 0,
+    sends: 0,
+    saves: 0,
+    interactions: 0,
+    newFollowers: 2300,
+    closedFollowers: 61800,
+    prevMonth: { posts: 0, likes: 0, comments: 0, views: 0, reposts: 0, sends: 0, saves: 0, newFollowers: 1700, closedFollowers: 59500, interactions: 0 }
   },
   {
     key: '2026-06',
@@ -281,17 +282,17 @@ const YEAR_2026_MONTHS = [
     prevMonthName: 'Maio/2026',
     isCurrent: false,
     isFuture: false,
-    posts: 1,
-    likes: 195,
-    comments: 12,
-    views: 5278,
-    reposts: 46,
-    sends: 75,
-    saves: 38,
-    interactions: 366,
-    newFollowers: 950,
+    posts: 0,
+    likes: 0,
+    comments: 0,
+    views: 0,
+    reposts: 0,
+    sends: 0,
+    saves: 0,
+    interactions: 0,
+    newFollowers: 2000,
     closedFollowers: 63800,
-    prevMonth: { posts: 1, likes: 140, comments: 8, views: 3956, reposts: 33, sends: 53, saves: 27, newFollowers: 850, closedFollowers: 62850, interactions: 261 }
+    prevMonth: { posts: 0, likes: 0, comments: 0, views: 0, reposts: 0, sends: 0, saves: 0, newFollowers: 2300, closedFollowers: 61800, interactions: 0 }
   },
   {
     key: '2026-07',
@@ -301,17 +302,17 @@ const YEAR_2026_MONTHS = [
     prevMonthName: 'Junho/2026',
     isCurrent: false,
     isFuture: false,
-    posts: 2,
-    likes: 410,
-    comments: 18,
-    views: 10908,
-    reposts: 95,
-    sends: 154,
-    saves: 78,
-    interactions: 755,
+    posts: 0,
+    likes: 0,
+    comments: 0,
+    views: 0,
+    reposts: 0,
+    sends: 0,
+    saves: 0,
+    interactions: 0,
     newFollowers: 1400,
     closedFollowers: 65200,
-    prevMonth: { posts: 1, likes: 195, comments: 12, views: 5278, reposts: 46, sends: 75, saves: 38, newFollowers: 950, closedFollowers: 63800, interactions: 366 }
+    prevMonth: { posts: 0, likes: 0, comments: 0, views: 0, reposts: 0, sends: 0, saves: 0, newFollowers: 2000, closedFollowers: 63800, interactions: 0 }
   },
   {
     key: '2026-08',
@@ -331,7 +332,7 @@ const YEAR_2026_MONTHS = [
     interactions: 3825,
     newFollowers: 2800,
     closedFollowers: 68000,
-    prevMonth: { posts: 2, likes: 410, comments: 18, views: 10908, reposts: 95, sends: 154, saves: 78, newFollowers: 1400, closedFollowers: 65200, interactions: 755 }
+    prevMonth: { posts: 0, likes: 0, comments: 0, views: 0, reposts: 0, sends: 0, saves: 0, newFollowers: 1400, closedFollowers: 65200, interactions: 0 }
   },
   {
     key: '2026-09',
@@ -2044,6 +2045,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
     return {
       ...baseEntry,
       label: `${dNum}/${selectedMonthStr}`,
+      closedFollowers: auditedStatic?.closedFollowers || selectedMonthObj.closedFollowers || 0,
       ...(auditedStatic ? {
         newFollowers: auditedStatic.newFollowers || 0,
         closedFollowers: auditedStatic.closedFollowers || 0,
@@ -2052,7 +2054,18 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
         comments: auditedStatic.comments || 0,
         ...buildDerivedDailyMetrics(auditedStatic.posts || 0, auditedStatic.likes || 0, auditedStatic.comments || 0, auditedStatic.newFollowers || 0),
         topPost: auditedStatic.topPost || null
-      } : {}),
+      } : {
+        posts: 0,
+        likes: 0,
+        comments: 0,
+        views: 0,
+        reposts: 0,
+        sends: 0,
+        saves: 0,
+        interactions: 0,
+        newFollowers: 0,
+        topPost: null
+      }),
       isToday: false,
       isYesterday: false,
       isFuture: dKey > todayBrtKey
@@ -2395,7 +2408,9 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                     {isDaySelected
                       ? `(${selectedDayEntry.posts} publicações em ${selectedDayEntry.label} • ${prevOfSelectedEntry?.posts || 0} publicações no dia anterior)`
                       : isMonthSelectedHistorical
-                        ? `(${selectedMonthObj?.posts || 0} publicações no mês • Balanço comparativo vs ${selectedMonthObj?.prevMonthName || 'mês anterior'})`
+                        ? (selectedMonthObj?.posts > 0
+                          ? `(${selectedMonthObj?.posts || 0} publicações no mês • Balanço comparativo vs ${selectedMonthObj?.prevMonthName || 'mês anterior'})`
+                          : `(0 publicações no mês • Período de pausa editorial no Instagram)`)
                         : `(${t.posts} publicações hoje • ${dailyPulse.yesterdayFullDay.posts} publicações ontem • Fechamento diário às 00:00)`}
                   </span>
                 </div>
