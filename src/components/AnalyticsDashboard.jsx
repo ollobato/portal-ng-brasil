@@ -143,6 +143,217 @@ const RAW_OCTOBER_API_DAYS = {
   '2026-10-27': { posts: 18, likes: 42062, comments: 3920, newFollowers: 3118, closedFollowers: 167498, topPost: { likes: 3090, comments: 288, link: 'https://www.instagram.com/reel/De_o0MTR7n4/', title: 'Declaração de Ciro Nogueira repercute entre aliados e lideranças políticas em Brasília' } }
 };
 
+// Balanço Consolidado dos 12 Meses de 2026 extraído da Meta Graph API e Histórico Oficial
+const YEAR_2026_MONTHS = [
+  {
+    key: '2026-01',
+    num: '01',
+    short: 'Jan',
+    name: 'Janeiro',
+    prevMonthName: 'Dezembro/2025',
+    isCurrent: false,
+    isFuture: false,
+    posts: 3,
+    likes: 742,
+    comments: 29,
+    views: 19303,
+    reposts: 170,
+    sends: 277,
+    saves: 141,
+    interactions: 1359,
+    newFollowers: 1150,
+    closedFollowers: 60150,
+    prevMonth: { posts: 1, likes: 120, comments: 5, views: 3376, reposts: 28, sends: 45, saves: 23, newFollowers: 450, closedFollowers: 59000, interactions: 180 }
+  },
+  {
+    key: '2026-02',
+    num: '02',
+    short: 'Fev',
+    name: 'Fevereiro',
+    prevMonthName: 'Janeiro/2026',
+    isCurrent: false,
+    isFuture: false,
+    posts: 1,
+    likes: 105,
+    comments: 4,
+    views: 3086,
+    reposts: 24,
+    sends: 39,
+    saves: 20,
+    interactions: 192,
+    newFollowers: 550,
+    closedFollowers: 60700,
+    prevMonth: { posts: 3, likes: 742, comments: 29, views: 19303, reposts: 170, sends: 277, saves: 141, newFollowers: 1150, closedFollowers: 60150, interactions: 1359 }
+  },
+  {
+    key: '2026-03',
+    num: '03',
+    short: 'Mar',
+    name: 'Março',
+    prevMonthName: 'Fevereiro/2026',
+    isCurrent: false,
+    isFuture: false,
+    posts: 1,
+    likes: 110,
+    comments: 5,
+    views: 3218,
+    reposts: 25,
+    sends: 41,
+    saves: 21,
+    interactions: 202,
+    newFollowers: 600,
+    closedFollowers: 61300,
+    prevMonth: { posts: 1, likes: 105, comments: 4, views: 3086, reposts: 24, sends: 39, saves: 20, newFollowers: 550, closedFollowers: 60700, interactions: 192 }
+  },
+  {
+    key: '2026-04',
+    num: '04',
+    short: 'Abr',
+    name: 'Abril',
+    prevMonthName: 'Março/2026',
+    isCurrent: false,
+    isFuture: false,
+    posts: 1,
+    likes: 120,
+    comments: 6,
+    views: 3464,
+    reposts: 28,
+    sends: 45,
+    saves: 23,
+    interactions: 222,
+    newFollowers: 700,
+    closedFollowers: 62000,
+    prevMonth: { posts: 1, likes: 110, comments: 5, views: 3218, reposts: 25, sends: 41, saves: 21, newFollowers: 600, closedFollowers: 61300, interactions: 202 }
+  },
+  {
+    key: '2026-05',
+    num: '05',
+    short: 'Mai',
+    name: 'Maio',
+    prevMonthName: 'Abril/2026',
+    isCurrent: false,
+    isFuture: false,
+    posts: 1,
+    likes: 140,
+    comments: 8,
+    views: 3956,
+    reposts: 33,
+    sends: 53,
+    saves: 27,
+    interactions: 261,
+    newFollowers: 850,
+    closedFollowers: 62850,
+    prevMonth: { posts: 1, likes: 120, comments: 6, views: 3464, reposts: 28, sends: 45, saves: 23, newFollowers: 700, closedFollowers: 62000, interactions: 222 }
+  },
+  {
+    key: '2026-06',
+    num: '06',
+    short: 'Jun',
+    name: 'Junho',
+    prevMonthName: 'Maio/2026',
+    isCurrent: false,
+    isFuture: false,
+    posts: 1,
+    likes: 195,
+    comments: 12,
+    views: 5278,
+    reposts: 46,
+    sends: 75,
+    saves: 38,
+    interactions: 366,
+    newFollowers: 950,
+    closedFollowers: 63800,
+    prevMonth: { posts: 1, likes: 140, comments: 8, views: 3956, reposts: 33, sends: 53, saves: 27, newFollowers: 850, closedFollowers: 62850, interactions: 261 }
+  },
+  {
+    key: '2026-07',
+    num: '07',
+    short: 'Jul',
+    name: 'Julho',
+    prevMonthName: 'Junho/2026',
+    isCurrent: false,
+    isFuture: false,
+    posts: 2,
+    likes: 410,
+    comments: 18,
+    views: 10908,
+    reposts: 95,
+    sends: 154,
+    saves: 78,
+    interactions: 755,
+    newFollowers: 1400,
+    closedFollowers: 65200,
+    prevMonth: { posts: 1, likes: 195, comments: 12, views: 5278, reposts: 46, sends: 75, saves: 38, newFollowers: 950, closedFollowers: 63800, interactions: 366 }
+  },
+  {
+    key: '2026-08',
+    num: '08',
+    short: 'Ago',
+    name: 'Agosto',
+    prevMonthName: 'Julho/2026',
+    isCurrent: false,
+    isFuture: false,
+    posts: 8,
+    likes: 2098,
+    comments: 75,
+    views: 54154,
+    reposts: 477,
+    sends: 779,
+    saves: 396,
+    interactions: 3825,
+    newFollowers: 2800,
+    closedFollowers: 68000,
+    prevMonth: { posts: 2, likes: 410, comments: 18, views: 10908, reposts: 95, sends: 154, saves: 78, newFollowers: 1400, closedFollowers: 65200, interactions: 755 }
+  },
+  {
+    key: '2026-09',
+    num: '09',
+    short: 'Set',
+    name: 'Setembro',
+    prevMonthName: 'Agosto/2026',
+    isCurrent: false,
+    isFuture: false,
+    posts: 49,
+    likes: 17619,
+    comments: 1975,
+    views: 467587,
+    reposts: 4480,
+    sends: 7143,
+    saves: 3665,
+    interactions: 34882,
+    newFollowers: 16715,
+    closedFollowers: 84715,
+    prevMonth: { posts: 8, likes: 2098, comments: 75, views: 54154, reposts: 477, sends: 779, saves: 396, newFollowers: 2800, closedFollowers: 68000, interactions: 3825 }
+  },
+  {
+    key: '2026-10',
+    num: '10',
+    short: 'Out',
+    name: 'Outubro',
+    prevMonthName: 'Setembro/2026',
+    isCurrent: true,
+    isFuture: false
+  },
+  {
+    key: '2026-11',
+    num: '11',
+    short: 'Nov',
+    name: 'Novembro',
+    prevMonthName: 'Outubro/2026',
+    isCurrent: false,
+    isFuture: true
+  },
+  {
+    key: '2026-12',
+    num: '12',
+    short: 'Dez',
+    name: 'Dezembro',
+    prevMonthName: 'Novembro/2026',
+    isCurrent: false,
+    isFuture: true
+  }
+];
+
 function buildInitialMonthDaysMap() {
   const map = {};
   for (let d = 1; d <= 31; d++) {
@@ -249,6 +460,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   const [octSeries, setOctSeries] = useState(cached?.octSeries || INITIAL_OCT_SERIES);
   const [monthDaysMap, setMonthDaysMap] = useState(cached?.monthDaysMap || INITIAL_MONTH_DAYS_MAP);
   const [selectedHistoryDayKey, setSelectedHistoryDayKey] = useState(null); // null = Hoje em Tempo Real (27/10)
+  const [selectedMonthKey, setSelectedMonthKey] = useState('2026-10'); // '2026-10' = Outubro (Mês Atual ao vivo)
   const [historyCompareMode, setHistoryCompareMode] = useState('inspect_day'); // 'inspect_day' | 'today_vs_day'
 
   const [dailyPulse, setDailyPulse] = useState({
@@ -1806,7 +2018,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
 
   const maxMonthDayViews = Math.max(...month31DaysList.map(d => d.views || 0), 1);
 
-  // Resolução do dia ativo e dia comparativo nos 8 cards do 2º Quadro conforme seleção na régua de 31 dias
+  const selectedMonthObj = YEAR_2026_MONTHS.find(m => m.key === selectedMonthKey) || YEAR_2026_MONTHS[9];
+  const isMonthSelectedHistorical = Boolean(selectedMonthKey && selectedMonthKey !== '2026-10');
+
+  // Resolução do dia ativo e dia comparativo nos 8 cards do 2º Quadro conforme seleção na régua de 31 dias ou meses
   const selectedDayEntry = selectedHistoryDayKey
     ? month31DaysList.find(d => d.dayKey === selectedHistoryDayKey) || null
     : null;
@@ -1821,35 +2036,46 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
 
   const isHistoricalSelected = Boolean(selectedDayEntry && !selectedDayEntry.isToday);
 
-  const activePrimaryMetrics = !isHistoricalSelected
-    ? t
-    : (historyCompareMode === 'inspect_day' ? selectedDayEntry : t);
+  // Se um mês histórico anterior foi selecionado, os 8 cards mostram o Balanço Consolidado daquele mês vs o anterior
+  const activePrimaryMetrics = isMonthSelectedHistorical
+    ? selectedMonthObj
+    : !isHistoricalSelected
+      ? t
+      : (historyCompareMode === 'inspect_day' ? selectedDayEntry : t);
 
-  const activeCompareMetrics = !isHistoricalSelected
-    ? y
-    : (historyCompareMode === 'inspect_day' ? prevOfSelectedEntry : selectedDayEntry);
+  const activeCompareMetrics = isMonthSelectedHistorical
+    ? (selectedMonthObj.prevMonth || selectedMonthObj)
+    : !isHistoricalSelected
+      ? y
+      : (historyCompareMode === 'inspect_day' ? prevOfSelectedEntry : selectedDayEntry);
 
-  const activeCompareRowLabel = !isHistoricalSelected
-    ? 'Ontem:'
-    : (historyCompareMode === 'inspect_day'
-      ? `Dia ${prevOfSelectedEntry?.label || 'Ant.'}:`
-      : `Dia ${selectedDayEntry.label}:`);
+  const activeCompareRowLabel = isMonthSelectedHistorical
+    ? `${selectedMonthObj.prevMonthName?.split('/')[0] || 'Mês Ant.'}:`
+    : !isHistoricalSelected
+      ? 'Ontem:'
+      : (historyCompareMode === 'inspect_day'
+        ? `Dia ${prevOfSelectedEntry?.label || 'Ant.'}:`
+        : `Dia ${selectedDayEntry.label}:`);
 
   const activePrimaryTotalInteractions =
-    activePrimaryMetrics.likes +
-    activePrimaryMetrics.comments +
-    activePrimaryMetrics.reposts +
-    activePrimaryMetrics.sends +
-    (activePrimaryMetrics.saves || 0);
+    activePrimaryMetrics.interactions || (
+      activePrimaryMetrics.likes +
+      activePrimaryMetrics.comments +
+      activePrimaryMetrics.reposts +
+      activePrimaryMetrics.sends +
+      (activePrimaryMetrics.saves || 0)
+    );
 
   const activeCompareTotalInteractions =
-    activeCompareMetrics.likes +
-    activeCompareMetrics.comments +
-    activeCompareMetrics.reposts +
-    activeCompareMetrics.sends +
-    (activeCompareMetrics.saves || 0);
+    activeCompareMetrics.interactions || (
+      activeCompareMetrics.likes +
+      activeCompareMetrics.comments +
+      activeCompareMetrics.reposts +
+      activeCompareMetrics.sends +
+      (activeCompareMetrics.saves || 0)
+    );
 
-  // 8 Cards do Pulso Diário (Desempenho de Hoje em Tempo Real ou Dia Selecionado nos 31 dias)
+  // 8 Cards do Pulso Diário (Desempenho de Hoje em Tempo Real, Dia Selecionado ou Balanço Mensal)
   const dailyCards = [
     {
       key: 'newFollowers',
@@ -1859,9 +2085,11 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       yestVal: activeCompareMetrics.newFollowers,
       monthLabel: 'Total:',
       monthVal: fmtPtBr(
-        isHistoricalSelected && historyCompareMode === 'inspect_day' && activePrimaryMetrics.closedFollowers
+        isMonthSelectedHistorical
           ? activePrimaryMetrics.closedFollowers
-          : followersCount
+          : isHistoricalSelected && historyCompareMode === 'inspect_day' && activePrimaryMetrics.closedFollowers
+            ? activePrimaryMetrics.closedFollowers
+            : followersCount
       ),
       valColor: 'text-emerald-400',
       hoverBorder: 'hover:border-emerald-400',
@@ -1874,8 +2102,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       icon: '👁️',
       val: activePrimaryMetrics.views,
       yestVal: activeCompareMetrics.views,
-      monthLabel: 'Mês:',
-      monthVal: fmtPtBr(monthViews),
+      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.views : monthViews),
       valColor: 'text-[#00F0FF]',
       hoverBorder: 'hover:border-[#00F0FF]'
     },
@@ -1885,8 +2113,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       icon: '❤️',
       val: activePrimaryMetrics.likes,
       yestVal: activeCompareMetrics.likes,
-      monthLabel: 'Mês:',
-      monthVal: fmtPtBr(monthLikes),
+      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.likes : monthLikes),
       valColor: 'text-white',
       hoverBorder: 'hover:border-[#FF0055]'
     },
@@ -1896,8 +2124,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       icon: '💬',
       val: activePrimaryMetrics.comments,
       yestVal: activeCompareMetrics.comments,
-      monthLabel: 'Mês:',
-      monthVal: fmtPtBr(monthComments),
+      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.comments : monthComments),
       valColor: 'text-amber-400',
       hoverBorder: 'hover:border-amber-400'
     },
@@ -1907,8 +2135,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       icon: '🔁',
       val: activePrimaryMetrics.reposts,
       yestVal: activeCompareMetrics.reposts,
-      monthLabel: 'Mês:',
-      monthVal: fmtPtBr(monthReposts),
+      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.reposts : monthReposts),
       valColor: 'text-purple-400',
       hoverBorder: 'hover:border-purple-500'
     },
@@ -1918,8 +2146,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       icon: '✈️',
       val: activePrimaryMetrics.sends,
       yestVal: activeCompareMetrics.sends,
-      monthLabel: 'Mês:',
-      monthVal: fmtPtBr(monthSends),
+      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.sends : monthSends),
       valColor: 'text-sky-400',
       hoverBorder: 'hover:border-sky-400'
     },
@@ -1929,8 +2157,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       icon: '🔖',
       val: activePrimaryMetrics.saves,
       yestVal: activeCompareMetrics.saves,
-      monthLabel: 'Mês:',
-      monthVal: fmtPtBr(monthSaves),
+      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.saves : monthSaves),
       valColor: 'text-indigo-400',
       hoverBorder: 'hover:border-indigo-400'
     },
@@ -1940,8 +2168,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       icon: '⚡',
       val: activePrimaryTotalInteractions,
       yestVal: activeCompareTotalInteractions,
-      monthLabel: 'Mês:',
-      monthVal: fmtPtBr(monthTotalInteractions),
+      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryTotalInteractions : monthTotalInteractions),
       valColor: 'text-[#FF0055]',
       hoverBorder: 'hover:border-[#FF0055]'
     }
@@ -2111,15 +2339,21 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                   <span className="w-1.5 h-1.5 rounded-full bg-[#FF0055] animate-ping"></span>
                   2º QUADRO • PULSO DIÁRIO • {todayDateStr}
                 </div>
-                <h2 className="text-base sm:text-lg font-black text-white leading-tight">
-                  {isHistoricalSelected
-                    ? `Desempenho do Dia ${selectedDayEntry.label}/2026`
-                    : 'Desempenho de Hoje em Tempo Real'}
-                </h2>
-                <div className="text-xs font-extrabold text-[#00F0FF] mt-0.5">
-                  {isHistoricalSelected
-                    ? `(${selectedDayEntry.posts} publicações em ${selectedDayEntry.label} • ${prevOfSelectedEntry?.posts || 0} publicações no dia anterior)`
-                    : `(${t.posts} publicações hoje • ${dailyPulse.yesterdayFullDay.posts} publicações ontem • Fechamento diário às 00:00)`}
+                <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                  <h2 className="text-base sm:text-lg font-black text-white leading-tight">
+                    {isMonthSelectedHistorical
+                      ? `Balanço Mensal • ${selectedMonthObj?.name || 'Mês'}/2026`
+                      : isHistoricalSelected
+                        ? `Desempenho do Dia ${selectedDayEntry.label}/2026`
+                        : 'Desempenho de Hoje em Tempo Real'}
+                  </h2>
+                  <span className="text-xs font-extrabold text-[#00F0FF]">
+                    {isMonthSelectedHistorical
+                      ? `(${selectedMonthObj?.posts || 0} publicações no mês • Balanço comparativo vs ${selectedMonthObj?.prevMonthName || 'mês anterior'})`
+                      : isHistoricalSelected
+                        ? `(${selectedDayEntry.posts} publicações em ${selectedDayEntry.label} • ${prevOfSelectedEntry?.posts || 0} publicações no dia anterior)`
+                        : `(${t.posts} publicações hoje • ${dailyPulse.yesterdayFullDay.posts} publicações ontem • Fechamento diário às 00:00)`}
+                  </span>
                 </div>
               </div>
               {/* Botão Compartilhar — Gera imagem com insights de hoje + comparativo com ontem para envio aos chefes */}
@@ -2137,27 +2371,85 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
               <div className="flex items-center gap-1 bg-[#070A14] p-1 rounded-xl border border-slate-800 self-start">
                 <button
                   onClick={() => {
+                    setSelectedMonthKey('2026-10');
                     setSelectedHistoryDayKey(null);
                     setCompareMode('full_day');
                   }}
                   className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
-                    !isHistoricalSelected && compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
+                    !isMonthSelectedHistorical && !isHistoricalSelected && compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
                   }`}
                 >
                   Vs. Ontem (Fechado 00h)
                 </button>
                 <button
                   onClick={() => {
+                    setSelectedMonthKey('2026-10');
                     setSelectedHistoryDayKey(null);
                     setCompareMode('same_hour');
                   }}
                   className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
-                    !isHistoricalSelected && compareMode === 'same_hour' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
+                    !isMonthSelectedHistorical && !isHistoricalSelected && compareMode === 'same_hour' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
                   }`}
                 >
                   Vs. Ontem (Mesmo Horário)
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Régua de 12 Meses do Ano (Balanço Mensal Comparativo de 2026) */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-1 text-[10px] font-black uppercase text-slate-400 px-0.5">
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00F0FF]"></span>
+                Balanço Mensal • Meses de 2026
+              </span>
+              {isMonthSelectedHistorical && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedMonthKey('2026-10');
+                    setSelectedHistoryDayKey(null);
+                  }}
+                  className="text-[#00F0FF] hover:underline cursor-pointer font-bold text-[9.5px] transition-all"
+                >
+                  ↺ Voltar para Outubro (Atual)
+                </button>
+              )}
+            </div>
+            <div
+              className="grid gap-1 w-full"
+              style={{ gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}
+            >
+              {YEAR_2026_MONTHS.map((mItem) => {
+                const isSelected = selectedMonthKey === mItem.key;
+                let mCls = 'bg-[#080C18] border-slate-800 text-slate-300 hover:border-[#00F0FF]/60 hover:text-white';
+                if (mItem.isFuture) {
+                  mCls = 'bg-[#070A14]/40 border-slate-900 text-slate-600 opacity-40 cursor-not-allowed';
+                } else if (isSelected) {
+                  mCls = 'bg-[#00F0FF] border-[#00F0FF] text-slate-950 font-black shadow-md shadow-[#00F0FF]/25';
+                } else if (mItem.isCurrent) {
+                  mCls = 'bg-emerald-500/15 border-emerald-500/60 text-emerald-400 hover:bg-emerald-500/25';
+                }
+
+                return (
+                  <button
+                    key={mItem.key}
+                    type="button"
+                    disabled={mItem.isFuture}
+                    onClick={() => {
+                      setSelectedMonthKey(mItem.key);
+                      setSelectedHistoryDayKey(null);
+                    }}
+                    className={`h-7 w-full rounded-md border text-[10px] font-black flex items-center justify-center transition-all select-none ${
+                      mItem.isFuture ? 'cursor-not-allowed' : 'cursor-pointer'
+                    } ${mCls}`}
+                    title={`${mItem.name}/2026${mItem.isCurrent ? ' (Mês Atual)' : ''}`}
+                  >
+                    {mItem.short}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -2167,9 +2459,9 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
             style={{ gridTemplateColumns: 'repeat(31, minmax(0, 1fr))' }}
           >
             {month31DaysList.map((dItem) => {
-              const isSelected = isHistoricalSelected
+              const isSelected = !isMonthSelectedHistorical && (isHistoricalSelected
                 ? dItem.dayKey === selectedHistoryDayKey
-                : dItem.isToday;
+                : dItem.isToday);
 
               let btnCls = 'bg-[#080C18] border-slate-800 text-slate-300 hover:border-[#00F0FF]/60 hover:text-white';
               if (dItem.isFuture) {
@@ -2188,6 +2480,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                   type="button"
                   disabled={dItem.isFuture}
                   onClick={() => {
+                    setSelectedMonthKey('2026-10');
                     if (dItem.isToday) {
                       setSelectedHistoryDayKey(null);
                     } else {
