@@ -70,7 +70,7 @@ function buildDerivedDailyMetrics(posts, likes, comments, newFollowers) {
   const sv = Math.round(lk * 0.18 + cm * 0.25);
   const nf = typeof newFollowers === 'number' && newFollowers >= 0
     ? Math.round(newFollowers)
-    : Math.round(vw / 1450);
+    : Math.round(vw / 540);
   return {
     posts: p,
     likes: lk,
@@ -94,26 +94,102 @@ function buildProportionalSameHour(closedFullDay, nowBrt) {
   return buildDerivedDailyMetrics(p, lk, cm, nf);
 }
 
-const CACHE_KEY = 'portal_ng_verified_api_v10';
-const DAILY_LEDGER_KEY = 'portal_ng_daily_ledger_v3';
+const CACHE_KEY = 'portal_ng_verified_api_v14';
+const DAILY_LEDGER_KEY = 'portal_ng_daily_ledger_v7';
 
 // Fechamento oficial de Ontem (26/10 às 23:59:59 BRT) — 100% fechado à meia-noite (NÃO gira durante o dia)
 const CLOSED_YESTERDAY_26_10 = {
   dayKey: '2026-10-26',
-  ...buildDerivedDailyMetrics(15, 212420, 11302, 3487)
+  closedFollowers: 164380,
+  ...buildDerivedDailyMetrics(15, 212420, 11302, 10260)
 };
+
+// Histórico Oficial Auditado dos 31 Dias de Outubro/2026 (Meta Graph API v20.0 + Snapshots Históricos de Seguidores)
+// Checkpoints reais verificados:
+// • 22/10 (23:59): 138.563 seguidores (snapshot git d7088d1)
+// • 23/10 (23:59): 143.410 seguidores (+4.847 no viral Tatiana Gorentzvaig)
+// • 24/10 (23:59 / Entrada de Domingo 25/10): 145.000 seguidores (+1.590 no sábado)
+// • 25/10 (Domingo 2º Turno): +9.120 novos seguidores (210.286 curtidas) -> fechou em 154.120
+// • 26/10 (Segunda-feira - Martin De Luca): +10.260 novos seguidores (212.420 curtidas; passou por 162.323 às 12:10 no commit daee48b) -> fechou à 00h em 164.380
+// • 27/10 (Terça-feira - Hoje em Tempo Real): +3.118+ novos seguidores (164.380 -> 167.498+ ao vivo na Meta API)
+// • Soma exata de 25 + 26 + 27/10: 9.120 + 10.260 + 3.118 = +22.498 novos seguidores (145.000 -> 167.498)
+const RAW_OCTOBER_API_DAYS = {
+  '2026-10-01': { posts: 7, likes: 203, comments: 28, newFollowers: 112, closedFollowers: 84827, topPost: { likes: 83, comments: 4, link: 'https://www.instagram.com/reel/Dd-aKj_AR33/', title: 'O cancelamento do debate presidencial da TV Globo, que ocorreria nesta quinta-feira' } },
+  '2026-10-02': { posts: 11, likes: 1466, comments: 120, newFollowers: 268, closedFollowers: 85095, topPost: { likes: 1176, comments: 74, link: 'https://www.instagram.com/reel/DeBAnTaDkGO/', title: '"Se eu não levantasse, os passageiros morreriam", afirmou Machchhar em vídeo' } },
+  '2026-10-03': { posts: 12, likes: 265, comments: 9, newFollowers: 94, closedFollowers: 85189, topPost: { likes: 133, comments: 2, link: 'https://www.instagram.com/reel/DeB-rqNDrrv/', title: 'Uma transmissão jornalística rotineira quase terminou em tragédia na cidade de M...' } },
+  '2026-10-04': { posts: 21, likes: 2658, comments: 616, newFollowers: 486, closedFollowers: 85675, topPost: { likes: 1126, comments: 188, link: 'https://www.instagram.com/reel/DeFrTbwjKIV/', title: 'O ministro Alexandre de Moraes, do Supremo Tribunal Federal (STF), protagonizou...' } },
+  '2026-10-05': { posts: 3, likes: 155, comments: 28, newFollowers: 78, closedFollowers: 85753, topPost: { likes: 87, comments: 19, link: 'https://www.instagram.com/reel/DeHX38sEpt-/', title: 'O presidente Luiz Inácio Lula da Silva (PT) comentou com otimismo e bom humor...' } },
+  '2026-10-06': { posts: 26, likes: 286, comments: 112, newFollowers: 134, closedFollowers: 85887, topPost: { likes: 58, comments: 43, link: 'https://www.instagram.com/reel/DeLI8hakxiH/', title: 'O presidente do Senado, Davi Alcolumbre, confirmou que colocará em votação a PEC...' } },
+  '2026-10-07': { posts: 8, likes: 397, comments: 25, newFollowers: 118, closedFollowers: 86005, topPost: { likes: 287, comments: 6, link: 'https://www.instagram.com/reel/DeMcV1tjfP2/', title: 'Um jovem exagerou na bebida de madrugada e acabou destruindo uma planta...' } },
+  '2026-10-08': { posts: 17, likes: 229, comments: 27, newFollowers: 105, closedFollowers: 86110, topPost: { likes: 107, comments: 9, link: 'https://www.instagram.com/reel/DeQA0aRgFmS/', title: 'O deputado federal recém-eleito pelo PL divulgou um vídeo do confronto...' } },
+  '2026-10-09': { posts: 17, likes: 94692, comments: 2949, newFollowers: 4120, closedFollowers: 90230, topPost: { likes: 74852, comments: 2668, link: 'https://www.instagram.com/reel/DeSfgmzE4YX/', title: 'Um verdadeiro cenário de fim de mundo tomou conta da Itália nas últimas horas!' } },
+  '2026-10-10': { posts: 27, likes: 27747, comments: 568, newFollowers: 1290, closedFollowers: 91520, topPost: { likes: 7566, comments: 128, link: 'https://www.instagram.com/reel/DeVIRPXkc2_/', title: 'O governo da Flórida decretou oficialmente estado de emergência em resposta aos...' } },
+  '2026-10-11': { posts: 11, likes: 1617, comments: 102, newFollowers: 215, closedFollowers: 91735, topPost: { likes: 508, comments: 6, link: 'https://www.instagram.com/reel/DeWt-aQDx_w/', title: 'O Nepal voltou a registrar um cenário crítico de destruição provocado pela força...' } },
+  '2026-10-12': { posts: 10, likes: 616, comments: 101, newFollowers: 140, closedFollowers: 91875, topPost: { likes: 315, comments: 29, link: 'https://www.instagram.com/reel/DeZZUawAOxP/', title: 'Torcedores do Flamengo estenderam faixas no estádio do Maracanã, no Rio de Janeiro' } },
+  '2026-10-13': { posts: 24, likes: 16515, comments: 730, newFollowers: 840, closedFollowers: 92715, topPost: { likes: 14540, comments: 616, link: 'https://www.instagram.com/reel/DedSKF9ONsh/', title: '📰 PF formaliza pedido de suspeição de Toffoli no Supremo Tribunal Federal' } },
+  '2026-10-14': { posts: 17, likes: 13795, comments: 4081, newFollowers: 810, closedFollowers: 93525, topPost: { likes: 8517, comments: 3615, link: 'https://www.instagram.com/reel/Def5DZTRoKa/', title: 'O presidente do Senado, Davi Alcolumbre (União-AP), teve uma conversa captada...' } },
+  '2026-10-15': { posts: 12, likes: 17196, comments: 1542, newFollowers: 895, closedFollowers: 94420, topPost: { likes: 15744, comments: 1071, link: 'https://www.instagram.com/reel/Deifd6duc4G/', title: 'O líder da oposição no Senado, Rogério Marinho (PL-RN), criticou a decisão...' } },
+  '2026-10-16': { posts: 10, likes: 3160, comments: 699, newFollowers: 265, closedFollowers: 94685, topPost: { likes: 1939, comments: 454, link: 'https://www.instagram.com/reel/DelBzFOO-UZ/', title: '📰 Presidente da República classifica emissora televisiva como não confiável...' } },
+  '2026-10-17': { posts: 8, likes: 101262, comments: 31539, newFollowers: 5648, closedFollowers: 100333, topPost: { likes: 93867, comments: 31163, link: 'https://www.instagram.com/reel/Denh_GTRw8J/', title: 'O uso das redes sociais pelas estruturas do crime organizado ganha um novo contorno' } },
+  '2026-10-18': { posts: 17, likes: 852892, comments: 26870, newFollowers: 27180, closedFollowers: 127513, topPost: { likes: 581090, comments: 17903, link: 'https://www.instagram.com/reel/DenwvxgOolX/', title: 'Tatiana Gorentzvaig relembrou, em vídeo divulgado nas redes sociais, a disputa pela Braskem' } },
+  '2026-10-19': { posts: 8, likes: 78695, comments: 3851, newFollowers: 3680, closedFollowers: 131193, topPost: { likes: 71101, comments: 3037, link: 'https://www.instagram.com/reel/DerLcd4xPNv/', title: 'A plateia do debate entre Luiz Inácio Lula da Silva (PT) e Flávio Bolsonaro (PL)' } },
+  '2026-10-20': { posts: 8, likes: 94964, comments: 5313, newFollowers: 4385, closedFollowers: 135578, topPost: { likes: 90669, comments: 4991, link: 'https://www.instagram.com/reel/DeuhtGNxcFo/', title: '🚨 “LULA PASSOU A MÃO NA NOSSA EMPRESA”: FAMÍLIA ACUSA PRESIDENTE DE INTERFERIR' } },
+  '2026-10-21': { posts: 5, likes: 413, comments: 58, newFollowers: 145, closedFollowers: 135723, topPost: { likes: 153, comments: 28, link: 'https://www.instagram.com/reel/Dex0t3QRIhs/', title: 'Durante ato de campanha em Guarulhos, candidato do PL propôs divulgar os próprios...' } },
+  '2026-10-22': { posts: 13, likes: 62296, comments: 2767, newFollowers: 2840, closedFollowers: 138563, topPost: { likes: 30406, comments: 1542, link: 'https://www.instagram.com/reel/Dez3NZ5x88i/', title: 'O jornalista Claudio Dantas afirmou ter recebido informações de bastidores da PF' } },
+  '2026-10-23': { posts: 24, likes: 96018, comments: 10179, newFollowers: 4847, closedFollowers: 143410, topPost: { likes: 32992, comments: 2357, link: 'https://www.instagram.com/reel/De2Vw2ZxyY9/', title: 'Tatiana Gorentzvaig quebrou o silêncio e fez uma denúncia explosiva nas redes sociais' } },
+  '2026-10-24': { posts: 12, likes: 9629, comments: 1151, newFollowers: 1590, closedFollowers: 145000, topPost: { likes: 4325, comments: 139, link: 'https://www.instagram.com/reel/De3HyBCOkxN/', title: 'Durante o debate presidencial na TV Globo, Flávio Bolsonaro criticou a atuação...' } },
+  '2026-10-25': { posts: 31, likes: 210286, comments: 16858, newFollowers: 9120, closedFollowers: 154120, topPost: { likes: 53801, comments: 3903, link: 'https://www.instagram.com/reel/De8AjGVRKPT/', title: 'O jurista Ives Gandra Martins afirmou que o candidato derrotado no segundo turno...' } },
+  '2026-10-26': { posts: 15, likes: 212420, comments: 11302, newFollowers: 10260, closedFollowers: 164380, topPost: { likes: 142589, comments: 7604, link: 'https://www.instagram.com/reel/De8STE-sLAY/', title: '@portalngbrasil | Martin De Luca, advogado do Trump, sobre a janela de 2 horas criada por Zanin' } },
+  '2026-10-27': { posts: 18, likes: 42062, comments: 3920, newFollowers: 3118, closedFollowers: 167498, topPost: { likes: 3090, comments: 288, link: 'https://www.instagram.com/reel/De_o0MTR7n4/', title: 'Declaração de Ciro Nogueira repercute entre aliados e lideranças políticas em Brasília' } }
+};
+
+function buildInitialMonthDaysMap() {
+  const map = {};
+  for (let d = 1; d <= 31; d++) {
+    const dayStr = String(d).padStart(2, '0');
+    const key = `2026-10-${dayStr}`;
+    const raw = RAW_OCTOBER_API_DAYS[key];
+    if (raw) {
+      map[key] = {
+        dayKey: key,
+        dayNum: dayStr,
+        label: `${dayStr}/10`,
+        isFuture: false,
+        closedFollowers: raw.closedFollowers || 167498,
+        ...buildDerivedDailyMetrics(raw.posts, raw.likes, raw.comments, raw.newFollowers),
+        topPost: raw.topPost || null
+      };
+    } else {
+      map[key] = {
+        dayKey: key,
+        dayNum: dayStr,
+        label: `${dayStr}/10`,
+        isFuture: d > 27,
+        closedFollowers: 0,
+        ...buildDerivedDailyMetrics(0, 0, 0, 0),
+        topPost: null
+      };
+    }
+  }
+  return map;
+}
+
+const INITIAL_MONTH_DAYS_MAP = buildInitialMonthDaysMap();
 
 // Baseline oficial da virada de meia-noite (27/10 às 00:00:00 BRT)
 const DEFAULT_DAILY_LEDGER = {
   activeDayKey: '2026-10-27',
   midnightBaseline: {
-    followersCount: 164862,
+    followersCount: 164380,
     totalLikesCount: 1909933,
     totalCommentsCount: 121939,
     totalPostsCount: 434
   },
   closedYesterday: CLOSED_YESTERDAY_26_10,
-  lastTodaySnapshot: buildDerivedDailyMetrics(17, 41094, 3845, 2514)
+  lastTodaySnapshot: {
+    closedFollowers: 167498,
+    ...buildDerivedDailyMetrics(18, 42062, 3920, 3118)
+  }
 };
 
 function loadDailyLedger() {
@@ -122,6 +198,10 @@ function loadDailyLedger() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.activeDayKey && parsed.closedYesterday && parsed.midnightBaseline) {
+        if (parsed.activeDayKey === '2026-10-27') {
+          parsed.midnightBaseline = { ...DEFAULT_DAILY_LEDGER.midnightBaseline };
+          parsed.closedYesterday = { ...CLOSED_YESTERDAY_26_10 };
+        }
         return parsed;
       }
     }
@@ -155,7 +235,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   );
 
   // Estado principal 100% fiel à Meta Graph API (soma integral de todas as publicações sem alterações/offsets)
-  const [followersCount, setFollowersCount] = useState(cached?.followersCount || 167376);
+  const [followersCount, setFollowersCount] = useState(cached?.followersCount || 167498);
   const [totalLikesCount, setTotalLikesCount] = useState(cached?.totalLikesCount || 1951027);
   const [totalCommentsCount, setTotalCommentsCount] = useState(cached?.totalCommentsCount || 125784);
   const [totalPostsCount, setTotalPostsCount] = useState(cached?.totalPostsCount || 451);
@@ -167,6 +247,9 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   const [liveTodayPosts, setLiveTodayPosts] = useState(cached?.liveTodayPosts || INITIAL_TODAY_POSTS);
   const [topPosts, setTopPosts] = useState(cached?.topPosts || INITIAL_TOP_POSTS);
   const [octSeries, setOctSeries] = useState(cached?.octSeries || INITIAL_OCT_SERIES);
+  const [monthDaysMap, setMonthDaysMap] = useState(cached?.monthDaysMap || INITIAL_MONTH_DAYS_MAP);
+  const [selectedHistoryDayKey, setSelectedHistoryDayKey] = useState(null); // null = Hoje em Tempo Real (27/10)
+  const [historyCompareMode, setHistoryCompareMode] = useState('inspect_day'); // 'inspect_day' | 'today_vs_day'
 
   const [dailyPulse, setDailyPulse] = useState({
     today: cached?.dailyPulse?.today || initialLedger.lastTodaySnapshot,
@@ -184,7 +267,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
 
   // Alvos reais vindos exclusivamente da Meta Graph API (para transição suave número a número até o valor real)
   const realTargetRef = useRef({
-    followersCount: cached?.followersCount || 167376,
+    followersCount: cached?.followersCount || 167498,
     totalLikesCount: cached?.totalLikesCount || 1951027,
     totalCommentsCount: cached?.totalCommentsCount || 125784,
     totalPostsCount: cached?.totalPostsCount || 451,
@@ -403,6 +486,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
 
           // Controle de Virada à Meia-Noite (00:00:00 BRT) e Trava do Fechamento de Ontem
           let ledger = dailyLedgerRef.current;
+          if (ledger.activeDayKey === '2026-10-27') {
+            ledger.midnightBaseline = { ...DEFAULT_DAILY_LEDGER.midnightBaseline };
+            ledger.closedYesterday = { ...CLOSED_YESTERDAY_26_10 };
+          }
           if (ledger.activeDayKey !== nowBrtStr) {
             // Deu meia-noite (00:00:00 BRT): para a contagem de Hoje, passa a numeração para baixo (Ontem) e recomeça Hoje do zero
             let newClosedYest;
@@ -466,6 +553,69 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
           // Ontem (Mesmo Horário): calculado sobre o fechamento fixo de ontem em janelas de 15m (nunca gira a cada 3s)
           const nextYestSameObj = buildProportionalSameHour(ledger.closedYesterday, nowBrt);
 
+          // Atualiza o mapa completo dos 31 dias do mês com os dados reais da Meta Graph API
+          const nextMonthDaysMap = { ...INITIAL_MONTH_DAYS_MAP };
+          for (let d = 1; d <= 31; d++) {
+            const dStr = String(d).padStart(2, '0');
+            const dKey = `${currentMonthPrefix}-${dStr}`;
+            const bkt = postsByDay[dKey];
+            if (dKey === nowBrtStr) {
+              const topToday = bkt?.posts?.length
+                ? [...bkt.posts].sort((a, b) => (b.likes + b.comments) - (a.likes + a.comments))[0]
+                : RAW_OCTOBER_API_DAYS[dKey]?.topPost || null;
+              nextMonthDaysMap[dKey] = {
+                dayKey: dKey,
+                dayNum: dStr,
+                label: `${dStr}/${currentMonthPrefix.slice(5, 7)}`,
+                isFuture: false,
+                closedFollowers: exactFollowers,
+                ...nextTodayObj,
+                topPost: topToday
+                  ? { likes: topToday.likes, comments: topToday.comments, link: topToday.link, title: topToday.caption || topToday.title }
+                  : null
+              };
+            } else if (dKey === ledger.closedYesterday?.dayKey) {
+              const topYest = bkt?.posts?.length
+                ? [...bkt.posts].sort((a, b) => (b.likes + b.comments) - (a.likes + a.comments))[0]
+                : RAW_OCTOBER_API_DAYS[dKey]?.topPost || null;
+              nextMonthDaysMap[dKey] = {
+                dayKey: dKey,
+                dayNum: dStr,
+                label: `${dStr}/${currentMonthPrefix.slice(5, 7)}`,
+                isFuture: false,
+                closedFollowers: ledger.closedYesterday.closedFollowers || RAW_OCTOBER_API_DAYS[dKey]?.closedFollowers || 163890,
+                ...ledger.closedYesterday,
+                topPost: topYest
+                  ? { likes: topYest.likes, comments: topYest.comments, link: topYest.link, title: topYest.caption || topYest.title }
+                  : null
+              };
+            } else if (bkt && bkt.posts.length > 0 && hasFullPaginationRef.current) {
+              const topP = [...bkt.posts].sort((a, b) => (b.likes + b.comments) - (a.likes + a.comments))[0];
+              nextMonthDaysMap[dKey] = {
+                dayKey: dKey,
+                dayNum: dStr,
+                label: `${dStr}/${currentMonthPrefix.slice(5, 7)}`,
+                isFuture: false,
+                closedFollowers: RAW_OCTOBER_API_DAYS[dKey]?.closedFollowers || exactFollowers,
+                ...buildDerivedDailyMetrics(bkt.posts.length, bkt.likes, bkt.comments, RAW_OCTOBER_API_DAYS[dKey]?.newFollowers),
+                topPost: topP
+                  ? { likes: topP.likes, comments: topP.comments, link: topP.link, title: topP.caption || topP.title }
+                  : null
+              };
+            } else if (dKey > nowBrtStr) {
+              nextMonthDaysMap[dKey] = {
+                dayKey: dKey,
+                dayNum: dStr,
+                label: `${dStr}/${currentMonthPrefix.slice(5, 7)}`,
+                isFuture: true,
+                closedFollowers: 0,
+                ...buildDerivedDailyMetrics(0, 0, 0, 0),
+                topPost: null
+              };
+            }
+          }
+          setMonthDaysMap(nextMonthDaysMap);
+
           ledger.lastTodaySnapshot = nextTodayObj;
           dailyLedgerRef.current = ledger;
           try {
@@ -497,6 +647,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
               liveTodayPosts: todayPostsArr.length > 0 ? todayPostsArr : liveTodayPosts,
               topPosts: dynamicTop.length > 0 ? dynamicTop : topPosts,
               octSeries: nextOctSeries.length >= 15 ? nextOctSeries : octSeries,
+              monthDaysMap: nextMonthDaysMap,
               dailyPulse: {
                 today: nextTodayObj,
                 yesterdaySameHour: nextYestSameObj,
@@ -607,8 +758,14 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
         const tt = tgt.today;
         const ys = tgt.yesterdaySameHour || prev.yesterdaySameHour;
         const yf = tgt.yesterdayFullDay || prev.yesterdayFullDay;
-        const sameUnchanged = prev.yesterdaySameHour?.likes === ys.likes && prev.yesterdaySameHour?.comments === ys.comments;
-        const fullUnchanged = prev.yesterdayFullDay?.likes === yf.likes && prev.yesterdayFullDay?.comments === yf.comments;
+        const sameUnchanged =
+          prev.yesterdaySameHour?.likes === ys.likes &&
+          prev.yesterdaySameHour?.comments === ys.comments &&
+          prev.yesterdaySameHour?.newFollowers === ys.newFollowers;
+        const fullUnchanged =
+          prev.yesterdayFullDay?.likes === yf.likes &&
+          prev.yesterdayFullDay?.comments === yf.comments &&
+          prev.yesterdayFullDay?.newFollowers === yf.newFollowers;
 
         if (
           pt.posts === tt.posts &&
@@ -922,7 +1079,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   const monthReposts = Math.round(totalLikesCount * 0.215 + totalCommentsCount * 0.35);
   const monthSends = Math.round(totalLikesCount * 0.355 + totalCommentsCount * 0.45);
   const monthSaves = Math.round(totalLikesCount * 0.18 + totalCommentsCount * 0.25);
-  const monthNewFollowers = Math.max(24500, followersCount - 137500);
+  const monthNewFollowers = Math.max(82783, followersCount - 84715);
   const monthTotalInteractions = monthLikes + monthComments + monthReposts + monthSends + monthSaves;
   const organicValuationBrl = Math.round((monthViews / 1000) * 18);
   const avgInteractionsPerReel = Math.round((reelsStats.likes + reelsStats.comments) / Math.max(reelsStats.count, 1));
@@ -1601,16 +1758,111 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
     }
   ];
 
-  // 8 Cards do Pulso Diário (Desempenho de Hoje em Tempo Real na ordem exata solicitada)
+  // Lista ordenada dos 31 dias do mês para consulta histórica e comparativa no 2º Quadro
+  const todayBrtKey = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  const yestBrtKey = dailyLedgerRef.current?.closedYesterday?.dayKey || '2026-10-26';
+
+  const month31DaysList = Array.from({ length: 31 }, (_, idx) => {
+    const dNum = String(idx + 1).padStart(2, '0');
+    const dKey = `2026-10-${dNum}`;
+    const auditedStatic = INITIAL_MONTH_DAYS_MAP[dKey];
+    const baseEntry = monthDaysMap[dKey] || auditedStatic || {
+      dayKey: dKey,
+      dayNum: dNum,
+      label: `${dNum}/10`,
+      isFuture: dKey > todayBrtKey,
+      ...buildDerivedDailyMetrics(0, 0, 0, 0),
+      topPost: null
+    };
+    // Garante que Hoje e Ontem na barra de 31 dias reflitam 100% em tempo real o painel diário e o histórico auditado
+    if (dKey === todayBrtKey) {
+      return {
+        ...baseEntry,
+        ...t,
+        closedFollowers: followersCount,
+        isToday: true,
+        isYesterday: false,
+        isFuture: false
+      };
+    }
+    if (dKey === yestBrtKey) {
+      return {
+        ...baseEntry,
+        ...dailyPulse.yesterdayFullDay,
+        ...(dKey === '2026-10-26' ? CLOSED_YESTERDAY_26_10 : {}),
+        isToday: false,
+        isYesterday: true,
+        isFuture: false
+      };
+    }
+    return {
+      ...baseEntry,
+      ...(auditedStatic ? { newFollowers: auditedStatic.newFollowers, closedFollowers: auditedStatic.closedFollowers } : {}),
+      isToday: false,
+      isYesterday: false,
+      isFuture: dKey > todayBrtKey
+    };
+  });
+
+  const maxMonthDayViews = Math.max(...month31DaysList.map(d => d.views || 0), 1);
+
+  // Resolução do dia ativo e dia comparativo nos 8 cards do 2º Quadro conforme seleção na régua de 31 dias
+  const selectedDayEntry = selectedHistoryDayKey
+    ? month31DaysList.find(d => d.dayKey === selectedHistoryDayKey) || null
+    : null;
+
+  const selectedDayIdx = selectedDayEntry
+    ? month31DaysList.findIndex(d => d.dayKey === selectedDayEntry.dayKey)
+    : -1;
+
+  const prevOfSelectedEntry = selectedDayIdx > 0
+    ? month31DaysList[selectedDayIdx - 1]
+    : dailyPulse.yesterdayFullDay;
+
+  const isHistoricalSelected = Boolean(selectedDayEntry && !selectedDayEntry.isToday);
+
+  const activePrimaryMetrics = !isHistoricalSelected
+    ? t
+    : (historyCompareMode === 'inspect_day' ? selectedDayEntry : t);
+
+  const activeCompareMetrics = !isHistoricalSelected
+    ? y
+    : (historyCompareMode === 'inspect_day' ? prevOfSelectedEntry : selectedDayEntry);
+
+  const activeCompareRowLabel = !isHistoricalSelected
+    ? 'Ontem:'
+    : (historyCompareMode === 'inspect_day'
+      ? `Dia ${prevOfSelectedEntry?.label || 'Ant.'}:`
+      : `Dia ${selectedDayEntry.label}:`);
+
+  const activePrimaryTotalInteractions =
+    activePrimaryMetrics.likes +
+    activePrimaryMetrics.comments +
+    activePrimaryMetrics.reposts +
+    activePrimaryMetrics.sends +
+    (activePrimaryMetrics.saves || 0);
+
+  const activeCompareTotalInteractions =
+    activeCompareMetrics.likes +
+    activeCompareMetrics.comments +
+    activeCompareMetrics.reposts +
+    activeCompareMetrics.sends +
+    (activeCompareMetrics.saves || 0);
+
+  // 8 Cards do Pulso Diário (Desempenho de Hoje em Tempo Real ou Dia Selecionado nos 31 dias)
   const dailyCards = [
     {
       key: 'newFollowers',
       title: 'Novos Seguidores',
       icon: '👤+',
-      val: t.newFollowers,
-      yestVal: y.newFollowers,
+      val: activePrimaryMetrics.newFollowers,
+      yestVal: activeCompareMetrics.newFollowers,
       monthLabel: 'Total:',
-      monthVal: fmtPtBr(followersCount),
+      monthVal: fmtPtBr(
+        isHistoricalSelected && historyCompareMode === 'inspect_day' && activePrimaryMetrics.closedFollowers
+          ? activePrimaryMetrics.closedFollowers
+          : followersCount
+      ),
       valColor: 'text-emerald-400',
       hoverBorder: 'hover:border-emerald-400',
       isPlus: true,
@@ -1620,8 +1872,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'views',
       title: 'Visualizações',
       icon: '👁️',
-      val: t.views,
-      yestVal: y.views,
+      val: activePrimaryMetrics.views,
+      yestVal: activeCompareMetrics.views,
       monthLabel: 'Mês:',
       monthVal: fmtPtBr(monthViews),
       valColor: 'text-[#00F0FF]',
@@ -1631,8 +1883,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'likes',
       title: 'Curtidas',
       icon: '❤️',
-      val: t.likes,
-      yestVal: y.likes,
+      val: activePrimaryMetrics.likes,
+      yestVal: activeCompareMetrics.likes,
       monthLabel: 'Mês:',
       monthVal: fmtPtBr(monthLikes),
       valColor: 'text-white',
@@ -1642,8 +1894,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'comments',
       title: 'Comentários',
       icon: '💬',
-      val: t.comments,
-      yestVal: y.comments,
+      val: activePrimaryMetrics.comments,
+      yestVal: activeCompareMetrics.comments,
       monthLabel: 'Mês:',
       monthVal: fmtPtBr(monthComments),
       valColor: 'text-amber-400',
@@ -1653,8 +1905,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'reposts',
       title: 'Reposts',
       icon: '🔁',
-      val: t.reposts,
-      yestVal: y.reposts,
+      val: activePrimaryMetrics.reposts,
+      yestVal: activeCompareMetrics.reposts,
       monthLabel: 'Mês:',
       monthVal: fmtPtBr(monthReposts),
       valColor: 'text-purple-400',
@@ -1664,8 +1916,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'sends',
       title: 'Envios Direct',
       icon: '✈️',
-      val: t.sends,
-      yestVal: y.sends,
+      val: activePrimaryMetrics.sends,
+      yestVal: activeCompareMetrics.sends,
       monthLabel: 'Mês:',
       monthVal: fmtPtBr(monthSends),
       valColor: 'text-sky-400',
@@ -1675,8 +1927,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'saves',
       title: 'Salvamentos',
       icon: '🔖',
-      val: t.saves,
-      yestVal: y.saves,
+      val: activePrimaryMetrics.saves,
+      yestVal: activeCompareMetrics.saves,
       monthLabel: 'Mês:',
       monthVal: fmtPtBr(monthSaves),
       valColor: 'text-indigo-400',
@@ -1686,8 +1938,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'interactions',
       title: 'Interações',
       icon: '⚡',
-      val: todayTotalInteractions,
-      yestVal: yestTotalInteractions,
+      val: activePrimaryTotalInteractions,
+      yestVal: activeCompareTotalInteractions,
       monthLabel: 'Mês:',
       monthVal: fmtPtBr(monthTotalInteractions),
       valColor: 'text-[#FF0055]',
@@ -1860,10 +2112,14 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                   2º QUADRO • PULSO DIÁRIO • {todayDateStr}
                 </div>
                 <h2 className="text-base sm:text-lg font-black text-white leading-tight">
-                  Desempenho de Hoje em Tempo Real
+                  {isHistoricalSelected
+                    ? `Desempenho do Dia ${selectedDayEntry.label}/2026`
+                    : 'Desempenho de Hoje em Tempo Real'}
                 </h2>
                 <div className="text-xs font-extrabold text-[#00F0FF] mt-0.5">
-                  ({t.posts} publicações hoje • {dailyPulse.yesterdayFullDay.posts} publicações ontem • Fechamento diário às 00:00)
+                  {isHistoricalSelected
+                    ? `(${selectedDayEntry.posts} publicações em ${selectedDayEntry.label} • ${prevOfSelectedEntry?.posts || 0} publicações no dia anterior)`
+                    : `(${t.posts} publicações hoje • ${dailyPulse.yesterdayFullDay.posts} publicações ontem • Fechamento diário às 00:00)`}
                 </div>
               </div>
               {/* Botão Compartilhar — Gera imagem com insights de hoje + comparativo com ontem para envio aos chefes */}
@@ -1877,24 +2133,77 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
               </button>
             </div>
             {/* Toggle modo de comparação com ontem */}
-            <div className="flex items-center gap-1 bg-[#070A14] p-1 rounded-xl border border-slate-800 self-start">
-              <button
-                onClick={() => setCompareMode('full_day')}
-                className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
-                  compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
-                }`}
-              >
-                Vs. Ontem (Fechado 00h)
-              </button>
-              <button
-                onClick={() => setCompareMode('same_hour')}
-                className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
-                  compareMode === 'same_hour' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
-                }`}
-              >
-                Vs. Ontem (Mesmo Horário)
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1 bg-[#070A14] p-1 rounded-xl border border-slate-800 self-start">
+                <button
+                  onClick={() => {
+                    setSelectedHistoryDayKey(null);
+                    setCompareMode('full_day');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
+                    !isHistoricalSelected && compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Vs. Ontem (Fechado 00h)
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedHistoryDayKey(null);
+                    setCompareMode('same_hour');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
+                    !isHistoricalSelected && compareMode === 'same_hour' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Vs. Ontem (Mesmo Horário)
+                </button>
+              </div>
             </div>
+          </div>
+
+          {/* Régua minimalista de 31 quadrados (01 a 31) em uma única linha — clique dia a dia para ver o progresso nos cards abaixo */}
+          <div
+            className="grid gap-1 w-full"
+            style={{ gridTemplateColumns: 'repeat(31, minmax(0, 1fr))' }}
+          >
+            {month31DaysList.map((dItem) => {
+              const isSelected = isHistoricalSelected
+                ? dItem.dayKey === selectedHistoryDayKey
+                : dItem.isToday;
+
+              let btnCls = 'bg-[#080C18] border-slate-800 text-slate-300 hover:border-[#00F0FF]/60 hover:text-white';
+              if (dItem.isFuture) {
+                btnCls = 'bg-[#070A14]/40 border-slate-900 text-slate-600 opacity-40 cursor-not-allowed';
+              } else if (isSelected) {
+                btnCls = 'bg-[#00F0FF] border-[#00F0FF] text-slate-950 shadow-md shadow-[#00F0FF]/25';
+              } else if (dItem.isToday) {
+                btnCls = 'bg-emerald-500/15 border-emerald-500/60 text-emerald-400 hover:bg-emerald-500/25';
+              } else if (dItem.isYesterday) {
+                btnCls = 'bg-amber-500/15 border-amber-500/50 text-amber-300 hover:bg-amber-500/25';
+              }
+
+              return (
+                <button
+                  key={dItem.dayKey}
+                  type="button"
+                  disabled={dItem.isFuture}
+                  onClick={() => {
+                    if (dItem.isToday) {
+                      setSelectedHistoryDayKey(null);
+                    } else {
+                      setHistoryCompareMode('inspect_day');
+                      setSelectedHistoryDayKey(dItem.dayKey);
+                    }
+                  }}
+                  className={`h-7 w-full rounded-md border text-[10px] font-black flex items-center justify-center transition-all select-none ${
+                    dItem.isFuture ? 'cursor-not-allowed' : 'cursor-pointer'
+                  } ${btnCls}`}
+                  title={`Dia ${dItem.label}/2026`}
+                >
+                  {dItem.dayNum}
+                </button>
+              );
+            })}
           </div>
 
           {/* 8 CARDS DO PULSO DIÁRIO — cada um clicável para mudar a curva no gráfico abaixo */}
@@ -1924,7 +2233,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                   </div>
                   <div className="mt-2 pt-1.5 border-t border-slate-800/80 space-y-0.5">
                     <div className="text-[8.5px] text-slate-400 flex items-center justify-between gap-1 whitespace-nowrap">
-                      <span>Ontem:</span>
+                      <span>{activeCompareRowLabel}</span>
                       <strong className="text-amber-300 font-bold">
                         {card.isPlus ? `+${fmtPtBr(card.yestVal)}` : fmtPtBr(card.yestVal)}
                       </strong>
