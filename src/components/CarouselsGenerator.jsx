@@ -383,22 +383,33 @@ Quantidade de Telas Solicitadas: ${autoPostCount}
           const mappedStories = extractSlidesFromAiResponse(obj, globalBackground);
 
           if (mappedStories.length > 0) {
+              const mappedStoriesWithCta = [
+                ...mappedStories,
+                {
+                  title: "Siga o @portalngbrasil",
+                  text: "Acompanhe todos os dias as notícias que impactam o país e o mundo.",
+                  imageUrl: "/siga-portalngbrasil.jpg",
+                  source: "Portal NG Brasil",
+                  isCta: true
+                }
+              ];
+
               setStoriesLog(prev => [{
                   id: Date.now().toString(),
                   pauta: "Auto-Post Bot (Carrossel Nuvem/Servidor)",
                   searchQuery: topic,
                   engine: 'Perplexity',
                   status: 'success',
-                  storiesCount: mappedStories.length,
-                  stories: mappedStories,
+                  storiesCount: mappedStoriesWithCta.length,
+                  stories: mappedStoriesWithCta,
                   date: new Date().toISOString()
               }, ...prev]);
 
               if (metaToken && imgbbKey && metaIgAccountId) {
                   let childrenIds = [];
-                  for (let i = 0; i < mappedStories.length; i++) {
+                  for (let i = 0; i < mappedStoriesWithCta.length; i++) {
                       try {
-                          const blob = await createStoryBlob(mappedStories[i], i, mappedStories.length);
+                          const blob = await createStoryBlob(mappedStoriesWithCta[i], i, mappedStoriesWithCta.length);
                           const imageUrl = await uploadImageForSocial(blob, imgbbKey);
                           if (imageUrl) {
                               const itemRes = await fetch(`https://graph.facebook.com/v20.0/${metaIgAccountId}/media`, {
@@ -762,7 +773,17 @@ Quantidade de Telas Solicitadas: ${pautasCount}
       }
 
       if (mappedStories.length > 0) {
-          setStories(mappedStories);
+          const storiesWithCta = [
+            ...mappedStories,
+            {
+              title: "Siga o @portalngbrasil",
+              text: "Acompanhe todos os dias as notícias que impactam o país e o mundo.",
+              imageUrl: "/siga-portalngbrasil.jpg",
+              source: "Portal NG Brasil",
+              isCta: true
+            }
+          ];
+          setStories(storiesWithCta);
           setStatus('Carrossel gerado com sucesso!');
           
           const newLog = {
@@ -771,8 +792,8 @@ Quantidade de Telas Solicitadas: ${pautasCount}
               searchQuery: searchQuery.trim(),
               engine: aiChoice === 'perplexity' ? 'Perplexity (Busca Web)' : aiChoice === 'gemini' ? 'Gemini' : 'Perplexity + IA',
               status: 'success',
-              storiesCount: mappedStories.length,
-              stories: mappedStories,
+              storiesCount: storiesWithCta.length,
+              stories: storiesWithCta,
               date: new Date().toISOString()
           };
           setStoriesLog(prev => [newLog, ...prev]);

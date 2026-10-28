@@ -14,7 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
-  LayoutTemplate,
+  FileText,
   Video
 } from 'lucide-react';
 import { formatInstagramCaption, formatFacebookCaption, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
@@ -54,6 +54,8 @@ const isVideoFileOrUrl = (fileOrUrl) => {
   return false;
 };
 
+export const DEFAULT_CTA_IMAGE_URL = '/siga-portalngbrasil.jpg';
+
 const createDefaultFirstCard = (article) => ({
   id: 'card-1',
   mode: 'template', // 'template' | 'full_image'
@@ -72,6 +74,30 @@ const createDefaultFirstCard = (article) => ({
   showLogoOnFullImage: false
 });
 
+export const createDefaultCtaCard = () => ({
+  id: `card-cta-${Date.now()}`,
+  mode: 'full_image',
+  mediaType: 'image',
+  imageUrl: DEFAULT_CTA_IMAGE_URL,
+  videoUrl: '',
+  videoFile: null,
+  customImage: true,
+  customTitle: false,
+  customSubtitle: false,
+  title: 'Siga @portalngbrasil',
+  subtitle: 'Acompanhe as notícias que impactam o país e o mundo.',
+  useTwoPhotos: false,
+  secondImageUrl: '',
+  objectFit: 'cover',
+  showLogoOnFullImage: false,
+  isCtaCard: true
+});
+
+export const createDefaultCards = (article) => [
+  createDefaultFirstCard(article),
+  createDefaultCtaCard()
+];
+
 const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = false, metaToken, metaFbPageId, metaIgAccountId, imgbbKey, hideButtons = false, onPostSuccess }, ref) => {
   const canvasRef = useRef(null);
   const directUploadInputRef = useRef(null);
@@ -84,7 +110,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   const [postStatus, setPostStatus] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const [cards, setCards] = useState(() => [createDefaultFirstCard(article)]);
+  const [cards, setCards] = useState(() => createDefaultCards(article));
   const [activeCardIndex, setActiveCardIndex] = useState(0);
 
   const [category, setCategory] = useState(article?.categoryLabel || article?.category || 'POLÍTICA');
@@ -103,11 +129,11 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     setCategory(article.categoryLabel || article.category || 'NOTÍCIAS');
 
     if (isDifferentArticle) {
-      setCards([createDefaultFirstCard(article)]);
+      setCards(createDefaultCards(article));
       setActiveCardIndex(0);
     } else {
       setCards(prev => {
-        if (!prev.length) return [createDefaultFirstCard(article)];
+        if (!prev.length) return createDefaultCards(article);
         const first = prev[0];
         const updatedFirst = {
           ...first,
@@ -144,7 +170,19 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     updateCard(safeActiveIndex, patch);
   };
 
-  // Adiciona um novo card ao carrossel
+  // Adiciona o card padrão de CTA (Siga NG) no final
+  const handleAddCtaCard = () => {
+    if (cards.length >= 10) {
+      const msg = 'O limite máximo do Carrossel no Instagram é de 10 cards.';
+      showToast ? showToast(msg, true) : alert(msg);
+      return;
+    }
+    const ctaCard = createDefaultCtaCard();
+    setCards(prev => [...prev, ctaCard]);
+    setTimeout(() => setActiveCardIndex(cards.length), 20);
+  };
+
+  // Adiciona um novo card ao carrossel (mantendo o CTA sempre no final se existir)
   const handleAddCard = (initialImageUrl = '', initialMode = 'full_image') => {
     if (cards.length >= 10) {
       const msg = 'O limite máximo do Carrossel no Instagram é de 10 cards.';
@@ -168,9 +206,21 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       objectFit: 'cover',
       showLogoOnFullImage: false
     };
-    const nextIndex = cards.length;
-    setCards(prev => [...prev, newCard]);
-    setActiveCardIndex(nextIndex);
+
+    setCards(prev => {
+      const lastIdx = prev.length - 1;
+      const hasCtaAtEnd = lastIdx >= 0 && (prev[lastIdx].isCtaCard || prev[lastIdx].imageUrl === DEFAULT_CTA_IMAGE_URL);
+      if (hasCtaAtEnd) {
+        // Insere imediatamente antes do card final de CTA
+        const copy = [...prev];
+        copy.splice(lastIdx, 0, newCard);
+        setTimeout(() => setActiveCardIndex(lastIdx), 20);
+        return copy;
+      }
+      const nextIndex = prev.length;
+      setTimeout(() => setActiveCardIndex(nextIndex), 20);
+      return [...prev, newCard];
+    });
   };
 
   // Upload de 1 ou mais fotos OU vídeos criando/preenchendo cards do carrossel
@@ -241,6 +291,14 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             objectFit: 'cover',
             showLogoOnFullImage: false
           }));
+
+          const lastIdx = updated.length - 1;
+          const hasCtaAtEnd = lastIdx >= 0 && (updated[lastIdx].isCtaCard || updated[lastIdx].imageUrl === DEFAULT_CTA_IMAGE_URL);
+          if (hasCtaAtEnd) {
+            const copy = [...updated];
+            copy.splice(lastIdx, 0, ...extraCards);
+            return copy;
+          }
           return [...updated, ...extraCards];
         });
       } else {
@@ -268,6 +326,16 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             objectFit: 'cover',
             showLogoOnFullImage: false
           }));
+
+          const lastIdx = prev.length - 1;
+          const hasCtaAtEnd = lastIdx >= 0 && (prev[lastIdx].isCtaCard || prev[lastIdx].imageUrl === DEFAULT_CTA_IMAGE_URL);
+          if (hasCtaAtEnd) {
+            const copy = [...prev];
+            copy.splice(lastIdx, 0, ...extraCards);
+            setTimeout(() => setActiveCardIndex(lastIdx), 20);
+            return copy;
+          }
+
           const nextIdx = prev.length;
           setTimeout(() => setActiveCardIndex(nextIdx), 20);
           return [...prev, ...extraCards];
@@ -1219,6 +1287,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
         <div className="flex items-center gap-2 mt-4 max-w-full overflow-x-auto py-1 px-2">
           {cards.map((c, idx) => {
             const isSelected = idx === safeActiveIndex;
+            const isCta = c.isCtaCard || c.imageUrl === DEFAULT_CTA_IMAGE_URL;
             return (
               <button
                 key={c.id || idx}
@@ -1226,16 +1295,18 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                 onClick={() => setActiveCardIndex(idx)}
                 className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 border ${
                   isSelected
-                    ? 'bg-red-600 text-white border-red-500 shadow-md'
+                    ? isCta
+                      ? 'bg-amber-600 text-white border-amber-500 shadow-md'
+                      : 'bg-red-600 text-white border-red-500 shadow-md'
                     : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
                 }`}
               >
                 <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[10px]">
                   {idx + 1}
                 </span>
-                <span>{idx === 0 ? 'Capa' : `Card ${idx + 1}`}</span>
+                <span>{idx === 0 ? 'Capa' : isCta ? 'Siga NG (Final)' : `Card ${idx + 1}`}</span>
                 <span className="text-[10px] opacity-75">
-                  ({c.mediaType === 'video' ? '🎬 Vídeo' : c.mode === 'full_image' ? 'Imagem' : 'Template'})
+                  ({isCta ? 'CTA' : c.mediaType === 'video' ? '🎬 Vídeo' : c.mode === 'full_image' ? 'Imagem' : 'Template'})
                 </span>
               </button>
             );
@@ -1250,6 +1321,18 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             <Plus className="w-3.5 h-3.5" />
             <span>Adicionar</span>
           </button>
+
+          {!cards.some(c => c.isCtaCard || c.imageUrl === DEFAULT_CTA_IMAGE_URL) && (
+            <button
+              type="button"
+              onClick={handleAddCtaCard}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 text-amber-400 border border-dashed border-amber-600/60 hover:border-amber-400 transition-all shrink-0"
+              title="Adicionar o card final padrão (Siga @portalngbrasil)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>+ Slide Final (Siga NG)</span>
+            </button>
+          )}
         </div>
 
         {/* Aspect Ratio Selector */}
@@ -1307,7 +1390,9 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-red-400" />
               <span className="text-xs font-bold">
-                Editando: Card {safeActiveIndex + 1} de {cards.length} {safeActiveIndex === 0 ? '(Capa)' : ''}
+                Editando: {activeCard?.isCtaCard || activeCard?.imageUrl === DEFAULT_CTA_IMAGE_URL
+                  ? `Card ${safeActiveIndex + 1} de ${cards.length} (📢 Slide Final: Siga NG)`
+                  : `Card ${safeActiveIndex + 1} de ${cards.length} ${safeActiveIndex === 0 ? '(Capa)' : ''}`}
               </span>
             </div>
 
@@ -1363,7 +1448,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <LayoutTemplate className="w-4 h-4 text-red-600" />
+              <FileText className="w-4 h-4 text-red-600" />
               <span>Template NG (Mídia + Texto)</span>
             </button>
 
@@ -1406,6 +1491,23 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                   className="text-[11px] font-bold text-red-600 hover:underline"
                 >
                   Restaurar foto da matéria
+                </button>
+              )}
+              {activeCard?.isCtaCard && activeCard?.imageUrl !== DEFAULT_CTA_IMAGE_URL && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateActiveCard({
+                      mediaType: 'image',
+                      imageUrl: DEFAULT_CTA_IMAGE_URL,
+                      videoUrl: '',
+                      videoFile: null,
+                      customImage: true
+                    })
+                  }
+                  className="text-[11px] font-bold text-amber-600 hover:underline"
+                >
+                  Restaurar imagem padrão Siga NG
                 </button>
               )}
             </div>
