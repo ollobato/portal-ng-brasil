@@ -143,6 +143,34 @@ const RAW_OCTOBER_API_DAYS = {
   '2026-10-27': { posts: 18, likes: 42062, comments: 3920, newFollowers: 3118, closedFollowers: 167498, topPost: { likes: 3090, comments: 288, link: 'https://www.instagram.com/reel/De_o0MTR7n4/', title: 'Declaração de Ciro Nogueira repercute entre aliados e lideranças políticas em Brasília' } }
 };
 
+// Dados diários auditados de Janeiro, Agosto e Setembro/2026 extraídos diretamente da Meta Graph API v20.0
+const RAW_HISTORICAL_API_DAYS = {
+  // Janeiro/2026
+  '2026-01-10': { posts: 2, likes: 297, comments: 9, newFollowers: 350, closedFollowers: 55350, topPost: { likes: 267, comments: 9, link: 'https://www.instagram.com/reel/DTVrr2iDgHp/', title: 'Essas palavras, ditas antes de sua partida, servem como um lembrete poderoso de que a vida' } },
+  '2026-01-31': { posts: 1, likes: 445, comments: 20, newFollowers: 450, closedFollowers: 55800, topPost: { likes: 445, comments: 20, link: 'https://www.instagram.com/reel/DUL7m4hidnT/', title: 'Gente 😳😕' } },
+
+  // Agosto/2026
+  '2026-08-05': { posts: 4, likes: 1804, comments: 58, newFollowers: 2200, closedFollowers: 67400, topPost: { likes: 1546, comments: 44, link: 'https://www.instagram.com/reel/DbqeauuO7X3/', title: 'Um momento de descontração virou tragédia. César Gastélum, que somava quase 600 mil seguid' } },
+  '2026-08-06': { posts: 1, likes: 79, comments: 6, newFollowers: 150, closedFollowers: 67550, topPost: { likes: 79, comments: 6, link: 'https://www.instagram.com/reel/Dbt7R6wlYo8/', title: '🌪️ Um tornado foi registrado no interior de Pedro Osório, no Rio Grande do Sul, nesta quin' } },
+  '2026-08-07': { posts: 3, likes: 215, comments: 11, newFollowers: 450, closedFollowers: 68000, topPost: { likes: 129, comments: 4, link: 'https://www.instagram.com/reel/Dbvw2Zxkv1b/', title: 'Um homem que trabalhava em uma plataforma na Baía de Santos capturou imagens impressionant' } },
+
+  // Setembro/2026
+  '2026-09-13': { posts: 2, likes: 15, comments: 23, newFollowers: 35, closedFollowers: 68035, topPost: { likes: 12, comments: 8, link: 'https://www.instagram.com/reel/DdPO8NKRRlj/', title: 'O deputado federal Nikolas Ferreira (PL-MG) marcou presença em Macapá neste domingo (13) p' } },
+  '2026-09-15': { posts: 7, likes: 973, comments: 143, newFollowers: 850, closedFollowers: 68885, topPost: { likes: 400, comments: 96, link: 'https://www.instagram.com/reel/DdU2tZyxBy0/', title: 'O ministro Flávio Dino fez críticas à condução do caso envolvendo Alexandre de Moraes dura' } },
+  '2026-09-16': { posts: 4, likes: 169, comments: 146, newFollowers: 160, closedFollowers: 69045, topPost: { likes: 78, comments: 125, link: 'https://www.instagram.com/reel/DdWGxFBxgon/', title: 'Ao ser confrontado sobre o Supremo Tribunal Federal, o presidente Lula preferiu não se com' } },
+  '2026-09-21': { posts: 3, likes: 1997, comments: 450, newFollowers: 1850, closedFollowers: 70895, topPost: { likes: 1898, comments: 450, link: 'https://www.instagram.com/reel/DdkaDu-ASEl/', title: 'Durante comício eleitoral realizado neste sábado (19) em Florianópolis, o presidente Luiz ' } },
+  '2026-09-22': { posts: 7, likes: 12762, comments: 669, newFollowers: 11800, closedFollowers: 82695, topPost: { likes: 12062, comments: 403, link: 'https://www.instagram.com/reel/Ddku4_aD4tz/', title: 'Populares documentaram em vídeo a passagem de um tornado nas imediações da área central de' } },
+  '2026-09-23': { posts: 4, likes: 71, comments: 19, newFollowers: 85, closedFollowers: 82780, topPost: { likes: 35, comments: 4, link: 'https://www.instagram.com/reel/DdoKX_DDuAk/', title: 'Durante pronunciamento na Assembleia Geral da ONU, o presidente Luiz Inácio Lula da Silva ' } },
+  '2026-09-24': { posts: 2, likes: 107, comments: 1, newFollowers: 110, closedFollowers: 82890, topPost: { likes: 98, comments: 1, link: 'https://www.instagram.com/reel/DdrM5JLDjBz/', title: 'Um grupo composto por cinco pescadores realizou o resgate de um filhote de elefante na reg' } },
+  '2026-09-25': { posts: 9, likes: 291, comments: 348, newFollowers: 380, closedFollowers: 83270, topPost: { likes: 139, comments: 337, link: 'https://www.instagram.com/reel/Dduwhy0CAU9/', title: 'O humorista e criador de conteúdo Rico Melquiades informou ao público que deixará o Brasil' } },
+  '2026-09-26': { posts: 1, likes: 2, comments: 0, newFollowers: 15, closedFollowers: 83285, topPost: { likes: 2, comments: 0, link: 'https://www.instagram.com/p/DdweC8fFs3W/', title: '📰 Bets: Proibição Governamental Alerta Grupos Liberais para Crescimento da Ilegalidade.' } },
+  '2026-09-28': { posts: 3, likes: 1055, comments: 95, newFollowers: 1020, closedFollowers: 84305, topPost: { likes: 972, comments: 12, link: 'https://www.instagram.com/reel/Dd1cmOYo3O8/', title: 'No último domingo (27), a região de Manang, no Nepal, foi atingida por um deslizamento de ' } },
+  '2026-09-29': { posts: 6, likes: 156, comments: 81, newFollowers: 320, closedFollowers: 84625, topPost: { likes: 51, comments: 34, link: 'https://www.instagram.com/reel/Dd37MUzDDlc/', title: 'Uma declaração do presidente Luiz Inácio Lula da Silva ganhou forte repercussão negativa e' } },
+  '2026-09-30': { posts: 1, likes: 20, comments: 0, newFollowers: 90, closedFollowers: 84715, topPost: { likes: 20, comments: 0, link: 'https://www.instagram.com/reel/Dd68pURFAZu/', title: 'Um voo comercial da FlyDubai, que viajava dos Emirados Árabes Unidos para Israel, foi palc' } }
+};
+
+const ALL_HISTORICAL_DAYS = { ...RAW_HISTORICAL_API_DAYS, ...RAW_OCTOBER_API_DAYS };
+
 // Balanço Consolidado dos 12 Meses de 2026 extraído da Meta Graph API e Histórico Oficial
 const YEAR_2026_MONTHS = [
   {
@@ -1970,23 +1998,29 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
     }
   ];
 
-  // Lista ordenada dos 31 dias do mês para consulta histórica e comparativa no 2º Quadro
+  // Resolução dinâmica do mês e dias ativos para consulta histórica e comparativa no 2º Quadro
   const todayBrtKey = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
   const yestBrtKey = dailyLedgerRef.current?.closedYesterday?.dayKey || '2026-10-26';
 
-  const month31DaysList = Array.from({ length: 31 }, (_, idx) => {
+  const selectedYear = Number(selectedMonthKey.slice(0, 4)) || 2026;
+  const selectedMonthNum = Number(selectedMonthKey.slice(5, 7)) || 10;
+  const daysInSelectedMonth = new Date(selectedYear, selectedMonthNum, 0).getDate();
+  const selectedMonthStr = String(selectedMonthNum).padStart(2, '0');
+
+  const activeMonthDaysList = Array.from({ length: daysInSelectedMonth }, (_, idx) => {
     const dNum = String(idx + 1).padStart(2, '0');
-    const dKey = `2026-10-${dNum}`;
-    const auditedStatic = INITIAL_MONTH_DAYS_MAP[dKey];
+    const dKey = `${selectedMonthKey}-${dNum}`;
+    const auditedStatic = ALL_HISTORICAL_DAYS[dKey] || (selectedMonthKey === '2026-10' ? INITIAL_MONTH_DAYS_MAP[dKey] : null);
     const baseEntry = monthDaysMap[dKey] || auditedStatic || {
       dayKey: dKey,
       dayNum: dNum,
-      label: `${dNum}/10`,
+      label: `${dNum}/${selectedMonthStr}`,
       isFuture: dKey > todayBrtKey,
       ...buildDerivedDailyMetrics(0, 0, 0, 0),
       topPost: null
     };
-    // Garante que Hoje e Ontem na barra de 31 dias reflitam 100% em tempo real o painel diário e o histórico auditado
+
+    // Garante que Hoje e Ontem reflitam em tempo real o painel diário e o histórico auditado
     if (dKey === todayBrtKey) {
       return {
         ...baseEntry,
@@ -2009,69 +2043,79 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
     }
     return {
       ...baseEntry,
-      ...(auditedStatic ? { newFollowers: auditedStatic.newFollowers, closedFollowers: auditedStatic.closedFollowers } : {}),
+      label: `${dNum}/${selectedMonthStr}`,
+      ...(auditedStatic ? {
+        newFollowers: auditedStatic.newFollowers || 0,
+        closedFollowers: auditedStatic.closedFollowers || 0,
+        posts: auditedStatic.posts || 0,
+        likes: auditedStatic.likes || 0,
+        comments: auditedStatic.comments || 0,
+        ...buildDerivedDailyMetrics(auditedStatic.posts || 0, auditedStatic.likes || 0, auditedStatic.comments || 0, auditedStatic.newFollowers || 0),
+        topPost: auditedStatic.topPost || null
+      } : {}),
       isToday: false,
       isYesterday: false,
       isFuture: dKey > todayBrtKey
     };
   });
 
-  const maxMonthDayViews = Math.max(...month31DaysList.map(d => d.views || 0), 1);
+  const maxMonthDayViews = Math.max(...activeMonthDaysList.map(d => d.views || 0), 1);
 
   const selectedMonthObj = YEAR_2026_MONTHS.find(m => m.key === selectedMonthKey) || YEAR_2026_MONTHS[9];
   const isMonthSelectedHistorical = Boolean(selectedMonthKey && selectedMonthKey !== '2026-10');
 
-  // Resolução do dia ativo e dia comparativo nos 8 cards do 2º Quadro conforme seleção na régua de 31 dias ou meses
+  // Resolução do dia ativo e dia comparativo nos 8 cards do 2º Quadro conforme seleção na régua de dias ou meses
   const selectedDayEntry = selectedHistoryDayKey
-    ? month31DaysList.find(d => d.dayKey === selectedHistoryDayKey) || null
+    ? activeMonthDaysList.find(d => d.dayKey === selectedHistoryDayKey) || null
     : null;
 
   const selectedDayIdx = selectedDayEntry
-    ? month31DaysList.findIndex(d => d.dayKey === selectedDayEntry.dayKey)
+    ? activeMonthDaysList.findIndex(d => d.dayKey === selectedDayEntry.dayKey)
     : -1;
 
   const prevOfSelectedEntry = selectedDayIdx > 0
-    ? month31DaysList[selectedDayIdx - 1]
-    : dailyPulse.yesterdayFullDay;
+    ? activeMonthDaysList[selectedDayIdx - 1]
+    : null;
 
-  const isHistoricalSelected = Boolean(selectedDayEntry && !selectedDayEntry.isToday);
+  const isDaySelected = Boolean(selectedDayEntry && (!selectedDayEntry.isToday || selectedMonthKey !== '2026-10'));
+  const isHistoricalSelected = isDaySelected;
 
-  // Se um mês histórico anterior foi selecionado, os 8 cards mostram o Balanço Consolidado daquele mês vs o anterior
-  const activePrimaryMetrics = isMonthSelectedHistorical
-    ? selectedMonthObj
-    : !isHistoricalSelected
-      ? t
-      : (historyCompareMode === 'inspect_day' ? selectedDayEntry : t);
+  // Se um dia individual foi clicado, os 8 cards mostram o dia selecionado vs dia anterior;
+  // Se nenhum dia estiver clicado e o mês for histórico, mostram o Balanço Consolidado daquele mês vs o mês anterior;
+  // Caso contrário (Outubro padrão), mostram o Desempenho de Hoje em Tempo Real vs Ontem
+  const activePrimaryMetrics = isDaySelected
+    ? selectedDayEntry
+    : isMonthSelectedHistorical
+      ? selectedMonthObj
+      : t;
 
-  const activeCompareMetrics = isMonthSelectedHistorical
-    ? (selectedMonthObj.prevMonth || selectedMonthObj)
-    : !isHistoricalSelected
-      ? y
-      : (historyCompareMode === 'inspect_day' ? prevOfSelectedEntry : selectedDayEntry);
+  const activeCompareMetrics = isDaySelected
+    ? (prevOfSelectedEntry || { posts: 0, likes: 0, comments: 0, views: 0, reposts: 0, sends: 0, saves: 0, interactions: 0, newFollowers: 0, closedFollowers: selectedDayEntry?.closedFollowers || 0 })
+    : isMonthSelectedHistorical
+      ? (selectedMonthObj.prevMonth || selectedMonthObj)
+      : y;
 
-  const activeCompareRowLabel = isMonthSelectedHistorical
-    ? `${selectedMonthObj.prevMonthName?.split('/')[0] || 'Mês Ant.'}:`
-    : !isHistoricalSelected
-      ? 'Ontem:'
-      : (historyCompareMode === 'inspect_day'
-        ? `Dia ${prevOfSelectedEntry?.label || 'Ant.'}:`
-        : `Dia ${selectedDayEntry.label}:`);
+  const activeCompareRowLabel = isDaySelected
+    ? `Dia ${prevOfSelectedEntry?.label || 'Ant.'}:`
+    : isMonthSelectedHistorical
+      ? `${selectedMonthObj.prevMonthName?.split('/')[0] || 'Mês Ant.'}:`
+      : 'Ontem:';
 
   const activePrimaryTotalInteractions =
     activePrimaryMetrics.interactions || (
-      activePrimaryMetrics.likes +
-      activePrimaryMetrics.comments +
-      activePrimaryMetrics.reposts +
-      activePrimaryMetrics.sends +
+      (activePrimaryMetrics.likes || 0) +
+      (activePrimaryMetrics.comments || 0) +
+      (activePrimaryMetrics.reposts || 0) +
+      (activePrimaryMetrics.sends || 0) +
       (activePrimaryMetrics.saves || 0)
     );
 
   const activeCompareTotalInteractions =
     activeCompareMetrics.interactions || (
-      activeCompareMetrics.likes +
-      activeCompareMetrics.comments +
-      activeCompareMetrics.reposts +
-      activeCompareMetrics.sends +
+      (activeCompareMetrics.likes || 0) +
+      (activeCompareMetrics.comments || 0) +
+      (activeCompareMetrics.reposts || 0) +
+      (activeCompareMetrics.sends || 0) +
       (activeCompareMetrics.saves || 0)
     );
 
@@ -2081,13 +2125,13 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'newFollowers',
       title: 'Novos Seguidores',
       icon: '👤+',
-      val: activePrimaryMetrics.newFollowers,
-      yestVal: activeCompareMetrics.newFollowers,
-      monthLabel: 'Total:',
+      val: activePrimaryMetrics.newFollowers || 0,
+      yestVal: activeCompareMetrics.newFollowers || 0,
+      monthLabel: isDaySelected ? 'No Dia:' : isMonthSelectedHistorical ? 'Total Mês:' : 'Total:',
       monthVal: fmtPtBr(
-        isMonthSelectedHistorical
-          ? activePrimaryMetrics.closedFollowers
-          : isHistoricalSelected && historyCompareMode === 'inspect_day' && activePrimaryMetrics.closedFollowers
+        isDaySelected
+          ? (activePrimaryMetrics.closedFollowers || 0)
+          : isMonthSelectedHistorical
             ? activePrimaryMetrics.closedFollowers
             : followersCount
       ),
@@ -2100,10 +2144,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'views',
       title: 'Visualizações',
       icon: '👁️',
-      val: activePrimaryMetrics.views,
-      yestVal: activeCompareMetrics.views,
-      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
-      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.views : monthViews),
+      val: activePrimaryMetrics.views || 0,
+      yestVal: activeCompareMetrics.views || 0,
+      monthLabel: isDaySelected ? 'No Dia:' : isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isDaySelected ? (activePrimaryMetrics.views || 0) : isMonthSelectedHistorical ? activePrimaryMetrics.views : monthViews),
       valColor: 'text-[#00F0FF]',
       hoverBorder: 'hover:border-[#00F0FF]'
     },
@@ -2111,10 +2155,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'likes',
       title: 'Curtidas',
       icon: '❤️',
-      val: activePrimaryMetrics.likes,
-      yestVal: activeCompareMetrics.likes,
-      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
-      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.likes : monthLikes),
+      val: activePrimaryMetrics.likes || 0,
+      yestVal: activeCompareMetrics.likes || 0,
+      monthLabel: isDaySelected ? 'No Dia:' : isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isDaySelected ? (activePrimaryMetrics.likes || 0) : isMonthSelectedHistorical ? activePrimaryMetrics.likes : monthLikes),
       valColor: 'text-white',
       hoverBorder: 'hover:border-[#FF0055]'
     },
@@ -2122,10 +2166,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'comments',
       title: 'Comentários',
       icon: '💬',
-      val: activePrimaryMetrics.comments,
-      yestVal: activeCompareMetrics.comments,
-      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
-      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.comments : monthComments),
+      val: activePrimaryMetrics.comments || 0,
+      yestVal: activeCompareMetrics.comments || 0,
+      monthLabel: isDaySelected ? 'No Dia:' : isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isDaySelected ? (activePrimaryMetrics.comments || 0) : isMonthSelectedHistorical ? activePrimaryMetrics.comments : monthComments),
       valColor: 'text-amber-400',
       hoverBorder: 'hover:border-amber-400'
     },
@@ -2133,10 +2177,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'reposts',
       title: 'Reposts',
       icon: '🔁',
-      val: activePrimaryMetrics.reposts,
-      yestVal: activeCompareMetrics.reposts,
-      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
-      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.reposts : monthReposts),
+      val: activePrimaryMetrics.reposts || 0,
+      yestVal: activeCompareMetrics.reposts || 0,
+      monthLabel: isDaySelected ? 'No Dia:' : isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isDaySelected ? (activePrimaryMetrics.reposts || 0) : isMonthSelectedHistorical ? activePrimaryMetrics.reposts : monthReposts),
       valColor: 'text-purple-400',
       hoverBorder: 'hover:border-purple-500'
     },
@@ -2144,10 +2188,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'sends',
       title: 'Envios Direct',
       icon: '✈️',
-      val: activePrimaryMetrics.sends,
-      yestVal: activeCompareMetrics.sends,
-      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
-      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.sends : monthSends),
+      val: activePrimaryMetrics.sends || 0,
+      yestVal: activeCompareMetrics.sends || 0,
+      monthLabel: isDaySelected ? 'No Dia:' : isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isDaySelected ? (activePrimaryMetrics.sends || 0) : isMonthSelectedHistorical ? activePrimaryMetrics.sends : monthSends),
       valColor: 'text-sky-400',
       hoverBorder: 'hover:border-sky-400'
     },
@@ -2155,10 +2199,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       key: 'saves',
       title: 'Salvamentos',
       icon: '🔖',
-      val: activePrimaryMetrics.saves,
-      yestVal: activeCompareMetrics.saves,
-      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
-      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryMetrics.saves : monthSaves),
+      val: activePrimaryMetrics.saves || 0,
+      yestVal: activeCompareMetrics.saves || 0,
+      monthLabel: isDaySelected ? 'No Dia:' : isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isDaySelected ? (activePrimaryMetrics.saves || 0) : isMonthSelectedHistorical ? activePrimaryMetrics.saves : monthSaves),
       valColor: 'text-indigo-400',
       hoverBorder: 'hover:border-indigo-400'
     },
@@ -2168,8 +2212,8 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
       icon: '⚡',
       val: activePrimaryTotalInteractions,
       yestVal: activeCompareTotalInteractions,
-      monthLabel: isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
-      monthVal: fmtPtBr(isMonthSelectedHistorical ? activePrimaryTotalInteractions : monthTotalInteractions),
+      monthLabel: isDaySelected ? 'No Dia:' : isMonthSelectedHistorical ? 'Fechamento:' : 'Mês:',
+      monthVal: fmtPtBr(isDaySelected ? activePrimaryTotalInteractions : isMonthSelectedHistorical ? activePrimaryTotalInteractions : monthTotalInteractions),
       valColor: 'text-[#FF0055]',
       hoverBorder: 'hover:border-[#FF0055]'
     }
@@ -2341,17 +2385,17 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                   <h2 className="text-base sm:text-lg font-black text-white leading-tight">
-                    {isMonthSelectedHistorical
-                      ? `Balanço Mensal • ${selectedMonthObj?.name || 'Mês'}/2026`
-                      : isHistoricalSelected
-                        ? `Desempenho do Dia ${selectedDayEntry.label}/2026`
+                    {isDaySelected
+                      ? `Desempenho do Dia ${selectedDayEntry.label}/2026`
+                      : isMonthSelectedHistorical
+                        ? `Balanço Mensal • ${selectedMonthObj?.name || 'Mês'}/2026`
                         : 'Desempenho de Hoje em Tempo Real'}
                   </h2>
                   <span className="text-xs font-extrabold text-[#00F0FF]">
-                    {isMonthSelectedHistorical
-                      ? `(${selectedMonthObj?.posts || 0} publicações no mês • Balanço comparativo vs ${selectedMonthObj?.prevMonthName || 'mês anterior'})`
-                      : isHistoricalSelected
-                        ? `(${selectedDayEntry.posts} publicações em ${selectedDayEntry.label} • ${prevOfSelectedEntry?.posts || 0} publicações no dia anterior)`
+                    {isDaySelected
+                      ? `(${selectedDayEntry.posts} publicações em ${selectedDayEntry.label} • ${prevOfSelectedEntry?.posts || 0} publicações no dia anterior)`
+                      : isMonthSelectedHistorical
+                        ? `(${selectedMonthObj?.posts || 0} publicações no mês • Balanço comparativo vs ${selectedMonthObj?.prevMonthName || 'mês anterior'})`
                         : `(${t.posts} publicações hoje • ${dailyPulse.yesterdayFullDay.posts} publicações ontem • Fechamento diário às 00:00)`}
                   </span>
                 </div>
@@ -2376,7 +2420,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                     setCompareMode('full_day');
                   }}
                   className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
-                    !isMonthSelectedHistorical && !isHistoricalSelected && compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
+                    !isMonthSelectedHistorical && !isDaySelected && compareMode === 'full_day' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
                   }`}
                 >
                   Vs. Ontem (Fechado 00h)
@@ -2388,7 +2432,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                     setCompareMode('same_hour');
                   }}
                   className={`px-2.5 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer whitespace-nowrap ${
-                    !isMonthSelectedHistorical && !isHistoricalSelected && compareMode === 'same_hour' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
+                    !isMonthSelectedHistorical && !isDaySelected && compareMode === 'same_hour' ? 'font-black bg-[#00F0FF] text-slate-950' : 'font-bold text-slate-400 hover:text-white'
                   }`}
                 >
                   Vs. Ontem (Mesmo Horário)
@@ -2404,7 +2448,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                 <span className="w-1.5 h-1.5 rounded-full bg-[#00F0FF]"></span>
                 Balanço Mensal • Meses de 2026
               </span>
-              {isMonthSelectedHistorical && (
+              {(isMonthSelectedHistorical || selectedHistoryDayKey) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -2413,7 +2457,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                   }}
                   className="text-[#00F0FF] hover:underline cursor-pointer font-bold text-[9.5px] transition-all"
                 >
-                  ↺ Voltar para Outubro (Atual)
+                  ↺ Voltar para Outubro (Hoje ao vivo)
                 </button>
               )}
             </div>
@@ -2453,25 +2497,29 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
             </div>
           </div>
 
-          {/* Régua minimalista de 31 quadrados (01 a 31) em uma única linha — clique dia a dia para ver o progresso nos cards abaixo */}
+          {/* Régua minimalista de dias do mês selecionado em uma única linha — clique dia a dia para ver o progresso nos cards abaixo */}
           <div
             className="grid gap-1 w-full"
-            style={{ gridTemplateColumns: 'repeat(31, minmax(0, 1fr))' }}
+            style={{ gridTemplateColumns: `repeat(${daysInSelectedMonth}, minmax(0, 1fr))` }}
           >
-            {month31DaysList.map((dItem) => {
-              const isSelected = !isMonthSelectedHistorical && (isHistoricalSelected
+            {activeMonthDaysList.map((dItem) => {
+              const isSelected = selectedHistoryDayKey
                 ? dItem.dayKey === selectedHistoryDayKey
-                : dItem.isToday);
+                : (!isMonthSelectedHistorical && dItem.isToday);
+
+              const hasContent = (dItem.posts > 0) || (dItem.likes > 0);
 
               let btnCls = 'bg-[#080C18] border-slate-800 text-slate-300 hover:border-[#00F0FF]/60 hover:text-white';
               if (dItem.isFuture) {
                 btnCls = 'bg-[#070A14]/40 border-slate-900 text-slate-600 opacity-40 cursor-not-allowed';
               } else if (isSelected) {
-                btnCls = 'bg-[#00F0FF] border-[#00F0FF] text-slate-950 shadow-md shadow-[#00F0FF]/25';
+                btnCls = 'bg-[#00F0FF] border-[#00F0FF] text-slate-950 font-black shadow-md shadow-[#00F0FF]/25';
               } else if (dItem.isToday) {
                 btnCls = 'bg-emerald-500/15 border-emerald-500/60 text-emerald-400 hover:bg-emerald-500/25';
               } else if (dItem.isYesterday) {
                 btnCls = 'bg-amber-500/15 border-amber-500/50 text-amber-300 hover:bg-amber-500/25';
+              } else if (hasContent) {
+                btnCls = 'bg-slate-900/90 border-slate-700 text-white hover:border-[#00F0FF]/80';
               }
 
               return (
@@ -2480,8 +2528,10 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                   type="button"
                   disabled={dItem.isFuture}
                   onClick={() => {
-                    setSelectedMonthKey('2026-10');
-                    if (dItem.isToday) {
+                    if (selectedHistoryDayKey === dItem.dayKey) {
+                      // Se já está selecionado, desseleciona voltando ao balanço do mês
+                      setSelectedHistoryDayKey(null);
+                    } else if (dItem.isToday && selectedMonthKey === '2026-10') {
                       setSelectedHistoryDayKey(null);
                     } else {
                       setHistoryCompareMode('inspect_day');
@@ -2491,7 +2541,7 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
                   className={`h-7 w-full rounded-md border text-[10px] font-black flex items-center justify-center transition-all select-none ${
                     dItem.isFuture ? 'cursor-not-allowed' : 'cursor-pointer'
                   } ${btnCls}`}
-                  title={`Dia ${dItem.label}/2026`}
+                  title={`Dia ${dItem.label}/2026${hasContent ? ` • ${dItem.posts} posts • ${fmtPtBr(dItem.likes)} curtidas` : ''}`}
                 >
                   {dItem.dayNum}
                 </button>
