@@ -2008,6 +2008,9 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   const daysInSelectedMonth = new Date(selectedYear, selectedMonthNum, 0).getDate();
   const selectedMonthStr = String(selectedMonthNum).padStart(2, '0');
 
+  const selectedMonthObj = YEAR_2026_MONTHS.find(m => m.key === selectedMonthKey) || YEAR_2026_MONTHS[9];
+  const isMonthSelectedHistorical = Boolean(selectedMonthKey && selectedMonthKey !== '2026-10');
+
   const activeMonthDaysList = Array.from({ length: daysInSelectedMonth }, (_, idx) => {
     const dNum = String(idx + 1).padStart(2, '0');
     const dKey = `${selectedMonthKey}-${dNum}`;
@@ -2073,9 +2076,6 @@ export default function AnalyticsDashboard({ isPublicMediaKit = false, onNavigat
   });
 
   const maxMonthDayViews = Math.max(...activeMonthDaysList.map(d => d.views || 0), 1);
-
-  const selectedMonthObj = YEAR_2026_MONTHS.find(m => m.key === selectedMonthKey) || YEAR_2026_MONTHS[9];
-  const isMonthSelectedHistorical = Boolean(selectedMonthKey && selectedMonthKey !== '2026-10');
 
   // Resolução do dia ativo e dia comparativo nos 8 cards do 2º Quadro conforme seleção na régua de dias ou meses
   const selectedDayEntry = selectedHistoryDayKey
