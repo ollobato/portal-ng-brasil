@@ -23,7 +23,7 @@ import { formatInstagramCaption, formatFacebookCaption, formatThreadsCaption, sh
 import { uploadImageForSocial, uploadVideoForSocial } from '../utils/imageUploader';
 import { safeLoadImageForCanvas } from '../utils/imageLoader';
 import { publishToFacebookPage, resolveFacebookPageToken, publishToThreads, FALLBACK_META_SETTINGS } from '../utils/metaPublisher';
-import { calculateAutoFitTypography, getHighlightRange } from '../utils/ngCardRenderer.js';
+import { calculateAutoFitTypography, getHighlightRange, ensureBarlowCondensedLoaded } from '../utils/ngCardRenderer.js';
 
 const formatText = (text) => {
   if (!text) return '';
@@ -136,7 +136,11 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     setCategory(article.categoryLabel || article.category || 'NOTÍCIAS');
 
     if (isDifferentArticle) {
-      setCards(createDefaultCards(article));
+      if (Array.isArray(article.socialCards) && article.socialCards.length > 0) {
+        setCards(article.socialCards);
+      } else {
+        setCards(createDefaultCards(article));
+      }
       setActiveCardIndex(0);
       setIsCaptionCustomized(false);
       setIsFbCaptionCustomized(false);
@@ -144,21 +148,35 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       setCards(prev => {
         if (!prev.length) return createDefaultCards(article);
         const first = prev[0];
+        const nextTitle = first.customTitle ? first.title : (formatText(article.title) || first.title);
+        const nextSub = first.customSubtitle ? first.subtitle : (formatText(article.subtitle) || first.subtitle);
+        const nextImg = first.customImage ? first.imageUrl : getInitialImage(article);
+
+        // Se nenhum dado do Card 1 mudou, não recria o array para evitar loops
+        if (first.title === nextTitle && first.subtitle === nextSub && first.imageUrl === nextImg) {
+          return prev;
+        }
+
         const updatedFirst = {
           ...first,
-          title: first.customTitle ? first.title : (formatText(article.title) || first.title),
-          subtitle: first.customSubtitle ? first.subtitle : (formatText(article.subtitle) || first.subtitle),
-          imageUrl: first.customImage ? first.imageUrl : getInitialImage(article)
+          title: nextTitle,
+          subtitle: nextSub,
+          imageUrl: nextImg
         };
         return [updatedFirst, ...prev.slice(1)];
       });
     }
-  }, [article]);
+  }, [article?.id, article?.title, article?.subtitle, article?.image, article?.category, article?.categoryLabel, article?.socialCards]);
 
-  // Notifica o componente pai sobre alterações nos cards do carrossel
+  // Notifica o componente pai sobre alterações nos cards do carrossel com blindagem contra re-renders
+  const lastCardsJsonRef = useRef('');
   useEffect(() => {
     if (typeof onCardsChange === 'function' && Array.isArray(cards)) {
-      onCardsChange(cards);
+      const json = JSON.stringify(cards.map(c => ({ id: c.id, mode: c.mode, title: c.title, imageUrl: c.imageUrl })));
+      if (json !== lastCardsJsonRef.current) {
+        lastCardsJsonRef.current = json;
+        onCardsChange(cards);
+      }
     }
   }, [cards, onCardsChange]);
 
@@ -443,145 +461,186 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   const drawCardOnCanvas = async (targetCanvas, cardData, ratio = aspectRatio, transparentVideoTop = false) => {
     if (!targetCanvas || !cardData) return;
     const ctx = targetCanvas.getContext('2d');
+    if (!ctx) return;
 
     const width = 1080;
-    const height = ratio === '1:1' ? 1080 : ratio === '9:16' ? 1920 : 1440;
-    targetCanvas.width = width;
-    targetCanvas.height = height;
-
-    ctx.clearRect(0, 0, width, height);
-
-    if (!transparentVideoTop) {
-      ctx.fillStyle = '#040f1d';
-      ctx.fillRect(0, 0, width, height);
+    const height = ratio === '1:1' ? 1080 : ratio === '9:16' ? 1920 : 1350;
+    if (targetCanvas.width !== width || targetCanvas.height !== height) {
+      targetCanvas.width = width;
+      targetCanvas.height = height;
     }
 
-    // MODO 1: APENAS IMAGEM/VÍDEO INTEIRO
-    if (cardData.mode === 'full_image') {
-      if (cardData.mediaType === 'video') {
+    try {
+      await ensureBarlowCondensedLoaded();
+
+      ctx.clearRect(0, 0, width, height);
+
+      if (!transparentVideoTop) {
+        ctx.fillStyle = '#040f1d';
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      // MODO 1: APENAS IMAGEM/VÍDEO INTEIRO
+      if (cardData.mode === 'full_image') {
+        if (cardData.mediaType === 'video') {
+          if (cardData.showLogoOnFullImage) {
+            let logo = null;
+            try {
+              logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
+            } catch (_) {}
+            if (logo && logo.naturalWidth > 0) {
+              ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
+            }
+          }
+          return;
+        }
+
+        let img = null;
+        try {
+          if (cardData.imageUrl) {
+            img = await safeLoadImageForCanvas(cardData.imageUrl);
+          }
+        } catch (_) {}
+
+        if (img && img.naturalWidth > 0) {
+          if (cardData.objectFit === 'contain') {
+            const scale = Math.min(width / img.width, height / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            const x = (width - w) / 2;
+            const y = (height - h) / 2;
+            ctx.drawImage(img, x, y, w, h);
+          } else {
+            const scale = Math.max(width / img.width, height / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            const x = (width - w) / 2;
+            const y = (height - h) / 2;
+            ctx.drawImage(img, x, y, w, h);
+          }
+        } else {
+          ctx.fillStyle = '#020617';
+          ctx.fillRect(0, 0, width, height);
+          ctx.fillStyle = '#475569';
+          ctx.font = 'bold 42px "Barlow Condensed", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('FAÇA UPLOAD DA FOTO OU VÍDEO', width / 2, height / 2);
+        }
+
         if (cardData.showLogoOnFullImage) {
-          const logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
-          if (logo) {
+          let logo = null;
+          try {
+            logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
+          } catch (_) {}
+          if (logo && logo.naturalWidth > 0) {
             ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
           }
         }
         return;
       }
 
-      const img = await safeLoadImageForCanvas(cardData.imageUrl);
-      if (img) {
-        if (cardData.objectFit === 'contain') {
-          const scale = Math.min(width / img.width, height / img.height);
-          const w = img.width * scale;
-          const h = img.height * scale;
-          const x = (width - w) / 2;
-          const y = (height - h) / 2;
-          ctx.drawImage(img, x, y, w, h);
-        } else {
-          const scale = Math.max(width / img.width, height / img.height);
-          const w = img.width * scale;
-          const h = img.height * scale;
-          const x = (width - w) / 2;
-          const y = (height - h) / 2;
-          ctx.drawImage(img, x, y, w, h);
-        }
+      // MODO 2: TEMPLATE OFICIAL PORTAL NG BRASIL (FOTO/VÍDEO + TEXTO)
+      const targetHeight = height * 0.58;
+
+      if (cardData.mediaType === 'video' && transparentVideoTop) {
+        // Deixa o topo transparente para o elemento <video> aparecer ao vivo e aplica apenas o gradiente na transição
+        const grad = ctx.createLinearGradient(0, targetHeight - 160, 0, targetHeight);
+        grad.addColorStop(0, 'rgba(0, 23, 46, 0)');
+        grad.addColorStop(1, '#00172e');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, targetHeight - 160, width, 160);
       } else {
-        ctx.fillStyle = '#020617';
-        ctx.fillRect(0, 0, width, height);
-        ctx.fillStyle = '#475569';
-        ctx.font = 'bold 42px "Barlow Condensed", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('FAÇA UPLOAD DA FOTO OU VÍDEO', width / 2, height / 2);
-      }
+        let img1 = null;
+        let img2 = null;
+        try {
+          const loadPromises = [
+            cardData.imageUrl ? safeLoadImageForCanvas(cardData.imageUrl) : Promise.resolve(null),
+            cardData.useTwoPhotos && cardData.secondImageUrl ? safeLoadImageForCanvas(cardData.secondImageUrl) : Promise.resolve(null)
+          ];
+          const results = await Promise.all(loadPromises);
+          img1 = results[0];
+          img2 = results[1];
+        } catch (_) {}
 
-      if (cardData.showLogoOnFullImage) {
-        const logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
-        if (logo) {
-          ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
+        if (!cardData.useTwoPhotos || !img2) {
+          if (img1 && img1.naturalWidth > 0) {
+            const scale = Math.max(width / img1.width, targetHeight / img1.height);
+            const x = (width / 2) - (img1.width / 2) * scale;
+            const y = (targetHeight / 2) - (img1.height / 2) * scale;
+            ctx.drawImage(img1, x, y, img1.width * scale, img1.height * scale);
+
+            const grad = ctx.createLinearGradient(0, targetHeight - 160, 0, targetHeight);
+            grad.addColorStop(0, 'rgba(0, 23, 46, 0)');
+            grad.addColorStop(1, '#00172e');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, targetHeight - 160, width, 160);
+          } else {
+            const bgGrad = ctx.createLinearGradient(0, 0, width, targetHeight);
+            bgGrad.addColorStop(0, '#0a1628');
+            bgGrad.addColorStop(1, '#00172e');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, targetHeight);
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#475569';
+            ctx.font = '600 28px "Barlow Condensed", sans-serif';
+            ctx.fillText(cardData.imageUrl ? 'FOTO EM TRATAMENTO OU PROTEGIDA' : 'PORTAL NG BRASIL • JORNALISMO INDEPENDENTE', width / 2, targetHeight / 2);
+          }
+        } else {
+          const halfWidth = width / 2;
+
+          if (img1 && img1.naturalWidth > 0) {
+            const scale1 = Math.max(halfWidth / img1.width, targetHeight / img1.height);
+            const w1 = img1.width * scale1;
+            const h1 = img1.height * scale1;
+            const x1 = (halfWidth / 2) - (w1 / 2);
+            const y1 = (targetHeight / 2) - (h1 / 2);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, halfWidth, targetHeight);
+            ctx.clip();
+            ctx.drawImage(img1, x1, y1, w1, h1);
+            ctx.restore();
+          } else {
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, halfWidth, targetHeight);
+          }
+
+          if (img2 && img2.naturalWidth > 0) {
+            const scale2 = Math.max(halfWidth / img2.width, targetHeight / img2.height);
+            const w2 = img2.width * scale2;
+            const h2 = img2.height * scale2;
+            const x2 = halfWidth + (halfWidth / 2) - (w2 / 2);
+            const y2 = (targetHeight / 2) - (h2 / 2);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(halfWidth, 0, halfWidth, targetHeight);
+            ctx.clip();
+            ctx.drawImage(img2, x2, y2, w2, h2);
+            ctx.restore();
+          } else {
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(halfWidth, 0, halfWidth, targetHeight);
+          }
+
+          ctx.fillStyle = '#00172e';
+          ctx.fillRect(halfWidth - 2, 0, 4, targetHeight);
         }
       }
-      return;
+
+      let logo = null;
+      try {
+        logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
+      } catch (_) {}
+
+      finalizeTemplateDraw(ctx, width, height, logo, cardData.title || '', cardData.subtitle || '');
+    } catch (err) {
+      console.error("Erro ao desenhar card no canvas:", err);
     }
-
-    // MODO 2: TEMPLATE OFICIAL PORTAL NG BRASIL (FOTO/VÍDEO + TEXTO)
-    const targetHeight = height * 0.58;
-
-    if (cardData.mediaType === 'video' && transparentVideoTop) {
-      // Deixa o topo transparente para o elemento <video> aparecer ao vivo e aplica apenas o gradiente na transição
-      const grad = ctx.createLinearGradient(0, targetHeight - 160, 0, targetHeight);
-      grad.addColorStop(0, 'rgba(0, 23, 46, 0)');
-      grad.addColorStop(1, '#00172e');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, targetHeight - 160, width, 160);
-    } else {
-      const [img1, img2] = await Promise.all([
-        safeLoadImageForCanvas(cardData.imageUrl),
-        cardData.useTwoPhotos ? safeLoadImageForCanvas(cardData.secondImageUrl) : Promise.resolve(null)
-      ]);
-
-      if (!cardData.useTwoPhotos || !img2) {
-        if (img1) {
-          const scale = Math.max(width / img1.width, targetHeight / img1.height);
-          const x = (width / 2) - (img1.width / 2) * scale;
-          const y = (targetHeight / 2) - (img1.height / 2) * scale;
-          ctx.drawImage(img1, x, y, img1.width * scale, img1.height * scale);
-
-          const grad = ctx.createLinearGradient(0, targetHeight - 160, 0, targetHeight);
-          grad.addColorStop(0, 'rgba(0, 23, 46, 0)');
-          grad.addColorStop(1, '#00172e');
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, targetHeight - 160, width, 160);
-        } else {
-          ctx.fillStyle = '#020617';
-          ctx.fillRect(0, 0, width, targetHeight);
-        }
-      } else {
-        const halfWidth = width / 2;
-
-        if (img1) {
-          const scale1 = Math.max(halfWidth / img1.width, targetHeight / img1.height);
-          const w1 = img1.width * scale1;
-          const h1 = img1.height * scale1;
-          const x1 = (halfWidth / 2) - (w1 / 2);
-          const y1 = (targetHeight / 2) - (h1 / 2);
-
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(0, 0, halfWidth, targetHeight);
-          ctx.clip();
-          ctx.drawImage(img1, x1, y1, w1, h1);
-          ctx.restore();
-        } else {
-          ctx.fillStyle = '#020617';
-          ctx.fillRect(0, 0, halfWidth, targetHeight);
-        }
-
-        if (img2) {
-          const scale2 = Math.max(halfWidth / img2.width, targetHeight / img2.height);
-          const w2 = img2.width * scale2;
-          const h2 = img2.height * scale2;
-          const x2 = halfWidth + (halfWidth / 2) - (w2 / 2);
-          const y2 = (targetHeight / 2) - (h2 / 2);
-
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(halfWidth, 0, halfWidth, targetHeight);
-          ctx.clip();
-          ctx.drawImage(img2, x2, y2, w2, h2);
-          ctx.restore();
-        } else {
-          ctx.fillStyle = '#020617';
-          ctx.fillRect(halfWidth, 0, halfWidth, targetHeight);
-        }
-
-        ctx.fillStyle = '#00172e';
-        ctx.fillRect(halfWidth - 2, 0, 4, targetHeight);
-      }
-    }
-
-    const logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
-    finalizeTemplateDraw(ctx, width, height, logo, cardData.title || '', cardData.subtitle || '');
   };
 
   const finalizeTemplateDraw = (ctx, width, height, logo, cardTitle, cardSubtitle) => {
@@ -608,9 +667,40 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     ctx.closePath();
     ctx.fill();
 
-    // Logo no topo direito
-    if (logo) {
-      ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
+    // Logo no topo direito com fallback de vetor puro
+    let logoDrawn = false;
+    if (logo && logo.naturalWidth > 0) {
+      try {
+        ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
+        logoDrawn = true;
+      } catch (_) {}
+    }
+
+    if (!logoDrawn) {
+      ctx.save();
+      const bx = width - 230;
+      const by = 45;
+      const bw = 175;
+      const bh = 65;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 10) : ctx.rect(bx, by, bw, bh);
+      ctx.fill();
+
+      ctx.font = 'bold 38px "Barlow Condensed", sans-serif';
+      ctx.fillStyle = '#040f1d';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('NG', bx + 18, by + bh / 2);
+
+      ctx.fillStyle = '#d40a38';
+      ctx.fillRect(bx + 80, by + 12, 4, bh - 24);
+
+      ctx.font = '900 18px "Barlow Condensed", sans-serif';
+      ctx.fillStyle = '#d40a38';
+      ctx.fillText('BRASIL', bx + 95, by + bh / 2);
+      ctx.restore();
     }
 
     const topLimit = cardY + 45;
@@ -620,60 +710,62 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
 
     // Cálculo dinâmico auto-fit (zero overflow)
     const typeResult = calculateAutoFitTypography(ctx, cardTitle, cardSubtitle, maxWidth, availableHeight, aspectRatio);
-    const {
-      titleSize,
-      titleLineHeight,
-      titleLines,
-      titleWords,
-      subSize,
-      subLineHeight,
-      subLines,
-      titleSpacing,
-      totalTextHeight
-    } = typeResult;
+    if (typeResult) {
+      const {
+        titleSize,
+        titleLineHeight,
+        titleLines,
+        titleWords,
+        subSize,
+        subLineHeight,
+        subLines,
+        titleSpacing,
+        totalTextHeight
+      } = typeResult;
 
-    const startY = Math.max(topLimit, topLimit + (availableHeight - totalTextHeight) / 2);
+      const startY = Math.max(topLimit, topLimit + (availableHeight - totalTextHeight) / 2);
 
-    // Desenha Título com destaque inteligente
-    ctx.font = `bold ${titleSize}px "Barlow Condensed", sans-serif`;
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
+      // Desenha Título com destaque inteligente
+      ctx.font = `bold ${titleSize}px "Barlow Condensed", sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'left';
 
-    const highlightInfo = getHighlightRange(titleWords);
-    let globalWordIndex = 0;
-    let textY = startY;
+      const highlightInfo = getHighlightRange(titleWords);
+      let globalWordIndex = 0;
+      let textY = startY;
 
-    titleLines.forEach(l => {
-      const lWords = l.split(' ').filter(Boolean);
-      const fullLineWidth = ctx.measureText(l).width;
-      let currentX = (width / 2) - (fullLineWidth / 2);
+      titleLines.forEach(l => {
+        const lWords = l.split(/\s+/).filter(Boolean);
+        const fullLineWidth = ctx.measureText(l).width;
+        let currentX = (width / 2) - (fullLineWidth / 2);
 
-      lWords.forEach((w, idx) => {
-        const isRed = highlightInfo.set.has(globalWordIndex);
-        ctx.fillStyle = isRed ? '#d40a38' : '#ffffff';
+        lWords.forEach((w, idx) => {
+          const isRed = highlightInfo.set.has(globalWordIndex);
+          ctx.fillStyle = isRed ? '#d40a38' : '#ffffff';
 
-        ctx.fillText(w, currentX, textY);
+          ctx.fillText(w, currentX, textY);
 
-        currentX += ctx.measureText(w).width;
-        if (idx < lWords.length - 1) {
-          currentX += ctx.measureText(' ').width;
-        }
-        globalWordIndex++;
+          currentX += ctx.measureText(w).width;
+          if (idx < lWords.length - 1) {
+            currentX += ctx.measureText(' ').width;
+          }
+          globalWordIndex++;
+        });
+        textY += titleLineHeight;
       });
-      textY += titleLineHeight;
-    });
 
-    // Desenha Subtítulo
-    if (subLines.length > 0) {
-      ctx.font = `400 ${subSize}px "Barlow Condensed", sans-serif`;
-      ctx.fillStyle = '#cbd5e1';
-      ctx.textAlign = 'center';
+      // Desenha Subtítulo
+      if (subLines.length > 0) {
+        ctx.font = `400 ${subSize}px "Barlow Condensed", sans-serif`;
+        ctx.fillStyle = '#cbd5e1';
+        ctx.textAlign = 'center';
 
-      let subY = textY + titleSpacing;
-      subLines.forEach(l => {
-        ctx.fillText(l, width / 2, subY);
-        subY += subLineHeight;
-      });
+        let subY = textY + titleSpacing;
+        subLines.forEach(l => {
+          ctx.fillText(l, width / 2, subY);
+          subY += subLineHeight;
+        });
+      }
     }
 
     // Rodapé
@@ -705,13 +797,10 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (canvasRef.current && activeCard) {
-        const isVideoOverlay = activeCard.mediaType === 'video' && Boolean(activeCard.videoUrl);
-        drawCardOnCanvas(canvasRef.current, activeCard, aspectRatio, isVideoOverlay);
-      }
-    }, 80);
-    return () => clearTimeout(timer);
+    if (canvasRef.current && activeCard) {
+      const isVideoOverlay = activeCard.mediaType === 'video' && Boolean(activeCard.videoUrl);
+      drawCardOnCanvas(canvasRef.current, activeCard, aspectRatio, isVideoOverlay);
+    }
   }, [activeCard, aspectRatio, refreshKey]);
 
   const handleForceImageRefresh = () => {

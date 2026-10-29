@@ -1228,6 +1228,8 @@ COMO VOCÊ DEVE AGIR:
       };
     }
 
+    const currentSocialCards = socialRef.current?.getCards ? socialRef.current.getCards() : (formData.socialCards || null);
+
     if (editingId) {
       const originalItem = editingIsDraft 
         ? draftData.find(d => String(d.id) === String(editingId)) 
@@ -1259,7 +1261,8 @@ COMO VOCÊ DEVE AGIR:
           link_fonte: formData.originalUrl || originalItem?.originalUrl || '',
           url: formData.originalUrl || originalItem?.originalUrl || '',
           fonte: formData.source || originalItem?.source || ''
-        }
+        },
+        socialCards: currentSocialCards
       };
       
       // SALVAR COMO "APRENDIZADO / PADRÃO OURO" PARA O ROBÔ
@@ -1320,7 +1323,8 @@ COMO VOCÊ DEVE AGIR:
           link_fonte: formData.originalUrl || '',
           url: formData.originalUrl || '',
           fonte: formData.source || ''
-        }
+        },
+        socialCards: currentSocialCards
       };
       await setNewsData([newArticle, ...newsData]);
       
@@ -3331,7 +3335,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             {/* Social Post Generator Integrado */}
             <div className="mt-12 mb-8">
               <h3 className="text-xl font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200">Artes e Redes Sociais</h3>
-              <SocialPostGenerator ref={socialRef} hideButtons={true} showToast={showToast} inline={true} article={formData} onCardsChange={(cards) => setFormData(prev => ({ ...prev, socialCards: cards }))} metaToken={metaToken} metaFbPageId={metaFbPageId} metaIgAccountId={metaIgAccountId} threadsToken={threadsToken} threadsUserId={threadsUserId} imgbbKey={imgbbKey} />
+              <SocialPostGenerator ref={socialRef} hideButtons={true} showToast={showToast} inline={true} article={formData} metaToken={metaToken} metaFbPageId={metaFbPageId} metaIgAccountId={metaIgAccountId} threadsToken={threadsToken} threadsUserId={threadsUserId} imgbbKey={imgbbKey} />
             </div>
 
             {/* Ações de Publicação e Aprovação */}

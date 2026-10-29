@@ -11,11 +11,19 @@ if (!$id) {
     serveFallbackImage();
 }
 
-// 1. Tenta buscar em 'drafts', depois em 'news'
-$endpoints = [
-    "https://firestore.googleapis.com/v1/projects/portal-ng-brasil/databases/(default)/documents/drafts/" . urlencode($id),
-    "https://firestore.googleapis.com/v1/projects/portal-ng-brasil/databases/(default)/documents/news/" . urlencode($id)
-];
+// Suporte a IDs com ou sem o prefixo 'news-'
+$cleanId = preg_replace('/^news-/', '', $id);
+$prefixedId = 'news-' . $cleanId;
+
+$idsToTry = array_unique([$id, $cleanId, $prefixedId]);
+
+$endpoints = [];
+foreach ($idsToTry as $candidateId) {
+    if (!empty($candidateId)) {
+        $endpoints[] = "https://firestore.googleapis.com/v1/projects/portal-ng-brasil/databases/(default)/documents/news/" . urlencode($candidateId);
+        $endpoints[] = "https://firestore.googleapis.com/v1/projects/portal-ng-brasil/databases/(default)/documents/drafts/" . urlencode($candidateId);
+    }
+}
 
 $image_data = "";
 
@@ -50,8 +58,20 @@ if (strpos($image_data, 'data:image') === 0) {
     list($type, $b64) = explode(';', $image_data);
     list(, $b64)      = explode(',', $b64);
     $binary = base64_decode($b64);
-    $mime = str_replace('data:', '', $type);
     
+    if (function_exists('imagecreatefromstring')) {
+        $im = @imagecreatefromstring($binary);
+        if ($im !== false) {
+            header("Content-Type: image/jpeg");
+            header("Cache-Control: public, max-age=86400");
+            header("Access-Control-Allow-Origin: *");
+            imagejpeg($im, null, 90);
+            imagedestroy($im);
+            exit;
+        }
+    }
+    
+    $mime = str_replace('data:', '', $type);
     header("Content-Type: " . ($mime ?: 'image/jpeg'));
     header("Content-Length: " . strlen($binary));
     header("Cache-Control: public, max-age=86400");
@@ -60,7 +80,7 @@ if (strpos($image_data, 'data:image') === 0) {
     exit;
 }
 
-// 3. Se for link HTTP / HTTPS, baixa via cURL e serve diretamente (evitando 302 redirect que o WhatsApp rejeita)
+// 3. Se for link HTTP / HTTPS, baixa via cURL e converte para JPEG padrão para Facebook e WhatsApp
 if (strpos($image_data, 'http') === 0) {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $image_data);
@@ -68,7 +88,10 @@ if (strpos($image_data, 'http') === 0) {
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 6);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+    curl_setopt($ch, CURLOPT_USERAGENT, 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)');
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Accept: image/jpeg, image/png, image/webp, image/*;q=0.8'
+    ]);
     curl_setopt($ch, CURLOPT_REFERER, $image_data);
     $imageData = curl_exec($ch);
     $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
@@ -76,7 +99,20 @@ if (strpos($image_data, 'http') === 0) {
     curl_close($ch);
 
     if ($httpCode === 200 && $imageData && strlen($imageData) > 200) {
-        if (!$contentType || strpos($contentType, 'image') === false) {
+        // Tenta converter para JPEG nativo via GD (Facebook rejeita AVIF e exige JPEG/PNG)
+        if (function_exists('imagecreatefromstring')) {
+            $im = @imagecreatefromstring($imageData);
+            if ($im !== false) {
+                header("Content-Type: image/jpeg");
+                header("Cache-Control: public, max-age=86400");
+                header("Access-Control-Allow-Origin: *");
+                imagejpeg($im, null, 90);
+                imagedestroy($im);
+                exit;
+            }
+        }
+
+        if (!$contentType || strpos($contentType, 'image') === false || strpos($contentType, 'avif') !== false) {
             $contentType = 'image/jpeg';
         }
         header("Content-Type: " . $contentType);

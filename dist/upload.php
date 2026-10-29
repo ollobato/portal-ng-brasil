@@ -2,11 +2,51 @@
 // Script de upload público para Portal NG Brasil
 // Permite que o frontend hospede artes de notícias para publicação no Instagram e Facebook
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
+    exit();
+}
+
+// Proxy seguro para chamadas da API do Threads (elimina 100% qualquer bloqueio de CORS de navegadores)
+if (isset($_GET['action']) && $_GET['action'] === 'threads_proxy') {
+    header("Content-Type: application/json; charset=UTF-8");
+    $rawInput = file_get_contents('php://input');
+    $payload = json_decode($rawInput, true);
+    if (!$payload || !isset($payload['endpoint'])) {
+        http_response_code(400);
+        echo json_encode(["error" => ["message" => "Parâmetros inválidos para proxy Threads"]]);
+        exit();
+    }
+    
+    $endpoint = ltrim($payload['endpoint'], '/');
+    $method = isset($payload['method']) ? strtoupper($payload['method']) : 'GET';
+    $params = isset($payload['params']) ? $payload['params'] : [];
+    
+    $targetUrl = 'https://graph.threads.net/v1.0/' . $endpoint;
+    $ch = curl_init();
+    
+    if ($method === 'POST') {
+        curl_setopt($ch, CURLOPT_URL, $targetUrl);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params));
+    } else {
+        $fullUrl = $targetUrl . (!empty($params) ? ('?' . http_build_query($params)) : '');
+        curl_setopt($ch, CURLOPT_URL, $fullUrl);
+    }
+    
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    http_response_code($httpCode ?: 200);
+    echo $response ?: json_encode(["error" => ["message" => "Falha na comunicação com Threads"]]);
     exit();
 }
 

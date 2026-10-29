@@ -299,13 +299,21 @@ export default function ApprovalPage({ onNavigateHome }) {
   useEffect(() => {
     setCarouselCards(prev => {
       if (!prev || !prev.length) return prev;
+      const first = prev[0];
+      const nextTitle = customCardTitle || first.title;
+      const nextSub = customCardSubtitle || first.subtitle;
+      const nextImg = customCoverUrl || first.imageUrl;
+      const nextHighlight = customHighlightText || first.highlightText;
+      if (first.title === nextTitle && first.subtitle === nextSub && first.imageUrl === nextImg && first.highlightText === nextHighlight) {
+        return prev;
+      }
       const copy = [...prev];
       copy[0] = {
-        ...copy[0],
-        title: customCardTitle || copy[0].title,
-        subtitle: customCardSubtitle || copy[0].subtitle,
-        imageUrl: customCoverUrl || copy[0].imageUrl,
-        highlightText: customHighlightText || copy[0].highlightText
+        ...first,
+        title: nextTitle,
+        subtitle: nextSub,
+        imageUrl: nextImg,
+        highlightText: nextHighlight
       };
       return copy;
     });
