@@ -115,6 +115,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
 
   const [category, setCategory] = useState(article?.categoryLabel || article?.category || 'POLÍTICA');
   const [captionText, setCaptionText] = useState('');
+  const [isCaptionCustomized, setIsCaptionCustomized] = useState(false);
 
   const safeActiveIndex = Math.min(activeCardIndex, Math.max(0, cards.length - 1));
   const activeCard = cards[safeActiveIndex] || cards[0];
@@ -131,6 +132,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     if (isDifferentArticle) {
       setCards(createDefaultCards(article));
       setActiveCardIndex(0);
+      setIsCaptionCustomized(false);
     } else {
       setCards(prev => {
         if (!prev.length) return createDefaultCards(article);
@@ -146,21 +148,39 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     }
   }, [article]);
 
-  // Atualiza a legenda padrão com base no Card 1
+  // Atualiza a legenda padrão com base no Card 1 e no texto da matéria do portal
   const firstCardTitle = cards[0]?.title || '';
   const firstCardSubtitle = cards[0]?.subtitle || '';
   useEffect(() => {
+    if (isCaptionCustomized) return;
+
     setCaptionText(
       formatInstagramCaption({
-        title: firstCardTitle,
-        subtitle: firstCardSubtitle,
+        title: firstCardTitle || article?.title,
+        subtitle: firstCardSubtitle || article?.subtitle,
         category,
         praca: article?.praca,
         id: article?.id,
         content: article?.content
       })
     );
-  }, [firstCardTitle, firstCardSubtitle, category, article]);
+  }, [firstCardTitle, firstCardSubtitle, category, article?.content, article?.title, article?.subtitle, article?.praca, article?.id, isCaptionCustomized]);
+
+  const handleRegenerateCaption = () => {
+    const fresh = formatInstagramCaption({
+      title: cards[0]?.title || article?.title || '',
+      subtitle: cards[0]?.subtitle || article?.subtitle || '',
+      category,
+      praca: article?.praca,
+      id: article?.id,
+      content: article?.content
+    });
+    setCaptionText(fresh);
+    setIsCaptionCustomized(false);
+    if (showToast) {
+      showToast('Legenda atualizada com o resumo do portal!', false);
+    }
+  };
 
   const updateCard = (index, patch) => {
     setCards(prev => prev.map((c, idx) => (idx === index ? { ...c, ...patch } : c)));
@@ -1713,15 +1733,35 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1 flex justify-between items-center">
               <span>Legenda para Redes Sociais</span>
-              <button type="button" onClick={handleCopyCaption} className="text-xs text-[#d40a38] flex items-center gap-1 hover:underline">
-                {copiedCaption ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                {copiedCaption ? 'Copiado!' : 'Copiar'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRegenerateCaption}
+                  title="Atualizar legenda gerando resumo automático do texto da matéria"
+                  className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-semibold transition-colors"
+                >
+                  <Sparkles className="w-3 h-3 text-indigo-500" />
+                  Atualizar Resumo
+                </button>
+                <span className="text-slate-300">|</span>
+                <button
+                  type="button"
+                  onClick={handleCopyCaption}
+                  className="text-xs text-[#d40a38] flex items-center gap-1 hover:underline"
+                >
+                  {copiedCaption ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                  {copiedCaption ? 'Copiado!' : 'Copiar'}
+                </button>
+              </div>
             </label>
             <textarea
               value={captionText}
-              onChange={(e) => setCaptionText(e.target.value)}
+              onChange={(e) => {
+                setCaptionText(e.target.value);
+                setIsCaptionCustomized(true);
+              }}
               rows={8}
+              placeholder="A legenda com resumo automático do texto do portal aparecerá aqui..."
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-600 focus:ring-2 focus:ring-red-500 focus:outline-none"
             />
           </div>
