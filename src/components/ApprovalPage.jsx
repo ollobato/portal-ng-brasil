@@ -25,14 +25,20 @@ import {
   Compass,
   Calendar,
   User,
-  Quote
+  Quote,
+  Settings2,
+  Upload,
+  Edit3
 } from 'lucide-react';
-import { doc, getDoc, updateDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, onSnapshot, collection, query, limit, getDocs } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
 import { formatInstagramCaption, copyToClipboard } from '../utils/socialExporter';
 import { publishArticleToAllChannels } from '../utils/metaPublisher';
-import { safeLoadImageForCanvas } from '../utils/imageLoader';
+import { safeLoadImageForCanvas, preloadImageForCanvas } from '../utils/imageLoader';
+import { drawNgCardOnCanvas, ensureBarlowCondensedLoaded, renderNgCardToBlob, drawAnyCardOnCanvas, renderCardSlideToBlob } from '../utils/ngCardRenderer.js';
+
+const DEFAULT_CTA_IMAGE_URL = '/siga-portalngbrasil.jpg';
 
 // Ícones SVG para Redes Sociais
 const Instagram = ({ className = "w-5 h-5" }) => (
@@ -58,6 +64,16 @@ const Facebook = ({ className = "w-5 h-5" }) => (
     className={className}
   >
     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+  </svg>
+);
+
+const ThreadsIcon = ({ className = "w-5 h-5" }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    className={className}
+  >
+    <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm5.727 12.604c-.396.993-1.01 1.79-1.842 2.39-1.077.78-2.457 1.055-3.885.772-2.38-.47-4.11-2.483-4.11-4.766 0-2.673 2.167-4.84 4.84-4.84 2.45 0 4.49 1.835 4.79 4.25h-1.98c-.27-1.35-1.44-2.35-2.81-2.35-1.57 0-2.85 1.28-2.85 2.85 0 1.57 1.28 2.85 2.85 2.85.91 0 1.7-.44 2.19-1.12l1.64.91c-.08.13-.17.26-.26.39l1.45.86z"/>
   </svg>
 );
 
@@ -88,8 +104,22 @@ export default function ApprovalPage({ onNavigateHome }) {
 
   // Canvas do Card do Instagram
   const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [aspectRatio, setAspectRatio] = useState('4:5'); // '1:1' | '4:5' | '9:16'
   const [canvasDrawn, setCanvasDrawn] = useState(false);
+
+  // Customizações e Blindagem de Layout do Card Oficial
+  const [customCardTitle, setCustomCardTitle] = useState('');
+  const [customCardSubtitle, setCustomCardSubtitle] = useState('');
+  const [customHighlightText, setCustomHighlightText] = useState('');
+  const [customCoverUrl, setCustomCoverUrl] = useState('');
+  const [showCardEditor, setShowCardEditor] = useState(false);
+  const [isCardImageLoading, setIsCardImageLoading] = useState(false);
+  const [cardImageError, setCardImageError] = useState(false);
+  const [carouselCards, setCarouselCards] = useState([]);
+  const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const [pendingDrafts, setPendingDrafts] = useState([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
 
   // Extrai o ID da matéria da URL
   const getArticleIdFromUrl = () => {
@@ -202,6 +232,101 @@ export default function ApprovalPage({ onNavigateHome }) {
     };
   }, [articleId]);
 
+  // Sincroniza campos customizados e pré-carrega imagem ao selecionar matéria
+  useEffect(() => {
+    if (!article) return;
+    const initialTitle = article.cardInstagram?.titulo || article.title || '';
+    const initialSub = article.cardInstagram?.apoio || article.subtitle || '';
+    const initialHighlight = article.cardInstagram?.destaque || '';
+    const initialImg = (article.cardInstagram?.imagem || article.image || article.metadata?.imagem || article.metadata?.image || '').trim();
+
+    setCustomCardTitle(initialTitle);
+    setCustomCardSubtitle(initialSub);
+    setCustomHighlightText(initialHighlight);
+    setCustomCoverUrl(initialImg);
+    setCardImageError(false);
+
+    let initialCards = article.socialCards || article.cards || null;
+    if (!Array.isArray(initialCards) || initialCards.length === 0) {
+      initialCards = [
+        {
+          id: 'card-1',
+          mode: 'template',
+          mediaType: 'image',
+          imageUrl: initialImg,
+          title: initialTitle,
+          subtitle: initialSub,
+          highlightText: initialHighlight,
+          categoryLabel: article.categoryLabel || article.category || 'NOTÍCIAS'
+        },
+        {
+          id: 'card-cta',
+          mode: 'full_image',
+          mediaType: 'image',
+          imageUrl: DEFAULT_CTA_IMAGE_URL,
+          title: 'Siga @portalngbrasil',
+          subtitle: 'Acompanhe as notícias que impactam o país e o mundo.',
+          isCtaCard: true
+        }
+      ];
+    } else {
+      const hasCta = initialCards.some(c => c.isCtaCard || (c.imageUrl && c.imageUrl.includes('siga-portalngbrasil')));
+      if (initialCards.length === 1 && !hasCta) {
+        initialCards = [
+          ...initialCards,
+          {
+            id: 'card-cta',
+            mode: 'full_image',
+            mediaType: 'image',
+            imageUrl: DEFAULT_CTA_IMAGE_URL,
+            title: 'Siga @portalngbrasil',
+            subtitle: 'Acompanhe as notícias que impactam o país e o mundo.',
+            isCtaCard: true
+          }
+        ];
+      }
+    }
+
+    setCarouselCards(initialCards);
+    setActiveCardIndex(0);
+
+    if (initialImg) {
+      preloadImageForCanvas(initialImg);
+    }
+  }, [article?.id]);
+
+  // Sincroniza edições nos campos do Card 1 com a lista de cards do carrossel
+  useEffect(() => {
+    setCarouselCards(prev => {
+      if (!prev || !prev.length) return prev;
+      const copy = [...prev];
+      copy[0] = {
+        ...copy[0],
+        title: customCardTitle || copy[0].title,
+        subtitle: customCardSubtitle || copy[0].subtitle,
+        imageUrl: customCoverUrl || copy[0].imageUrl,
+        highlightText: customHighlightText || copy[0].highlightText
+      };
+      return copy;
+    });
+  }, [customCardTitle, customCardSubtitle, customCoverUrl, customHighlightText]);
+
+  // Se não houver matéria informada ou ocorrer erro, busca a lista de matérias pendentes
+  useEffect(() => {
+    if (!articleId || error) {
+      setLoadingDrafts(true);
+      const draftsCol = collection(db, 'drafts');
+      getDocs(query(draftsCol, limit(12))).then(snap => {
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setPendingDrafts(items);
+        setLoadingDrafts(false);
+      }).catch(err => {
+        console.warn("Erro ao buscar fila de rascunhos pendentes:", err);
+        setLoadingDrafts(false);
+      });
+    }
+  }, [articleId, error]);
+
   // Atualiza o título da aba do navegador para o título da matéria
   useEffect(() => {
     if (article?.title) {
@@ -209,209 +334,168 @@ export default function ApprovalPage({ onNavigateHome }) {
     }
   }, [article?.title]);
 
-  // Render do Canvas do Instagram com design oficial Portal NG
+  // Render do Canvas do Instagram com suporte ao Carrossel Oficial
   useEffect(() => {
     if (!article || activeTab !== 'instagram') return;
-    
-    const timer = setTimeout(() => {
-      drawInstagramCard();
-    }, 150);
 
-    return () => clearTimeout(timer);
-  }, [article, activeTab, aspectRatio]);
-
-  const drawInstagramCard = async () => {
+    let isMounted = true;
     const canvas = canvasRef.current;
-    if (!canvas || !article) return;
-    const ctx = canvas.getContext('2d');
+    if (!canvas) return;
 
-    const width = 1080;
-    const height = aspectRatio === '1:1' ? 1080 : aspectRatio === '9:16' ? 1920 : 1440;
-    canvas.width = width;
-    canvas.height = height;
+    const render = async () => {
+      await ensureBarlowCondensedLoaded();
+      if (!isMounted) return;
 
-    // Fundo base
-    ctx.fillStyle = '#040f1d';
-    ctx.fillRect(0, 0, width, height);
+      const currentCard = carouselCards[activeCardIndex] || carouselCards[0] || {};
+      const isCard1 = activeCardIndex === 0;
 
-    const titleText = (article.cardInstagram?.titulo || article.title || '').trim();
-    const subtitleText = (article.cardInstagram?.apoio || article.subtitle || '').trim();
-    const coverUrl = (article.image || '').trim();
+      if (isCard1) {
+        const titleToDraw = customCardTitle || currentCard.title || article.cardInstagram?.titulo || article.title || '';
+        const subtitleToDraw = customCardSubtitle || currentCard.subtitle || article.cardInstagram?.apoio || article.subtitle || '';
+        const coverToDraw = (customCoverUrl || currentCard.imageUrl || article.cardInstagram?.imagem || article.image || article.metadata?.imagem || '').trim();
 
-    const targetHeight = height * 0.58;
+        // Carrega logo e foto em paralelo com cache
+        const logoPromise = safeLoadImageForCanvas('/logo-ng.png').catch(() => null);
 
-    if (coverUrl) {
-      const img = await safeLoadImageForCanvas(coverUrl);
-      if (img && canvasRef.current === canvas) {
-        const scale = Math.max(width / img.width, targetHeight / img.height);
-        const x = (width / 2) - (img.width / 2) * scale;
-        const y = (targetHeight / 2) - (img.height / 2) * scale;
-        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+        let photoImg = null;
+        if (coverToDraw) {
+          setIsCardImageLoading(true);
+          try {
+            photoImg = await safeLoadImageForCanvas(coverToDraw);
+            if (!photoImg) {
+              setCardImageError(true);
+            } else {
+              setCardImageError(false);
+            }
+          } catch (_) {
+            setCardImageError(true);
+          } finally {
+            if (isMounted) setIsCardImageLoading(false);
+          }
+        } else {
+          setCardImageError(false);
+        }
 
-        // Gradiente suave sobre a foto
-        const grad = ctx.createLinearGradient(0, targetHeight - 160, 0, targetHeight);
-        grad.addColorStop(0, 'rgba(0, 23, 46, 0)');
-        grad.addColorStop(1, '#00172e');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, targetHeight - 160, width, 160);
+        if (!isMounted) return;
+        const logoImg = await logoPromise;
+
+        await drawNgCardOnCanvas(canvasRef.current, {
+          title: titleToDraw,
+          subtitle: subtitleToDraw,
+          image: photoImg,
+          imageUrl: coverToDraw,
+          logo: logoImg,
+          aspectRatio,
+          customHighlightText,
+          isImageLoading: false,
+          categoryLabel: article.categoryLabel || article.category || 'NOTÍCIAS'
+        });
       } else {
-        ctx.fillStyle = '#020617';
-        ctx.fillRect(0, 0, width, targetHeight);
+        setIsCardImageLoading(false);
+        setCardImageError(false);
+        await drawAnyCardOnCanvas(canvasRef.current, currentCard, { aspectRatio });
       }
-    } else {
-      ctx.fillStyle = '#020617';
-      ctx.fillRect(0, 0, width, targetHeight);
-    }
 
-    // Carrega o logo do Portal NG
-    const logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
-    finalizeDrawCanvas(ctx, width, height, logo, titleText, subtitleText);
+      setCanvasDrawn(true);
+    };
+
+    render();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [article, activeTab, aspectRatio, activeCardIndex, carouselCards, customCardTitle, customCardSubtitle, customCoverUrl, customHighlightText]);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert("Por favor, selecione um arquivo de imagem válido (JPG, PNG, WebP).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCustomCoverUrl(reader.result);
+      setCardImageError(false);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const finalizeDrawCanvas = (ctx, width, height, logo, titleText, subtitleText) => {
-    const cardHeight = height * 0.45;
-    const cardY = height - cardHeight;
-    
-    // Fundo azul escuro oficial com canto arredondado
-    ctx.fillStyle = '#00172e';
-    ctx.beginPath();
-    ctx.moveTo(0, height);
-    ctx.lineTo(0, cardY + 50);
-    ctx.quadraticCurveTo(0, cardY, 50, cardY);
-    ctx.lineTo(width, cardY);
-    ctx.lineTo(width, height);
-    ctx.closePath();
-    ctx.fill();
-
-    // Aba vermelha estilizada no canto direito
-    ctx.fillStyle = '#d40a38';
-    ctx.beginPath();
-    ctx.moveTo(width - 400, cardY);
-    ctx.lineTo(width - 370, cardY - 25);
-    ctx.lineTo(width, cardY - 25);
-    ctx.lineTo(width, cardY);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Logo no canto superior direito
-    if (logo) {
-      ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
-    }
-
-    // Calcula linhas do Título
-    ctx.font = 'bold 70px "Barlow Condensed", sans-serif';
-    const titleWords = titleText.toUpperCase().split(' ');
-    let titleLines = [];
-    let currentLine = '';
-    const maxWidth = width - 120;
-
-    for (let n = 0; n < titleWords.length; n++) {
-      const testLine = currentLine + titleWords[n] + ' ';
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width > maxWidth && n > 0) {
-        titleLines.push(currentLine.trim());
-        currentLine = titleWords[n] + ' ';
-      } else {
-        currentLine = testLine;
+  const handleForceImageReload = () => {
+    if (!customCoverUrl) return;
+    if (customCoverUrl.startsWith('http')) {
+      const clean = customCoverUrl.split('?t=')[0];
+      setCustomCoverUrl(`${clean}${clean.includes('?') ? '&' : '?'}t=${Date.now()}`);
+      setCardImageError(false);
+    } else {
+      if (canvasRef.current && article) {
+        setCanvasDrawn(false);
+        setTimeout(() => setCanvasDrawn(true), 100);
       }
     }
-    titleLines.push(currentLine.trim());
+  };
 
-    // Calcula linhas do Subtítulo
-    ctx.font = '400 36px "Barlow Condensed", sans-serif';
-    const subWords = subtitleText.split(' ');
-    let subLines = [];
-    currentLine = '';
-    for (let n = 0; n < subWords.length; n++) {
-      const testLine = currentLine + subWords[n] + ' ';
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width > maxWidth && n > 0) {
-        subLines.push(currentLine.trim());
-        currentLine = subWords[n] + ' ';
-      } else {
-        currentLine = testLine;
-      }
-    }
-    subLines.push(currentLine.trim());
-
-    // Centralização vertical no card
-    const titleLineHeight = 75;
-    const subLineHeight = 46;
-    const titleSpacing = 15;
-    const totalTextHeight = (titleLines.length * titleLineHeight) + titleSpacing + (subLines.length * subLineHeight);
-    
-    const bottomLimit = height - 120;
-    const topLimit = cardY + 30;
-    const availableHeight = bottomLimit - topLimit;
-    const startY = topLimit + (availableHeight - totalTextHeight) / 2;
-
-    // Desenha o Título com palavras de destaque em vermelho
-    ctx.font = 'bold 70px "Barlow Condensed", sans-serif';
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
-    
-    let globalWordIndex = 0;
-    let textY = startY;
-
-    titleLines.forEach(l => {
-      const lWords = l.split(' ');
-      const fullLineWidth = ctx.measureText(l).width;
-      let currentX = (width / 2) - (fullLineWidth / 2);
-      
-      lWords.forEach((w, idx) => {
-        const isRed = globalWordIndex >= titleWords.length * 0.45 && globalWordIndex <= titleWords.length * 0.85;
-        ctx.fillStyle = isRed ? '#d40a38' : '#ffffff';
-        ctx.fillText(w, currentX, textY);
-        currentX += ctx.measureText(w).width;
-        if (idx < lWords.length - 1) {
-          currentX += ctx.measureText(' ').width;
-        }
-        globalWordIndex++;
-      });
-      textY += titleLineHeight;
-    });
-
-    // Desenha o Subtítulo
-    ctx.font = '400 36px "Barlow Condensed", sans-serif';
-    ctx.fillStyle = '#cbd5e1';
-    ctx.textAlign = 'center';
-    
-    let subY = textY + titleSpacing;
-    subLines.forEach(l => {
-      ctx.fillText(l, width / 2, subY);
-      subY += subLineHeight;
-    });
-
-    // Rodapé com linha divisória
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(60, height - 90);
-    ctx.lineTo(width - 60, height - 90);
-    ctx.stroke();
-
-    // Texto do Rodapé
-    ctx.textAlign = 'left';
-    ctx.font = '600 24px "Barlow Condensed", sans-serif';
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText('portalngbrasil.com.br', 60, height - 55);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 24px "Barlow Condensed", sans-serif';
-    const sigaText = 'Siga @portalngbrasil';
-    const sigaWidth = ctx.measureText(sigaText).width;
-    ctx.fillText(sigaText, width - 60 - sigaWidth, height - 55);
-
-    setCanvasDrawn(true);
+  const handleResetCardTexts = () => {
+    if (!article) return;
+    setCustomCardTitle(article.title || '');
+    setCustomCardSubtitle(article.subtitle || '');
+    setCustomHighlightText('');
+    setCustomCoverUrl(article.image || '');
+    setCardImageError(false);
   };
 
   const handleDownloadCard = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const link = document.createElement('a');
-    link.download = `portal-ng-arte-${article?.id || 'materia'}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+    try {
+      const link = document.createElement('a');
+      const suffix = activeCardIndex === 0 ? 'capa' : `card-${activeCardIndex + 1}`;
+      link.download = `portal-ng-${suffix}-${article?.id || 'materia'}-${aspectRatio.replace(':', 'x')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      console.warn("Fallback download via blob:", e);
+      renderNgCardToBlob({
+        title: customCardTitle || article.title,
+        subtitle: customCardSubtitle || article.subtitle,
+        image: customCoverUrl || article.image
+      }, { aspectRatio, customHighlightText }).then(blob => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = `portal-ng-arte-${article?.id || 'materia'}.jpg`;
+        link.href = url;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      });
+    }
+  };
+
+  const handleDownloadAllCards = async () => {
+    for (let i = 0; i < carouselCards.length; i++) {
+      const c = carouselCards[i];
+      try {
+        const blob = await renderCardSlideToBlob(c, {
+          aspectRatio,
+          title: i === 0 ? (customCardTitle || c.title) : c.title,
+          subtitle: i === 0 ? (customCardSubtitle || c.subtitle) : c.subtitle,
+          imageUrl: i === 0 ? (customCoverUrl || c.imageUrl) : c.imageUrl,
+          customHighlightText: i === 0 ? customHighlightText : (c.highlightText || '')
+        });
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const suffix = i === 0 ? 'capa' : `card-${i + 1}`;
+          link.download = `portal-ng-${suffix}-${article?.id || 'materia'}.jpg`;
+          link.href = url;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+        }
+      } catch (err) {
+        console.warn(`Erro ao baixar card ${i + 1}:`, err);
+      }
+      await new Promise(r => setTimeout(r, 250));
+    }
   };
 
   // Ações de Aprovação e Publicação Automática em Todos os Canais
@@ -423,11 +507,76 @@ export default function ApprovalPage({ onNavigateHome }) {
       localStorage.setItem('portal_ng_reviewer_name', name);
       const notes = approvalNotes.trim() || (autoPublish ? 'Aprovado e publicado imediatamente em todos os canais pela editora-chefe.' : 'Aprovado sem ressalvas.');
 
+      const finalCardInstagram = {
+        titulo: customCardTitle || article.cardInstagram?.titulo || article.title || '',
+        apoio: customCardSubtitle || article.cardInstagram?.apoio || article.subtitle || '',
+        destaque: customHighlightText || article.cardInstagram?.destaque || '',
+        imagem: customCoverUrl || article.image || ''
+      };
+
+      // Garante os cards do carrossel completos com atualizações aplicadas ao Card 1
+      const cardsSource = (carouselCards && carouselCards.length > 0) ? carouselCards : [
+        {
+          id: 'card-1',
+          mode: 'template',
+          mediaType: 'image',
+          imageUrl: finalCardInstagram.imagem,
+          title: finalCardInstagram.titulo,
+          subtitle: finalCardInstagram.apoio,
+          highlightText: finalCardInstagram.destaque,
+          categoryLabel: article.categoryLabel || article.category || 'NOTÍCIAS'
+        },
+        {
+          id: 'card-cta',
+          mode: 'full_image',
+          mediaType: 'image',
+          imageUrl: DEFAULT_CTA_IMAGE_URL,
+          title: 'Siga @portalngbrasil',
+          subtitle: 'Acompanhe as notícias que impactam o país e o mundo.',
+          isCtaCard: true
+        }
+      ];
+
+      const cardsToPublish = cardsSource.map((c, idx) => {
+        if (idx === 0) {
+          return {
+            ...c,
+            title: finalCardInstagram.titulo || c.title,
+            subtitle: finalCardInstagram.apoio || c.subtitle,
+            imageUrl: finalCardInstagram.imagem || c.imageUrl,
+            highlightText: finalCardInstagram.destaque || c.highlightText
+          };
+        }
+        return c;
+      });
+
+      // Se houver apenas 1 card nos dados e não tiver CTA, garante o slide final de chamada oficial
+      const hasCta = cardsToPublish.some(c => c.isCtaCard || (c.imageUrl && c.imageUrl.includes('siga-portalngbrasil')));
+      if (cardsToPublish.length === 1 && !hasCta) {
+        cardsToPublish.push({
+          id: 'card-cta',
+          mode: 'full_image',
+          mediaType: 'image',
+          imageUrl: DEFAULT_CTA_IMAGE_URL,
+          title: 'Siga @portalngbrasil',
+          subtitle: 'Acompanhe as notícias que impactam o país e o mundo.',
+          isCtaCard: true
+        });
+      }
+
+      const finalArticle = {
+        ...article,
+        cardInstagram: finalCardInstagram,
+        socialCards: cardsToPublish,
+        image: customCoverUrl || article.image
+      };
+
       if (autoPublish) {
-        setPostProgressText('🚀 Publicando no Portal NG Brasil, Instagram e Facebook...');
+        setPostProgressText(`🚀 Publicando carrossel de ${cardsToPublish.length} cards no Instagram, Portal e Facebook...`);
         const publishResult = await publishArticleToAllChannels({
-          article,
-          canvas: canvasRef.current,
+          article: finalArticle,
+          canvas: activeCardIndex === 0 ? canvasRef.current : null,
+          cards: cardsToPublish,
           reviewerName: name,
           approvalNotes: notes,
           onProgress: ({ message }) => setPostProgressText(message)
@@ -436,9 +585,10 @@ export default function ApprovalPage({ onNavigateHome }) {
         setPublishedSocialLinks(publishResult.links);
         setPublishedSocialErrors(publishResult.errors);
         setAutoPublishSuccessModal(true);
-        setActionSuccessMessage(`🎉 Matéria aprovada e publicada em todos os canais com sucesso por ${name}!`);
+        setActionSuccessMessage(`🎉 Matéria aprovada e carrossel de ${cardsToPublish.length} cards publicado com sucesso por ${name}!`);
         setArticle(prev => ({ 
           ...prev, 
+          ...finalArticle,
           approvalStatus: 'approved', 
           approvedBy: name, 
           published: true,
@@ -452,7 +602,9 @@ export default function ApprovalPage({ onNavigateHome }) {
           approvedBy: name,
           approvalNotes: notes,
           autoPublished: false,
-          published: false
+          published: false,
+          cardInstagram: finalCardInstagram,
+          image: customCoverUrl || article.image
         };
         const targetCol = article._sourceCol || 'drafts';
         const docRef = doc(db, targetCol, String(article.id));
@@ -564,18 +716,93 @@ export default function ApprovalPage({ onNavigateHome }) {
 
   if (error || !article) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-14 h-14 rounded-full bg-red-900/30 border border-red-800/60 flex items-center justify-center text-red-400 mb-4">
-          <ShieldAlert className="w-7 h-7" />
+      <div className="min-h-screen bg-slate-950 text-slate-100 p-6 flex flex-col font-sans">
+        <div className="max-w-4xl mx-auto w-full my-auto py-8">
+          <div className="text-center mb-8">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-red-600/20 border border-red-600/40 flex items-center justify-center text-red-500 mb-4 shadow-lg shadow-red-950/50">
+              <ShieldAlert className="w-7 h-7" />
+            </div>
+            <h2 className="text-2xl font-black text-white">Central de Aprovação Editorial</h2>
+            <p className="text-slate-400 text-sm max-w-md mx-auto mt-1">
+              {error ? error : "Selecione uma das matérias pendentes na fila da redação para revisar e aprovar."}
+            </p>
+          </div>
+
+          {loadingDrafts ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-red-500 animate-spin mb-3" />
+              <p className="text-sm text-slate-400">Consultando fila de matérias pendentes...</p>
+            </div>
+          ) : pendingDrafts.length > 0 ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span className="text-xs font-bold uppercase text-slate-400">
+                  Matérias Aguardando Aprovação ({pendingDrafts.length})
+                </span>
+                <span className="text-xs text-slate-500 font-mono">Portal NG Brasil</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {pendingDrafts.map((d) => (
+                  <div
+                    key={d.id}
+                    onClick={() => {
+                      window.history.pushState(null, '', `/aprovacao/${d.id}`);
+                      setArticle({ id: d.id, ...d, _sourceCol: 'drafts' });
+                      setError(null);
+                    }}
+                    className="p-4 bg-slate-900 border border-slate-800 hover:border-red-600/60 rounded-xl cursor-pointer transition-all hover:bg-slate-800/80 group flex flex-col justify-between shadow-lg"
+                  >
+                    <div className="flex gap-3 items-start">
+                      {d.image ? (
+                        <img src={d.image} alt="" className="w-20 h-16 rounded-lg object-cover bg-slate-800 shrink-0" onError={(e) => e.target.style.display = 'none'} />
+                      ) : (
+                        <div className="w-20 h-16 rounded-lg bg-slate-800 shrink-0 flex items-center justify-center text-slate-600 font-bold text-xs">NG</div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] uppercase font-bold text-red-500 block mb-0.5">
+                          {d.category || 'NOTÍCIAS'}
+                        </span>
+                        <h4 className="text-xs font-bold text-white line-clamp-2 group-hover:text-red-400 transition-colors">
+                          {d.title}
+                        </h4>
+                        {d.subtitle && (
+                          <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{d.subtitle}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>{d.date || 'Hoje'}</span>
+                      <span className="text-red-400 font-bold group-hover:underline flex items-center gap-1">
+                        Revisar e Aprovar ➔
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center max-w-md mx-auto">
+              <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-white">Nenhuma matéria pendente</h3>
+              <p className="text-xs text-slate-400 mt-1 mb-5">Todas as pautas já foram avaliadas e publicadas pela redação.</p>
+              <button
+                onClick={() => onNavigateHome ? onNavigateHome() : window.location.href = '/'}
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-all shadow-md inline-flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" /> Ir para a Página Inicial
+              </button>
+            </div>
+          )}
+
+          <div className="text-center mt-8">
+            <button
+              onClick={() => onNavigateHome ? onNavigateHome() : window.location.href = '/'}
+              className="text-xs text-slate-500 hover:text-slate-300 inline-flex items-center gap-1.5 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao Portal NG Brasil
+            </button>
+          </div>
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">Matéria Não Encontrada</h2>
-        <p className="text-slate-400 text-sm max-w-md mb-6">{error || "O link fornecido não corresponde a nenhum rascunho ativo."}</p>
-        <button
-          onClick={() => onNavigateHome ? onNavigateHome() : window.location.href = '/'}
-          className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-all shadow-md flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" /> Ir para a Página Inicial
-        </button>
       </div>
     );
   }
@@ -858,53 +1085,254 @@ export default function ApprovalPage({ onNavigateHome }) {
         {activeTab === 'instagram' && (
           <div className="space-y-8">
             
-            {/* 1. Card do Instagram */}
+            {/* 1. Card do Instagram Oficial */}
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800 mb-6">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
                     <Instagram className="w-4 h-4 text-pink-500" />
                     Arte Oficial para o Instagram (Modelo Barlow Condensed)
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Renderizado automaticamente com a foto tratada, manchete bicolor e rodapé oficial do Portal NG.
+                    Renderizado automaticamente com tipografia auto-fit protegida contra estouro, foto tratada e rodapé oficial.
                   </p>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {/* Seletor de Aspect Ratio */}
                   <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
                     <button
                       onClick={() => setAspectRatio('4:5')}
-                      className={`px-2.5 py-1 text-xs font-bold rounded ${aspectRatio === '4:5' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      className={`px-2.5 py-1 text-xs font-bold rounded transition-colors ${aspectRatio === '4:5' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      title="Proporção Feed 4:5 (1080x1350) - Padrão do Instagram"
                     >
                       Feed 4:5
                     </button>
                     <button
                       onClick={() => setAspectRatio('1:1')}
-                      className={`px-2.5 py-1 text-xs font-bold rounded ${aspectRatio === '1:1' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      className={`px-2.5 py-1 text-xs font-bold rounded transition-colors ${aspectRatio === '1:1' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      title="Proporção Quadrada 1:1 (1080x1080)"
                     >
                       Quadrado 1:1
                     </button>
                     <button
                       onClick={() => setAspectRatio('9:16')}
-                      className={`px-2.5 py-1 text-xs font-bold rounded ${aspectRatio === '9:16' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      className={`px-2.5 py-1 text-xs font-bold rounded transition-colors ${aspectRatio === '9:16' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      title="Proporção Stories 9:16 (1080x1920)"
                     >
                       Stories 9:16
                     </button>
                   </div>
 
+                  {/* Botão de Ajustar Card */}
+                  <button
+                    onClick={() => setShowCardEditor(!showCardEditor)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 border ${showCardEditor ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'}`}
+                    title="Editar textos, foto e palavras destacadas"
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    <span>{showCardEditor ? 'Fechar Ajustes' : 'Ajustar Arte'}</span>
+                  </button>
+
+                  {/* Botão Recarregar Foto */}
+                  <button
+                    onClick={handleForceImageReload}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 border border-slate-700"
+                    title="Forçar recarregamento da foto se estiver bloqueada"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isCardImageLoading ? 'animate-spin text-amber-400' : ''}`} />
+                    <span className="hidden sm:inline">Recarregar Foto</span>
+                  </button>
+
+                  {/* Botão Baixar Imagem */}
                   <button
                     onClick={handleDownloadCard}
                     className="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                    title="Baixar arte em PNG de alta definição"
                   >
-                    <Download className="w-3.5 h-3.5" /> Baixar Imagem
+                    <Download className="w-3.5 h-3.5" /> Baixar Card {activeCardIndex + 1}
                   </button>
+
+                  {/* Botão Baixar Todos os Cards */}
+                  {carouselCards.length > 1 && (
+                    <button
+                      onClick={handleDownloadAllCards}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 border border-slate-700"
+                      title="Baixar todas as imagens do carrossel"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Baixar Todos ({carouselCards.length})</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Preview Central do Canvas */}
-              <div className="flex justify-center p-4 bg-slate-900/60 rounded-xl border border-slate-800/80">
+              {/* SELETOR DE SLIDES DO CARROSSEL */}
+              {carouselCards.length > 1 && (
+                <div className="mb-4 p-2.5 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-red-500" />
+                      Carrossel Oficial ({carouselCards.length} Cards):
+                    </span>
+                    <span className="text-[11px] text-slate-400 hidden sm:inline">
+                      Todos os cards serão postados em carrossel no Instagram
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {carouselCards.map((c, idx) => (
+                      <button
+                        key={c.id || idx}
+                        type="button"
+                        onClick={() => setActiveCardIndex(idx)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          activeCardIndex === idx
+                            ? 'bg-red-600 text-white shadow-md ring-1 ring-red-400'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700/60'
+                        }`}
+                      >
+                        <span>Card {idx + 1}</span>
+                        <span className="text-[10px] opacity-80 font-normal">
+                          {idx === 0 ? '(Capa)' : c.isCtaCard || (c.imageUrl && c.imageUrl.includes('siga-portalngbrasil')) ? '(Siga NG)' : ''}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* PAINEL DE AJUSTES DO CARD (COLAPSÁVEL) */}
+              {showCardEditor && (
+                <div className="mb-6 p-4 sm:p-5 bg-slate-900/90 border border-slate-700/80 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                      <Settings2 className="w-3.5 h-3.5" /> Personalização Rápida da Arte do Instagram
+                    </span>
+                    <button
+                      onClick={handleResetCardTexts}
+                      className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+                      title="Restaurar manchete e apoio originais da matéria"
+                    >
+                      <RefreshCw className="w-3 h-3" /> Restaurar Padrão
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Manchete do Card */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-300">
+                          Manchete no Card:
+                        </label>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {customCardTitle.length} carac • {customCardTitle.trim().split(/\s+/).filter(Boolean).length} palavras
+                        </span>
+                      </div>
+                      <textarea
+                        rows={3}
+                        value={customCardTitle}
+                        onChange={(e) => setCustomCardTitle(e.target.value)}
+                        placeholder="Manchete principal em caixa alta..."
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs font-bold text-white uppercase focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Linha de Apoio do Card */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-300">
+                          Linha de Apoio (Subtítulo):
+                        </label>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {customCardSubtitle.length} carac
+                        </span>
+                      </div>
+                      <textarea
+                        rows={3}
+                        value={customCardSubtitle}
+                        onChange={(e) => setCustomCardSubtitle(e.target.value)}
+                        placeholder="Frase explicativa ou dado forte..."
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    {/* Palavras em Destaque Vermelho */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Palavras em Destaque Vermelho <span className="text-slate-500 text-[10px] font-normal">(Opcional - deixe vazio para detecção inteligente)</span>:
+                      </label>
+                      <input
+                        type="text"
+                        value={customHighlightText}
+                        onChange={(e) => setCustomHighlightText(e.target.value)}
+                        placeholder="Ex: JD VANCE E FLÁVIO BOLSONARO"
+                        className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:ring-2 focus:ring-red-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Trocar Foto de Capa */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Foto da Matéria / Upload Direto:
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customCoverUrl}
+                          onChange={(e) => {
+                            setCustomCoverUrl(e.target.value);
+                            setCardImageError(false);
+                          }}
+                          placeholder="Cole a URL de uma foto..."
+                          className="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 transition-colors"
+                          title="Fazer upload de imagem do seu computador"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Upload</span>
+                        </button>
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleFileUpload}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Status de Alerta se a foto falhou na fonte */}
+              {cardImageError && !customCoverUrl.startsWith('data:') && (
+                <div className="mb-4 p-3 bg-amber-950/50 border border-amber-600/40 rounded-xl flex items-center justify-between text-xs text-amber-200">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>A foto da fonte externa está protegida contra hotlinking. Você pode carregar uma foto diretamente do seu computador.</span>
+                  </div>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-bold shrink-0 ml-2"
+                  >
+                    Enviar Foto
+                  </button>
+                </div>
+              )}
+
+              {/* PREVIEW CENTRAL DO CANVAS BLINDADO */}
+              <div className="flex justify-center p-4 sm:p-6 bg-slate-900/60 rounded-xl border border-slate-800/80 relative">
+                {isCardImageLoading && (
+                  <div className="absolute top-6 right-6 z-10 px-2.5 py-1 bg-slate-950/80 backdrop-blur-md border border-slate-700 rounded-full text-[11px] font-semibold text-amber-300 flex items-center gap-1.5 shadow-lg animate-pulse">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Carregando foto oficial...
+                  </div>
+                )}
                 <div className="w-full max-w-[420px] rounded-xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950">
                   <canvas ref={canvasRef} className="w-full h-auto object-contain block" />
                 </div>
@@ -1475,7 +1903,7 @@ export default function ApprovalPage({ onNavigateHome }) {
                     <span className="bg-emerald-500 text-slate-950 text-[10px] font-black uppercase px-1.5 py-0.5 rounded-sm">Imediato</span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    A matéria vai ao ar instantaneamente no Portal NG Brasil na categoria correspondente, com capas, autoria e formatação finalizadas.
+                    A matéria vai ao ar instantaneamente no Portal NG Brasil e o Carrossel completo ({carouselCards.length} cards) é publicado no Instagram, Facebook e Threads.
                   </p>
                 </div>
               </div>
@@ -1678,13 +2106,45 @@ export default function ApprovalPage({ onNavigateHome }) {
                   </a>
                 </div>
               </div>
+
+              {/* Threads */}
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-zinc-800 text-white flex items-center justify-center shrink-0 border border-zinc-700">
+                    <ThreadsIcon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-bold text-slate-300 block uppercase">Threads (@portalngbrasil)</span>
+                    <span className="text-xs text-zinc-300 font-medium truncate block">
+                      {publishedSocialLinks?.threads || 'Publicado no Threads'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => copyToClipboard(publishedSocialLinks?.threads || 'https://www.threads.net/@portalngbrasil')}
+                    className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg text-xs flex items-center gap-1 transition-colors"
+                    title="Copiar Link do Threads"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                  <a
+                    href={publishedSocialLinks?.threads || 'https://www.threads.net/@portalngbrasil'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1.5 bg-black hover:bg-zinc-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                  >
+                    Abrir ↗
+                  </a>
+                </div>
+              </div>
             </div>
 
             {/* Ações Finais */}
             <div className="space-y-2 pt-2 border-t border-slate-800">
               <a
                 href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                  `📢 *${article?.title}*\n\nConfira nos nossos canais oficiais:\n🌐 *Portal:* ${publishedSocialLinks?.site || `https://portalngbrasil.com.br/#/noticia/${article?.id}`}\n📸 *Instagram:* ${publishedSocialLinks?.instagram || 'https://www.instagram.com/portalngbrasil/'}\n📘 *Facebook:* ${publishedSocialLinks?.facebook || 'https://www.facebook.com/portalngbrasil'}`
+                  `📢 *${article?.title}*\n\nConfira nos nossos canais oficiais:\n🌐 *Portal:* ${publishedSocialLinks?.site || `https://portalngbrasil.com.br/#/noticia/${article?.id}`}\n📸 *Instagram:* ${publishedSocialLinks?.instagram || 'https://www.instagram.com/portalngbrasil/'}\n📘 *Facebook:* ${publishedSocialLinks?.facebook || 'https://www.facebook.com/portalngbrasil'}\n🧵 *Threads:* ${publishedSocialLinks?.threads || 'https://www.threads.net/@portalngbrasil'}`
                 )}`}
                 target="_blank"
                 rel="noreferrer"

@@ -1,13 +1,16 @@
 import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { uploadImageForSocial } from './imageUploader';
-import { formatInstagramCaption, formatFacebookCaption } from './socialExporter';
+import { uploadImageForSocial, uploadVideoForSocial } from './imageUploader';
+import { formatInstagramCaption, formatFacebookCaption, formatThreadsCaption } from './socialExporter';
+import { renderCardSlideToBlob, renderNgCardToBlob } from './ngCardRenderer.js';
 
 export const FALLBACK_META_SETTINGS = {
-  metaToken: "EAAfkmL0QDnwBShl80MRmZBTLC0zM1xliUQViccwO4beeR26NpOZBawVgFRIOmLdtHGZC2sZBzKykWtyHcKth5GxbT0wmaC2AhsnXWmZAOqRZA2efBiFPhWytZCILlXNFQCijh0VRwxil0ZAk4cmKdB8vH7Ew2DNQKZCJ9At5xmSVHxGbuwNs3NfQeMVhbI25c",
+  metaToken: "EAAfkmL0QDnwBSZCazrXzU3uVto6vWKdtDEMaWiWIKe9b66NPhCzSlQALQlZBkcNyM3DDoz2iD84JZCGcs9ueHkUsGplljRIbXmUM4Smx3tuIF14ZBYD4NF8EFN5FZBCcbXcEMwzlOZAJEZBW47ASG47DXtDynrNVmDAuKDCnuRZCH3CmiBJZAvpwwswirCAov58prHZCgAMPzZChHkLee1cmtMYPhDu5vXrFT8L4szKiDPlJZAFlEsXm4ryyXoL0qzZAJJ2NUAdKCkCXf1jVmgbOve9NVuyoK",
   metaFbPageId: "109031887591187",
   metaIgAccountId: "17841455465356006",
-  imgbbKey: "813f88f11b22e11a7a08ef94bfa29fa9"
+  imgbbKey: "813f88f11b22e11a7a08ef94bfa29fa9",
+  threadsToken: "THAAVZB1HEtu6ZABYlk5QU0yRTVqZAFJyWENyQWdXOEZAIa3VhUVFSUHJ5S3BIbXdJSnNSSnVQR2V3OWY5OXhwQWFtVGJqQ1phOFU0enpGYWE0Tk5tRHBYTHFPc0dYUEJlWTh2MlJRWkt6WXBuaXdZAcGYtamVqeWw4dW9Fb1pBNkFoZAjA1bVB3cUc4eWFjdk11aHMZD",
+  threadsUserId: "29313904888222414"
 };
 
 export async function getLiveMetaSettings(customSettings = {}) {
@@ -24,6 +27,8 @@ export async function getLiveMetaSettings(customSettings = {}) {
       if (data.metaFbPageId && String(data.metaFbPageId).trim()) merged.metaFbPageId = String(data.metaFbPageId).trim();
       if (data.metaIgAccountId && String(data.metaIgAccountId).trim()) merged.metaIgAccountId = String(data.metaIgAccountId).trim();
       if (data.imgbbKey && String(data.imgbbKey).trim()) merged.imgbbKey = String(data.imgbbKey).trim();
+      if (data.threadsToken && String(data.threadsToken).trim()) merged.threadsToken = String(data.threadsToken).trim();
+      if (data.threadsUserId && String(data.threadsUserId).trim()) merged.threadsUserId = String(data.threadsUserId).trim();
     };
 
     if (configSnap && configSnap.exists()) applyNonEmpty(configSnap.data());
@@ -38,10 +43,14 @@ export async function getLiveMetaSettings(customSettings = {}) {
     const lsFbId = localStorage.getItem('portal_ng_meta_fb_page_id');
     const lsIgId = localStorage.getItem('portal_ng_meta_ig_account_id');
     const lsImgbb = localStorage.getItem('portal_ng_imgbb_key');
+    const lsThreadsToken = localStorage.getItem('portal_ng_threads_token');
+    const lsThreadsUserId = localStorage.getItem('portal_ng_threads_user_id');
     if (lsToken && lsToken.trim()) merged.metaToken = lsToken.trim();
     if (lsFbId && lsFbId.trim()) merged.metaFbPageId = lsFbId.trim();
     if (lsIgId && lsIgId.trim()) merged.metaIgAccountId = lsIgId.trim();
     if (lsImgbb && lsImgbb.trim()) merged.imgbbKey = lsImgbb.trim();
+    if (lsThreadsToken && lsThreadsToken.trim()) merged.threadsToken = lsThreadsToken.trim();
+    if (lsThreadsUserId && lsThreadsUserId.trim()) merged.threadsUserId = lsThreadsUserId.trim();
   }
 
   // Override com customSettings passadas explicitamente (apenas chaves preenchidas)
@@ -132,7 +141,9 @@ export function formatFacebookGraphError(errorObj) {
 }
 
 /**
- * Publica na Página do Facebook com resolução automática de Page Token e fallbacks (Blob -> URL -> Link Feed).
+ * Publica na Página do Facebook com resolução automática de Page Token.
+ * Por padrão, quando linkUrl é fornecido, publica como Post de Link nativo no feed
+ * gerando o card com prévia do portal (og:image, og:title, og:description) e legenda chamativa.
  */
 export async function publishToFacebookPage({
   pageId = FALLBACK_META_SETTINGS.metaFbPageId,
@@ -142,14 +153,50 @@ export async function publishToFacebookPage({
   blobs = null,
   publicImageUrls = null,
   message = '',
-  linkUrl = null
+  linkUrl = null,
+  asPhoto = false
 }) {
   const effectivePageId = (pageId || FALLBACK_META_SETTINGS.metaFbPageId).trim();
   const { pageToken } = await resolveFacebookPageToken(token, effectivePageId);
 
   let lastError = null;
 
-  // Suporte a Carrossel / Múltiplas Fotos no Facebook
+  // PRIORIDADE 1: Publicação com Link Clicável e Prévia Nativa do Site no /{page-id}/feed
+  // Isso gera o card nativo do Facebook com a imagem e chamada do portal (sem o card do Instagram)
+  if (linkUrl && !asPhoto) {
+    try {
+      const payload = {
+        message,
+        link: linkUrl,
+        access_token: pageToken
+      };
+
+      const feedRes = await fetch(`https://graph.facebook.com/v20.0/${effectivePageId}/feed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const feedData = await feedRes.json();
+      if (!feedData.error && feedData.id) {
+        return {
+          success: true,
+          postId: feedData.id,
+          url: `https://www.facebook.com/${feedData.id}`
+        };
+      }
+      if (feedData.error) {
+        lastError = feedData.error;
+        if (feedData.error.code === 200 || feedData.error.code === 190) {
+          throw new Error(formatFacebookGraphError(feedData.error));
+        }
+      }
+    } catch (linkErr) {
+      if (linkErr.message.includes('pages_manage_posts') || linkErr.message.includes('#190')) throw linkErr;
+      lastError = { message: linkErr.message };
+    }
+  }
+
+  // Suporte a Carrossel / Múltiplas Fotos no Facebook (caso solicitado como foto)
   const multiBlobs = Array.isArray(blobs) && blobs.length > 1 ? blobs : null;
   const multiUrls = Array.isArray(publicImageUrls) && publicImageUrls.length > 1 ? publicImageUrls : null;
   const totalMulti = Math.max(multiBlobs ? multiBlobs.length : 0, multiUrls ? multiUrls.length : 0);
@@ -230,7 +277,7 @@ export async function publishToFacebookPage({
     }
   }
 
-  // Tentativa 1: Upload binário direto da imagem via FormData em /{page-id}/photos
+  // Tentativa de Foto: Upload binário direto da imagem via FormData em /{page-id}/photos
   if (blob) {
     try {
       const fbFormData = new FormData();
@@ -253,7 +300,6 @@ export async function publishToFacebookPage({
       }
       if (fbData.error) {
         lastError = fbData.error;
-        // Se for erro de permissão (#200) ou token (#190), não adianta tentar fallback
         if (fbData.error.code === 200 || fbData.error.code === 190) {
           throw new Error(formatFacebookGraphError(fbData.error));
         }
@@ -264,7 +310,7 @@ export async function publishToFacebookPage({
     }
   }
 
-  // Tentativa 2: Publicar foto via URL pública hospedada em /{page-id}/photos
+  // Tentativa de Foto via URL pública hospedada em /{page-id}/photos
   if (publicImageUrl) {
     try {
       const fbRes = await fetch(`https://graph.facebook.com/v20.0/${effectivePageId}/photos`, {
@@ -297,7 +343,7 @@ export async function publishToFacebookPage({
     }
   }
 
-  // Tentativa 3: Publicar Link / Texto direto no /{page-id}/feed
+  // Fallback: Post de Feed direto com Link ou Texto
   try {
     const payload = {
       message,
@@ -326,6 +372,169 @@ export async function publishToFacebookPage({
   }
 
   throw new Error(formatFacebookGraphError(lastError));
+}
+
+/**
+ * Formata erros da API do Threads em mensagens claras em português.
+ */
+export function formatThreadsGraphError(errorObj) {
+  if (!errorObj) return 'Erro desconhecido na API do Threads.';
+  const rawMsg = errorObj.error_user_msg || errorObj.message || String(errorObj);
+  const code = errorObj.code;
+  if (code === 190) {
+    return 'O Token de Acesso do Threads expirou (#190). Gere um novo token nas Configurações.';
+  }
+  return rawMsg;
+}
+
+/**
+ * Executa requisição à API do Threads com suporte direto a URLSearchParams (CORS Simple Request sem preflight)
+ * e com fallback automático para o proxy nativo do servidor do portal.
+ */
+async function callThreadsApi(endpoint, method = 'GET', params = {}) {
+  const cleanEndpoint = String(endpoint).replace(/^\//, '');
+
+  // 1. Tentativa Direta do Navegador via URLSearchParams (evita OPTIONS preflight HTTP 500 da Meta)
+  try {
+    let res;
+    if (method === 'POST') {
+      const formBody = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) formBody.append(k, String(v));
+      });
+      res = await fetch(`https://graph.threads.net/v1.0/${cleanEndpoint}`, {
+        method: 'POST',
+        body: formBody
+      });
+    } else {
+      const qParams = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) qParams.append(k, String(v));
+      });
+      res = await fetch(`https://graph.threads.net/v1.0/${cleanEndpoint}?${qParams.toString()}`);
+    }
+
+    if (res && res.ok) {
+      const data = await res.json();
+      return data;
+    }
+    if (res) {
+      const errData = await res.json().catch(() => null);
+      if (errData && errData.error) {
+        throw new Error(formatThreadsGraphError(errData.error));
+      }
+    }
+  } catch (directErr) {
+    console.warn("Chamada direta ao Threads via browser requer proxy ou falhou:", directErr.message);
+  }
+
+  // 2. Fallback via Proxy do Servidor do Portal NG Brasil
+  try {
+    const proxyRes = await fetch('https://portalngbrasil.com.br/upload.php?action=threads_proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint: cleanEndpoint,
+        method,
+        params
+      })
+    });
+    if (proxyRes.ok) {
+      const pData = await proxyRes.json();
+      if (pData.error) throw new Error(formatThreadsGraphError(pData.error));
+      return pData;
+    }
+  } catch (proxyErr) {
+    console.error("Falha no proxy Threads:", proxyErr.message);
+  }
+
+  throw new Error("Falha ao comunicar com a API do Threads (CORS/Rede).");
+}
+
+/**
+ * Publica no Threads oficial (@portalngbrasil) com suporte a imagem ou texto + link.
+ */
+export async function publishToThreads({
+  userId = FALLBACK_META_SETTINGS.threadsUserId,
+  token = FALLBACK_META_SETTINGS.threadsToken,
+  publicImageUrl = null,
+  text = '',
+  linkUrl = null
+}) {
+  const cleanToken = (token || FALLBACK_META_SETTINGS.threadsToken || '').trim();
+  const cleanUserId = (userId || FALLBACK_META_SETTINGS.threadsUserId || '').trim();
+  if (!cleanToken) throw new Error("Token do Threads não configurado.");
+  if (!cleanUserId) throw new Error("ID de usuário do Threads não configurado.");
+
+  // Etapa 1: Criar Container no Threads
+  const containerParams = {
+    access_token: cleanToken,
+    text: text || ''
+  };
+
+  if (publicImageUrl) {
+    containerParams.media_type = 'IMAGE';
+    containerParams.image_url = publicImageUrl;
+  } else {
+    containerParams.media_type = 'TEXT';
+  }
+
+  const containerData = await callThreadsApi(`${cleanUserId}/threads`, 'POST', containerParams);
+  if (!containerData || !containerData.id) {
+    throw new Error("Erro ao criar container no Threads");
+  }
+
+  const creationId = containerData.id;
+
+  // Etapa 2: Se for imagem, aguardar o processamento da mídia
+  if (publicImageUrl) {
+    let retries = 10;
+    while (retries > 0) {
+      await new Promise(r => setTimeout(r, 2500));
+      try {
+        const stData = await callThreadsApi(creationId, 'GET', {
+          fields: 'status,error_message',
+          access_token: cleanToken
+        });
+        if (stData.status === 'FINISHED') break;
+        if (stData.status === 'ERROR') {
+          throw new Error("Processamento no Threads falhou: " + (stData.error_message || "Erro de imagem"));
+        }
+      } catch (pollErr) {
+        if (pollErr.message.includes('Processamento no Threads')) throw pollErr;
+      }
+      retries--;
+    }
+  }
+
+  // Etapa 3: Publicar Container
+  const pubData = await callThreadsApi(`${cleanUserId}/threads_publish`, 'POST', {
+    creation_id: creationId,
+    access_token: cleanToken
+  });
+
+  if (!pubData || !pubData.id) {
+    throw new Error("Falha ao publicar container no Threads");
+  }
+
+  const publishedId = pubData.id;
+  let postUrl = `https://www.threads.net/@portalngbrasil/post/${publishedId}`;
+
+  try {
+    const permaData = await callThreadsApi(publishedId, 'GET', {
+      fields: 'permalink',
+      access_token: cleanToken
+    });
+    if (permaData && permaData.permalink) {
+      postUrl = permaData.permalink;
+    }
+  } catch (_) {}
+
+  return {
+    success: true,
+    threadId: publishedId,
+    url: postUrl
+  };
 }
 
 /**
@@ -465,169 +674,16 @@ export async function generateSocialCardBlob(article, existingCanvas = null) {
         return blob;
       }
     } catch (e) {
-      console.warn("Canvas existente indisponível para exportação, gerando canvas dedicado:", e);
+      console.warn("Canvas existente indisponível para exportação, gerando canvas dedicado com auto-fit:", e);
     }
   }
 
-  const width = 1080;
-  const height = 1350; // proporção 4:5 padrão Instagram
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-
-  // Fundo
-  ctx.fillStyle = '#020617';
-  ctx.fillRect(0, 0, width, height);
-
-  // Foto de Capa trazida da fonte (com contorno de CORS via proxy e blob local)
-  const targetHeight = height * 0.58;
-  if (article.image) {
-    const bgImg = await safeLoadImageForCanvas(article.image);
-    if (bgImg) {
-      const scale = Math.max(width / bgImg.width, targetHeight / bgImg.height);
-      const scaledW = bgImg.width * scale;
-      const scaledH = bgImg.height * scale;
-      const x = (width - scaledW) / 2;
-      const y = (targetHeight - scaledH) / 2;
-      ctx.drawImage(bgImg, x, y, scaledW, scaledH);
-
-      // Gradiente suave sobre a foto
-      const grad = ctx.createLinearGradient(0, targetHeight - 180, 0, targetHeight);
-      grad.addColorStop(0, 'rgba(0, 23, 46, 0)');
-      grad.addColorStop(1, '#00172e');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, targetHeight - 180, width, 180);
-    } else {
-      // Caso a foto realmente não exista, deixa fundo escuro elegante
-      ctx.fillStyle = '#040f1d';
-      ctx.fillRect(0, 0, width, targetHeight);
-    }
-  }
-
-  // Bloco Inferior Azul Marinho NG
-  const cardHeight = height * 0.45;
-  const cardY = height - cardHeight;
-  ctx.fillStyle = '#00172e';
-  ctx.beginPath();
-  ctx.moveTo(0, height);
-  ctx.lineTo(0, cardY + 50);
-  ctx.quadraticCurveTo(0, cardY, 50, cardY);
-  ctx.lineTo(width, cardY);
-  ctx.lineTo(width, height);
-  ctx.closePath();
-  ctx.fill();
-
-  // Aba Vermelha NG
-  ctx.fillStyle = '#d40a38';
-  ctx.beginPath();
-  ctx.moveTo(width - 400, cardY);
-  ctx.lineTo(width - 370, cardY - 25);
-  ctx.lineTo(width, cardY - 25);
-  ctx.lineTo(width, cardY);
-  ctx.closePath();
-  ctx.fill();
-
-  // Logo Oficial NG no topo direito
-  const logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
-  if (logo) {
-    ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
-  }
-
-  // Título
-  const titleText = (article.title || '').toUpperCase();
-  ctx.font = 'bold 70px "Barlow Condensed", sans-serif';
-  const titleWords = titleText.split(' ');
-  const titleLines = [];
-  let currentLine = '';
-  const maxWidth = width - 120;
-
-  for (let n = 0; n < titleWords.length; n++) {
-    const testLine = currentLine + titleWords[n] + ' ';
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && n > 0) {
-      titleLines.push(currentLine.trim());
-      currentLine = titleWords[n] + ' ';
-    } else {
-      currentLine = testLine;
-    }
-  }
-  titleLines.push(currentLine.trim());
-
-  // Subtítulo
-  const subtitleText = article.subtitle || '';
-  ctx.font = '400 36px "Barlow Condensed", sans-serif';
-  const subWords = subtitleText.split(' ');
-  const subLines = [];
-  currentLine = '';
-  for (let n = 0; n < subWords.length; n++) {
-    const testLine = currentLine + subWords[n] + ' ';
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && n > 0) {
-      subLines.push(currentLine.trim());
-      currentLine = subWords[n] + ' ';
-    } else {
-      currentLine = testLine;
-    }
-  }
-  subLines.push(currentLine.trim());
-
-  // Cálculo de Posição Vertical
-  const titleLineHeight = 75;
-  const subLineHeight = 46;
-  const titleSpacing = 15;
-  const totalTextHeight = (titleLines.length * titleLineHeight) + titleSpacing + (subLines.length * subLineHeight);
-  const bottomLimit = height - 120;
-  const topLimit = cardY + 30;
-  const availableHeight = bottomLimit - topLimit;
-  const startY = topLimit + (availableHeight - totalTextHeight) / 2;
-
-  // Renderiza Título (com palavras centrais em vermelho destaque)
-  ctx.font = 'bold 70px "Barlow Condensed", sans-serif';
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
-  let globalWordIndex = 0;
-  let textY = startY;
-
-  titleLines.forEach(l => {
-    const lWords = l.split(' ');
-    const fullLineWidth = ctx.measureText(l).width;
-    let curX = (width / 2) - (fullLineWidth / 2);
-    lWords.forEach((w, idx) => {
-      const isRed = globalWordIndex >= titleWords.length * 0.45 && globalWordIndex <= titleWords.length * 0.85;
-      ctx.fillStyle = isRed ? '#d40a38' : '#ffffff';
-      ctx.fillText(w, curX, textY);
-      curX += ctx.measureText(w).width;
-      if (idx < lWords.length - 1) curX += ctx.measureText(' ').width;
-      globalWordIndex++;
-    });
-    textY += titleLineHeight;
-  });
-
-  // Renderiza Subtítulo
-  ctx.font = '400 36px "Barlow Condensed", sans-serif';
-  ctx.fillStyle = '#cbd5e1';
-  ctx.textAlign = 'center';
-  let subY = textY + titleSpacing;
-  subLines.forEach(l => {
-    ctx.fillText(l, width / 2, subY);
-    subY += subLineHeight;
-  });
-
-  // Linha e Marca d'água no rodapé
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(60, height - 90);
-  ctx.lineTo(width - 60, height - 90);
-  ctx.stroke();
-
-  ctx.textAlign = 'left';
-  ctx.font = '600 24px "Barlow Condensed", sans-serif';
-  ctx.fillStyle = '#94a3b8';
-  ctx.fillText('portalngbrasil.com.br', 60, height - 55);
-
-  return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+  // Gera canvas dedicado usando o motor gráfico oficial blindado do Portal NG Brasil
+  return await renderNgCardToBlob({
+    title: article.cardInstagram?.titulo || article.title || '',
+    subtitle: article.cardInstagram?.apoio || article.subtitle || '',
+    image: article.cardInstagram?.imagem || article.image || article.metadata?.imagem || ''
+  }, { aspectRatio: '4:5' });
 }
 
 /**
@@ -639,6 +695,7 @@ export async function generateSocialCardBlob(article, existingCanvas = null) {
 export async function publishArticleToAllChannels({
   article,
   canvas = null,
+  cards = null,
   settings = {},
   reviewerName = 'Editora-Chefe',
   approvalNotes = 'Aprovado e publicado imediatamente em todos os canais.',
@@ -660,14 +717,61 @@ export async function publishArticleToAllChannels({
       site: siteUrl,
       share: shareUrl,
       instagram: null,
-      facebook: null
+      facebook: null,
+      threads: null
     },
     errors: {}
   };
 
   try {
     // -------------------------------------------------------------
-    // ETAPA 1: SALVAR NO PORTAL NG BRASIL (FIRESTORE 'news')
+    // ETAPA 1: RESOLVER CARDS DO CARROSSEL (PADRÃO 2 CARDS OU CARROSSEL COMPLETO)
+    // -------------------------------------------------------------
+    let effectiveCards = cards || article.socialCards || article.cards || null;
+
+    if (!Array.isArray(effectiveCards) || effectiveCards.length === 0) {
+      effectiveCards = [
+        {
+          id: 'card-1',
+          mode: 'template',
+          mediaType: 'image',
+          imageUrl: (article.cardInstagram?.imagem || article.image || article.metadata?.imagem || '').trim(),
+          title: article.cardInstagram?.titulo || article.title || '',
+          subtitle: article.cardInstagram?.apoio || article.subtitle || '',
+          highlightText: article.cardInstagram?.destaque || '',
+          categoryLabel: article.categoryLabel || article.category || 'NOTÍCIAS'
+        },
+        {
+          id: 'card-cta',
+          mode: 'full_image',
+          mediaType: 'image',
+          imageUrl: '/siga-portalngbrasil.jpg',
+          title: 'Siga @portalngbrasil',
+          subtitle: 'Acompanhe as notícias que impactam o país e o mundo.',
+          isCtaCard: true
+        }
+      ];
+    } else {
+      // Se houver apenas 1 card nos dados e não for o card de CTA, anexa o card oficial de CTA por padrão
+      const hasCta = effectiveCards.some(c => c.isCtaCard || (c.imageUrl && c.imageUrl.includes('siga-portalngbrasil')));
+      if (effectiveCards.length === 1 && !hasCta) {
+        effectiveCards = [
+          ...effectiveCards,
+          {
+            id: 'card-cta',
+            mode: 'full_image',
+            mediaType: 'image',
+            imageUrl: '/siga-portalngbrasil.jpg',
+            title: 'Siga @portalngbrasil',
+            subtitle: 'Acompanhe as notícias que impactam o país e o mundo.',
+            isCtaCard: true
+          }
+        ];
+      }
+    }
+
+    // -------------------------------------------------------------
+    // ETAPA 2: SALVAR NO PORTAL NG BRASIL (FIRESTORE 'news' e 'drafts')
     // -------------------------------------------------------------
     onProgress({ step: 'portal', message: '🚀 Publicando no Portal NG Brasil...' });
     
@@ -691,6 +795,7 @@ export async function publishArticleToAllChannels({
       approvedAt: now.toISOString(),
       approvalNotes: approvalNotes,
       autoPublished: true,
+      socialCards: effectiveCards,
       metadata: {
         ...(article.metadata || {}),
         aprovado_por: reviewerName,
@@ -709,7 +814,8 @@ export async function publishArticleToAllChannels({
         approvalStatus: 'approved',
         approvedBy: reviewerName,
         approvedAt: now.toISOString(),
-        approvalNotes: approvalNotes
+        approvalNotes: approvalNotes,
+        socialCards: effectiveCards
       });
     } catch (e) {
       // Se não estiver em drafts, tudo bem
@@ -719,44 +825,94 @@ export async function publishArticleToAllChannels({
     result.links.share = shareUrl;
 
     // -------------------------------------------------------------
-    // ETAPA 2: GERAR E HOSPEDAR A ARTE OFICIAL DAS REDES SOCIAIS
+    // ETAPA 3: GERAR E HOSPEDAR TODAS AS ARTES DAS REDES SOCIAIS (CARROSSEL)
     // -------------------------------------------------------------
-    onProgress({ step: 'image', message: '🎨 Renderizando arte do Instagram e Facebook...' });
-    
-    let blob = null;
-    try {
-      blob = await generateSocialCardBlob(publishedPayload, canvas);
-    } catch (imgErr) {
-      console.warn("Falha ao gerar blob do canvas:", imgErr);
-    }
+    onProgress({ step: 'image', message: `🎨 Renderizando ${effectiveCards.length} cards para Instagram e Redes Sociais...` });
 
-    let publicImageUrl = null;
-    if (blob) {
-      onProgress({ step: 'upload', message: '☁️ Hospedando arte em alta definição...' });
-      try {
-        publicImageUrl = await uploadImageForSocial(blob, conf.imgbbKey);
-      } catch (upErr) {
-        console.warn("Falha no upload da arte:", upErr.message);
-        result.errors.imageUpload = upErr.message;
+    const mediaItems = [];
+    const imageBlobs = [];
+    const imageUrls = [];
+
+    for (let i = 0; i < effectiveCards.length; i++) {
+      const card = effectiveCards[i];
+      const isFirstCard = i === 0;
+
+      if (card.mediaType === 'video' && (card.videoFile || card.videoUrl)) {
+        onProgress({ step: 'video_upload', message: `🎥 Hospedando vídeo do slide ${i + 1} de ${effectiveCards.length}...` });
+        try {
+          const uploadedVideoUrl = await uploadVideoForSocial(card.videoFile || card.videoUrl);
+          mediaItems.push({
+            type: 'video',
+            url: uploadedVideoUrl,
+            blob: card.videoFile || null
+          });
+        } catch (vidErr) {
+          console.warn(`Erro no upload do vídeo ${i + 1}:`, vidErr.message);
+          result.errors[`videoUpload_${i + 1}`] = vidErr.message;
+        }
+      } else {
+        onProgress({ step: 'image_render', message: `🎨 Renderizando arte do card ${i + 1} de ${effectiveCards.length}...` });
+        
+        let cardBlob = null;
+        if (isFirstCard && canvas && canvas.width > 0 && canvas.height > 0) {
+          try {
+            cardBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+          } catch (e) {
+            console.warn("Falha ao capturar blob do canvas:", e);
+          }
+        }
+
+        if (!cardBlob) {
+          try {
+            cardBlob = await renderCardSlideToBlob(card, {
+              aspectRatio: '4:5',
+              title: card.title || publishedPayload.cardInstagram?.titulo || publishedPayload.title,
+              subtitle: card.subtitle || publishedPayload.cardInstagram?.apoio || publishedPayload.subtitle,
+              imageUrl: card.imageUrl || card.image || publishedPayload.cardInstagram?.imagem || publishedPayload.image,
+              customHighlightText: card.highlightText || publishedPayload.cardInstagram?.destaque
+            });
+          } catch (renderErr) {
+            console.warn(`Erro ao renderizar card ${i + 1}:`, renderErr);
+          }
+        }
+
+        if (cardBlob) {
+          imageBlobs.push(cardBlob);
+          onProgress({ step: 'upload', message: `☁️ Hospedando arte ${i + 1} de ${effectiveCards.length} em alta definição...` });
+          try {
+            const uploadedUrl = await uploadImageForSocial(cardBlob, conf.imgbbKey);
+            if (uploadedUrl) {
+              imageUrls.push(uploadedUrl);
+              mediaItems.push({
+                type: 'image',
+                url: uploadedUrl,
+                blob: cardBlob
+              });
+            }
+          } catch (upErr) {
+            console.warn(`Falha no upload da arte ${i + 1}:`, upErr.message);
+            result.errors[`imageUpload_${i + 1}`] = upErr.message;
+          }
+        }
       }
     }
 
+    const publicImageUrl = imageUrls[0] || null;
     const caption = formatInstagramCaption(publishedPayload);
     const fbCaption = formatFacebookCaption(publishedPayload, shareUrl);
 
     // -------------------------------------------------------------
-    // ETAPA 3: PUBLICAR NO FACEBOOK
+    // ETAPA 4: PUBLICAR NO FACEBOOK (COM LINK E PRÉVIA DO PORTAL)
     // -------------------------------------------------------------
     if (conf.metaFbPageId && conf.metaToken) {
-      onProgress({ step: 'facebook', message: '📘 Publicando na Página do Facebook...' });
+      onProgress({ step: 'facebook', message: '📘 Publicando no Facebook com link e prévia do portal...' });
       try {
         const fbRes = await publishToFacebookPage({
           pageId: conf.metaFbPageId,
           token: conf.metaToken,
-          blob,
-          publicImageUrl,
           message: fbCaption,
-          linkUrl: shareUrl
+          linkUrl: shareUrl,
+          asPhoto: false
         });
         result.links.facebook = fbRes.url || `https://www.facebook.com/${conf.metaFbPageId}`;
         console.log("Facebook postado com sucesso:", result.links.facebook);
@@ -767,80 +923,217 @@ export async function publishArticleToAllChannels({
     }
 
     // -------------------------------------------------------------
-    // ETAPA 4: PUBLICAR NO INSTAGRAM FEED
+    // ETAPA 5: PUBLICAR NO INSTAGRAM FEED (CARD ÚNICO OU CARROSSEL COMPLETO)
     // -------------------------------------------------------------
-    if (conf.metaIgAccountId && conf.metaToken && publicImageUrl) {
-      onProgress({ step: 'instagram_container', message: '📸 Criando publicação no Instagram...' });
+    if (conf.metaIgAccountId && conf.metaToken && mediaItems.length > 0) {
       try {
         const safeCaption = caption.length > 2100 ? caption.substring(0, 2100) + '...' : caption;
 
-        const igMediaRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            image_url: publicImageUrl,
-            caption: safeCaption,
-            access_token: conf.metaToken
-          })
-        });
+        if (mediaItems.length === 1) {
+          // Publicação de Card Único no Instagram
+          const single = mediaItems[0];
+          onProgress({ step: 'instagram_container', message: '📸 Criando publicação no Instagram...' });
 
-        const igMediaData = await igMediaRes.json();
-        if (igMediaData.error) {
-          throw new Error("Container Instagram: " + (igMediaData.error.error_user_msg || igMediaData.error.message));
-        }
+          const payload = single.type === 'video'
+            ? { media_type: 'REELS', video_url: single.url, caption: safeCaption, access_token: conf.metaToken }
+            : { image_url: single.url, caption: safeCaption, access_token: conf.metaToken };
 
-        const creationId = igMediaData.id;
-        onProgress({ step: 'instagram_processing', message: '⏳ Instagram processando imagem em alta resolução...' });
+          const igMediaRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const igMediaData = await igMediaRes.json();
+          if (igMediaData.error) {
+            throw new Error("Container Instagram: " + (igMediaData.error.error_user_msg || igMediaData.error.message));
+          }
 
-        // Polling para aguardar o status FINISHED
-        let isReady = false;
-        let retries = 12; // até 36 segundos
-        while (retries > 0) {
-          await new Promise(r => setTimeout(r, 3000));
-          try {
-            const statusRes = await fetch(`https://graph.facebook.com/v20.0/${creationId}?fields=status_code,status&access_token=${conf.metaToken}`);
-            const statusData = await statusRes.json();
-            if (statusData.status_code === 'FINISHED') {
-              isReady = true;
-              break;
-            } else if (statusData.status_code === 'ERROR') {
-              throw new Error("Processamento Instagram falhou: " + (statusData.status || "Formato de imagem"));
+          const creationId = igMediaData.id;
+          onProgress({ step: 'instagram_processing', message: '⏳ Instagram processando imagem em alta resolução...' });
+
+          let retries = single.type === 'video' ? 24 : 12;
+          while (retries > 0) {
+            await new Promise(r => setTimeout(r, 3000));
+            try {
+              const statusRes = await fetch(`https://graph.facebook.com/v20.0/${creationId}?fields=status_code,status&access_token=${conf.metaToken}`);
+              const statusData = await statusRes.json();
+              if (statusData.status_code === 'FINISHED') {
+                break;
+              } else if (statusData.status_code === 'ERROR') {
+                throw new Error("Processamento Instagram falhou: " + (statusData.status || "Formato de mídia"));
+              }
+            } catch (stErr) {
+              if (stErr.message.includes('Processamento Instagram')) throw stErr;
             }
-          } catch (stErr) {
-            if (stErr.message.includes('Processamento Instagram')) throw stErr;
+            retries--;
           }
-          retries--;
-        }
 
-        onProgress({ step: 'instagram_publish', message: '✨ Publicando card no Feed do Instagram...' });
-        const igPublishRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media_publish`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            creation_id: creationId,
-            access_token: conf.metaToken
-          })
-        });
-
-        const igPublishData = await igPublishRes.json();
-        if (igPublishData.error) {
-          throw new Error("Publicação Instagram: " + (igPublishData.error.error_user_msg || igPublishData.error.message));
-        }
-
-        result.links.instagram = 'https://www.instagram.com/portalngbrasil/';
-        try {
-          const permaRes = await fetch(`https://graph.facebook.com/v20.0/${igPublishData.id}?fields=permalink&access_token=${conf.metaToken}`);
-          const permaData = await permaRes.json();
-          if (permaData.permalink) {
-            result.links.instagram = permaData.permalink;
+          onProgress({ step: 'instagram_publish', message: '✨ Publicando card no Feed do Instagram...' });
+          const igPublishRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media_publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              creation_id: creationId,
+              access_token: conf.metaToken
+            })
+          });
+          const igPublishData = await igPublishRes.json();
+          if (igPublishData.error) {
+            throw new Error("Publicação Instagram: " + (igPublishData.error.error_user_msg || igPublishData.error.message));
           }
-        } catch (pErr) {
-          console.warn("Erro ao buscar permalink Instagram:", pErr);
+
+          result.links.instagram = 'https://www.instagram.com/portalngbrasil/';
+          try {
+            const permaRes = await fetch(`https://graph.facebook.com/v20.0/${igPublishData.id}?fields=permalink&access_token=${conf.metaToken}`);
+            const permaData = await permaRes.json();
+            if (permaData.permalink) result.links.instagram = permaData.permalink;
+          } catch (_) {}
+        } else {
+          // Publicação de CARROSSEL COMPLETO (Fotos e Vídeos)
+          onProgress({ step: 'instagram_carousel', message: `📸 Criando carrossel de ${mediaItems.length} cards no Instagram...` });
+
+          const childrenIds = [];
+          for (let i = 0; i < mediaItems.length; i++) {
+            const item = mediaItems[i];
+            onProgress({
+              step: 'instagram_slide',
+              message: `Slide ${i + 1} de ${mediaItems.length} (${item.type === 'video' ? 'Vídeo' : 'Foto'}) no Instagram...`
+            });
+
+            const childPayload = item.type === 'video'
+              ? {
+                  media_type: 'VIDEO',
+                  video_url: item.url,
+                  is_carousel_item: true,
+                  access_token: conf.metaToken
+                }
+              : {
+                  image_url: item.url,
+                  is_carousel_item: true,
+                  access_token: conf.metaToken
+                };
+
+            const itemRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(childPayload)
+            });
+            const itemData = await itemRes.json();
+            if (itemData.error) {
+              throw new Error(`Slide ${i + 1} Instagram: ` + (itemData.error.error_user_msg || itemData.error.message));
+            }
+
+            if (itemData.id) {
+              if (item.type === 'video') {
+                let childRetries = 24;
+                while (childRetries > 0) {
+                  onProgress({ step: 'instagram_video_proc', message: `Processando vídeo do slide ${i + 1}...` });
+                  await new Promise(r => setTimeout(r, 4000));
+                  try {
+                    const stRes = await fetch(`https://graph.facebook.com/v20.0/${itemData.id}?fields=status_code,status&access_token=${conf.metaToken}`);
+                    const stData = await stRes.json();
+                    if (stData.status_code === 'FINISHED') break;
+                    if (stData.status_code === 'ERROR') throw new Error(`Processamento do vídeo ${i + 1} falhou.`);
+                  } catch (errVid) {
+                    if (errVid.message.includes('Processamento do vídeo')) throw errVid;
+                  }
+                  childRetries--;
+                }
+              }
+              childrenIds.push(itemData.id);
+            }
+          }
+
+          if (childrenIds.length < 2) {
+            throw new Error("Carrossel requer pelo menos 2 slides processados com sucesso pelo Instagram.");
+          }
+
+          onProgress({ step: 'instagram_carousel_container', message: 'Montando Carrossel oficial no Instagram...' });
+          const carouselRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              media_type: 'CAROUSEL',
+              children: childrenIds,
+              caption: safeCaption,
+              access_token: conf.metaToken
+            })
+          });
+          const carouselData = await carouselRes.json();
+          if (carouselData.error) {
+            throw new Error("Container Carrossel Instagram: " + (carouselData.error.error_user_msg || carouselData.error.message));
+          }
+
+          const carouselCreationId = carouselData.id;
+          onProgress({ step: 'instagram_carousel_proc', message: 'Aguardando processamento do Carrossel pelo Instagram...' });
+
+          let retries = 18;
+          while (retries > 0) {
+            await new Promise(r => setTimeout(r, 3500));
+            try {
+              const statusRes = await fetch(`https://graph.facebook.com/v20.0/${carouselCreationId}?fields=status_code,status&access_token=${conf.metaToken}`);
+              const statusData = await statusRes.json();
+              if (statusData.status_code === 'FINISHED') {
+                break;
+              } else if (statusData.status_code === 'ERROR') {
+                throw new Error("Processamento do Carrossel falhou: " + (statusData.status || "Formato rejeitado"));
+              }
+            } catch (stErr) {
+              if (stErr.message.includes('Processamento do Carrossel')) throw stErr;
+            }
+            retries--;
+          }
+
+          onProgress({ step: 'instagram_publish', message: `✨ Publicando Carrossel (${childrenIds.length} cards) no Feed do Instagram...` });
+          const igPublishRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media_publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              creation_id: carouselCreationId,
+              access_token: conf.metaToken
+            })
+          });
+          const igPublishData = await igPublishRes.json();
+          if (igPublishData.error) {
+            throw new Error("Publicação Carrossel Instagram: " + (igPublishData.error.error_user_msg || igPublishData.error.message));
+          }
+
+          result.links.instagram = 'https://www.instagram.com/portalngbrasil/';
+          try {
+            const permaRes = await fetch(`https://graph.facebook.com/v20.0/${igPublishData.id}?fields=permalink&access_token=${conf.metaToken}`);
+            const permaData = await permaRes.json();
+            if (permaData.permalink) result.links.instagram = permaData.permalink;
+          } catch (_) {}
+          console.log("Carrossel Instagram publicado com sucesso:", result.links.instagram);
         }
-        console.log("Instagram publicado com sucesso:", result.links.instagram);
       } catch (igErr) {
         console.error("Exceção ao postar no Instagram:", igErr);
         result.errors.instagram = igErr.message;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // ETAPA 4.5: PUBLICAR NO THREADS (@portalngbrasil)
+    // -------------------------------------------------------------
+    const effectiveThreadsToken = (conf.threadsToken || FALLBACK_META_SETTINGS.threadsToken || '').trim();
+    const effectiveThreadsUserId = (conf.threadsUserId || FALLBACK_META_SETTINGS.threadsUserId || '').trim();
+
+    if (effectiveThreadsToken && effectiveThreadsUserId) {
+      onProgress({ step: 'threads', message: '🧵 Publicando no Threads (@portalngbrasil)...' });
+      try {
+        const threadsCaption = formatThreadsCaption(publishedPayload, shareUrl);
+        const thRes = await publishToThreads({
+          userId: effectiveThreadsUserId,
+          token: effectiveThreadsToken,
+          publicImageUrl,
+          text: threadsCaption,
+          linkUrl: shareUrl
+        });
+        result.links.threads = thRes.url || `https://www.threads.net/@portalngbrasil`;
+        console.log("Threads publicado com sucesso:", result.links.threads);
+      } catch (thErr) {
+        console.error("Exceção ao postar no Threads:", thErr);
+        result.errors.threads = thErr.message;
       }
     }
 

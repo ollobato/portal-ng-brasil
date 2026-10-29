@@ -15,12 +15,15 @@ import {
   ChevronRight,
   Layers,
   FileText,
-  Video
+  Video,
+  Camera,
+  Link as LinkIcon
 } from 'lucide-react';
-import { formatInstagramCaption, formatFacebookCaption, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
+import { formatInstagramCaption, formatFacebookCaption, formatThreadsCaption, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
 import { uploadImageForSocial, uploadVideoForSocial } from '../utils/imageUploader';
 import { safeLoadImageForCanvas } from '../utils/imageLoader';
-import { publishToFacebookPage, resolveFacebookPageToken, FALLBACK_META_SETTINGS } from '../utils/metaPublisher';
+import { publishToFacebookPage, resolveFacebookPageToken, publishToThreads, FALLBACK_META_SETTINGS } from '../utils/metaPublisher';
+import { calculateAutoFitTypography, getHighlightRange } from '../utils/ngCardRenderer.js';
 
 const formatText = (text) => {
   if (!text) return '';
@@ -98,7 +101,7 @@ export const createDefaultCards = (article) => [
   createDefaultCtaCard()
 ];
 
-const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = false, metaToken, metaFbPageId, metaIgAccountId, imgbbKey, hideButtons = false, onPostSuccess }, ref) => {
+const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = false, metaToken, metaFbPageId, metaIgAccountId, threadsToken, threadsUserId, imgbbKey, hideButtons = false, onPostSuccess, onCardsChange }, ref) => {
   const canvasRef = useRef(null);
   const directUploadInputRef = useRef(null);
   const multiUploadInputRef = useRef(null);
@@ -116,6 +119,9 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   const [category, setCategory] = useState(article?.categoryLabel || article?.category || 'POLÍTICA');
   const [captionText, setCaptionText] = useState('');
   const [isCaptionCustomized, setIsCaptionCustomized] = useState(false);
+  const [captionFacebook, setCaptionFacebook] = useState('');
+  const [isFbCaptionCustomized, setIsFbCaptionCustomized] = useState(false);
+  const [activeCaptionTab, setActiveCaptionTab] = useState('instagram'); // 'instagram' | 'facebook'
 
   const safeActiveIndex = Math.min(activeCardIndex, Math.max(0, cards.length - 1));
   const activeCard = cards[safeActiveIndex] || cards[0];
@@ -133,6 +139,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       setCards(createDefaultCards(article));
       setActiveCardIndex(0);
       setIsCaptionCustomized(false);
+      setIsFbCaptionCustomized(false);
     } else {
       setCards(prev => {
         if (!prev.length) return createDefaultCards(article);
@@ -148,23 +155,48 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     }
   }, [article]);
 
-  // Atualiza a legenda padrão com base no Card 1 e no texto da matéria do portal
+  // Notifica o componente pai sobre alterações nos cards do carrossel
+  useEffect(() => {
+    if (typeof onCardsChange === 'function' && Array.isArray(cards)) {
+      onCardsChange(cards);
+    }
+  }, [cards, onCardsChange]);
+
+  // Atualiza as legendas padrão (Instagram com resumo e Facebook com chamada curta e impactante)
   const firstCardTitle = cards[0]?.title || '';
   const firstCardSubtitle = cards[0]?.subtitle || '';
   useEffect(() => {
-    if (isCaptionCustomized) return;
+    const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
 
-    setCaptionText(
-      formatInstagramCaption({
-        title: firstCardTitle || article?.title,
-        subtitle: firstCardSubtitle || article?.subtitle,
-        category,
-        praca: article?.praca,
-        id: article?.id,
-        content: article?.content
-      })
-    );
-  }, [firstCardTitle, firstCardSubtitle, category, article?.content, article?.title, article?.subtitle, article?.praca, article?.id, isCaptionCustomized]);
+    if (!isCaptionCustomized) {
+      setCaptionText(
+        formatInstagramCaption({
+          title: firstCardTitle || article?.title,
+          subtitle: firstCardSubtitle || article?.subtitle,
+          category,
+          praca: article?.praca,
+          id: article?.id,
+          content: article?.content
+        })
+      );
+    }
+
+    if (!isFbCaptionCustomized) {
+      setCaptionFacebook(
+        formatFacebookCaption({
+          title: firstCardTitle || article?.title,
+          subtitle: firstCardSubtitle || article?.subtitle,
+          category,
+          categoryLabel: category,
+          praca: article?.praca,
+          id: article?.id,
+          content: article?.content,
+          metadata: article?.metadata,
+          jogada: article?.jogada || article?.metadata?.jogada
+        }, shareUrl)
+      );
+    }
+  }, [firstCardTitle, firstCardSubtitle, category, article?.content, article?.title, article?.subtitle, article?.praca, article?.id, article?.metadata, isCaptionCustomized, isFbCaptionCustomized]);
 
   const handleRegenerateCaption = () => {
     const fresh = formatInstagramCaption({
@@ -178,7 +210,27 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     setCaptionText(fresh);
     setIsCaptionCustomized(false);
     if (showToast) {
-      showToast('Legenda atualizada com o resumo do portal!', false);
+      showToast('Legenda do Instagram atualizada com o resumo do portal!', false);
+    }
+  };
+
+  const handleRegenerateFbCaption = () => {
+    const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
+    const fresh = formatFacebookCaption({
+      title: cards[0]?.title || article?.title || '',
+      subtitle: cards[0]?.subtitle || article?.subtitle || '',
+      category,
+      categoryLabel: category,
+      praca: article?.praca,
+      id: article?.id,
+      content: article?.content,
+      metadata: article?.metadata,
+      jogada: article?.jogada || article?.metadata?.jogada
+    }, shareUrl);
+    setCaptionFacebook(fresh);
+    setIsFbCaptionCustomized(false);
+    if (showToast) {
+      showToast('Chamada do Facebook atualizada com sucesso!', false);
     }
   };
 
@@ -561,68 +613,43 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
     }
 
-    // Cálculo das linhas do Título
-    ctx.font = 'bold 70px "Barlow Condensed", sans-serif';
-    const titleWords = (cardTitle || '').toUpperCase().split(' ').filter(Boolean);
-    let titleLines = [];
-    let currentLine = '';
-    const maxWidth = width - 120;
-
-    for (let n = 0; n < titleWords.length; n++) {
-      const testLine = currentLine + titleWords[n] + ' ';
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width > maxWidth && n > 0) {
-        titleLines.push(currentLine.trim());
-        currentLine = titleWords[n] + ' ';
-      } else {
-        currentLine = testLine;
-      }
-    }
-    if (currentLine.trim()) titleLines.push(currentLine.trim());
-
-    // Cálculo das linhas do Subtítulo
-    ctx.font = '400 36px "Barlow Condensed", sans-serif';
-    const subWords = (cardSubtitle || '').split(' ').filter(Boolean);
-    let subLines = [];
-    currentLine = '';
-    for (let n = 0; n < subWords.length; n++) {
-      const testLine = currentLine + subWords[n] + ' ';
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width > maxWidth && n > 0) {
-        subLines.push(currentLine.trim());
-        currentLine = subWords[n] + ' ';
-      } else {
-        currentLine = testLine;
-      }
-    }
-    if (currentLine.trim()) subLines.push(currentLine.trim());
-
-    const titleLineHeight = 75;
-    const subLineHeight = 46;
-    const titleSpacing = subLines.length > 0 ? 15 : 0;
-    const totalTextHeight = (titleLines.length * titleLineHeight) + titleSpacing + (subLines.length * subLineHeight);
-
-    const bottomLimit = height - 120;
-    const topLimit = cardY + 30;
+    const topLimit = cardY + 45;
+    const bottomLimit = height - 115;
     const availableHeight = bottomLimit - topLimit;
+    const maxWidth = width - 140;
 
-    const startY = topLimit + (availableHeight - totalTextHeight) / 2;
+    // Cálculo dinâmico auto-fit (zero overflow)
+    const typeResult = calculateAutoFitTypography(ctx, cardTitle, cardSubtitle, maxWidth, availableHeight, aspectRatio);
+    const {
+      titleSize,
+      titleLineHeight,
+      titleLines,
+      titleWords,
+      subSize,
+      subLineHeight,
+      subLines,
+      titleSpacing,
+      totalTextHeight
+    } = typeResult;
 
-    // Desenha Título
-    ctx.font = 'bold 70px "Barlow Condensed", sans-serif';
+    const startY = Math.max(topLimit, topLimit + (availableHeight - totalTextHeight) / 2);
+
+    // Desenha Título com destaque inteligente
+    ctx.font = `bold ${titleSize}px "Barlow Condensed", sans-serif`;
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
 
+    const highlightInfo = getHighlightRange(titleWords);
     let globalWordIndex = 0;
     let textY = startY;
 
     titleLines.forEach(l => {
-      const lWords = l.split(' ');
+      const lWords = l.split(' ').filter(Boolean);
       const fullLineWidth = ctx.measureText(l).width;
       let currentX = (width / 2) - (fullLineWidth / 2);
 
       lWords.forEach((w, idx) => {
-        const isRed = globalWordIndex >= titleWords.length * 0.45 && globalWordIndex <= titleWords.length * 0.85;
+        const isRed = highlightInfo.set.has(globalWordIndex);
         ctx.fillStyle = isRed ? '#d40a38' : '#ffffff';
 
         ctx.fillText(w, currentX, textY);
@@ -637,15 +664,17 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     });
 
     // Desenha Subtítulo
-    ctx.font = '400 36px "Barlow Condensed", sans-serif';
-    ctx.fillStyle = '#cbd5e1';
-    ctx.textAlign = 'center';
+    if (subLines.length > 0) {
+      ctx.font = `400 ${subSize}px "Barlow Condensed", sans-serif`;
+      ctx.fillStyle = '#cbd5e1';
+      ctx.textAlign = 'center';
 
-    let subY = textY + titleSpacing;
-    subLines.forEach(l => {
-      ctx.fillText(l, width / 2, subY);
-      subY += subLineHeight;
-    });
+      let subY = textY + titleSpacing;
+      subLines.forEach(l => {
+        ctx.fillText(l, width / 2, subY);
+        subY += subLineHeight;
+      });
+    }
 
     // Rodapé
     ctx.textAlign = 'left';
@@ -726,7 +755,8 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   };
 
   const handleCopyCaption = async () => {
-    const success = await copyToClipboard(captionText);
+    const textToCopy = activeCaptionTab === 'instagram' ? captionText : captionFacebook;
+    const success = await copyToClipboard(textToCopy);
     if (success) {
       setCopiedCaption(true);
       setTimeout(() => setCopiedCaption(false), 2500);
@@ -738,19 +768,24 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   };
 
   useImperativeHandle(ref, () => ({
-    postToMeta: async (platforms = ['facebook', 'instagram']) => {
-      return await handlePostToMeta(platforms);
-    }
+    postToMeta: async (platforms = ['facebook', 'instagram', 'threads'], options = {}) => {
+      return await handlePostToMeta(platforms, options);
+    },
+    getCards: () => cards,
+    getCaptionText: () => captionText,
+    getCaptionFacebook: () => captionFacebook
   }));
 
-  const handlePostToMeta = async (platforms = ['facebook', 'instagram']) => {
+  const handlePostToMeta = async (platforms = ['facebook', 'instagram', 'threads'], options = {}) => {
     const effectiveToken = (metaToken || FALLBACK_META_SETTINGS.metaToken || '').trim();
     const effectiveFbPageId = (metaFbPageId || FALLBACK_META_SETTINGS.metaFbPageId || '').trim();
     const effectiveIgAccountId = (metaIgAccountId || FALLBACK_META_SETTINGS.metaIgAccountId || '').trim();
+    const effectiveThreadsToken = (threadsToken || FALLBACK_META_SETTINGS.threadsToken || '').trim();
+    const effectiveThreadsUserId = (threadsUserId || FALLBACK_META_SETTINGS.threadsUserId || '').trim();
     const effectiveImgbbKey = (imgbbKey || FALLBACK_META_SETTINGS.imgbbKey || '').trim();
 
-    if (!effectiveToken) {
-      const msg = "Configure o Token de Acesso do Meta nas Configurações.";
+    if (!effectiveToken && !effectiveThreadsToken) {
+      const msg = "Configure o Token de Acesso do Meta / Threads nas Configurações.";
       showToast ? showToast(msg, true) : alert(msg);
       throw new Error(msg);
     }
@@ -809,14 +844,42 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       let fbError = null;
       let igError = null;
 
-      // 2. Postar no Facebook
+      // 2. Postar no Facebook (Com Link e Prévia Oficial da Matéria no Portal)
       if (effectiveFbPageId && platforms.includes('facebook')) {
-        setPostStatus(isCarousel ? `Postando ${cards.length} itens na Página do Facebook...` : 'Postando na Página do Facebook...');
+        setPostStatus('Postando no Facebook com link e prévia do portal...');
         try {
-          const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
-          const fbMessage = captionText && !captionText.includes('Link na bio')
-            ? captionText
-            : formatFacebookCaption({ title: firstCardTitle, subtitle: firstCardSubtitle, categoryLabel: category, id: article?.id }, shareUrl);
+          const effectiveArticle = options?.article || article;
+          const targetArticleId = effectiveArticle?.id || article?.id;
+          const shareUrl = options?.shareUrl || (targetArticleId ? `https://portalngbrasil.com.br/share.php?id=${targetArticleId}` : 'https://portalngbrasil.com.br');
+
+          // Força o Facebook a raspar o Open Graph e cachear a foto da matéria em alta resolução antes da postagem
+          if (shareUrl && shareUrl.includes('share.php') && effectiveToken) {
+            try {
+              const scRes = await fetch(`https://graph.facebook.com/v20.0/?id=${encodeURIComponent(shareUrl)}&scrape=true&access_token=${effectiveToken}`, { method: 'POST' });
+              if (scRes.ok) {
+                // Pequena pausa para garantir que o CDN de imagens da Meta baixou a capa da matéria
+                await new Promise(r => setTimeout(r, 1200));
+              }
+            } catch (scErr) {
+              console.warn("Aviso ao forçar scrape antecipado do Facebook:", scErr.message);
+            }
+          }
+
+          let effectiveFbMessage = (captionFacebook && captionFacebook.trim()) || formatFacebookCaption({
+            title: firstCardTitle || effectiveArticle?.title || article?.title,
+            subtitle: firstCardSubtitle || effectiveArticle?.subtitle || article?.subtitle,
+            categoryLabel: category,
+            category,
+            id: targetArticleId,
+            content: effectiveArticle?.content || article?.content,
+            metadata: effectiveArticle?.metadata || article?.metadata,
+            jogada: effectiveArticle?.jogada || effectiveArticle?.metadata?.jogada
+          }, shareUrl);
+
+          // Se a legenda personalizada tiver link genérico sem o ID da matéria, substitui pelo link direto
+          if (targetArticleId && effectiveFbMessage.includes('https://portalngbrasil.com.br') && !effectiveFbMessage.includes(shareUrl)) {
+            effectiveFbMessage = effectiveFbMessage.replace('https://portalngbrasil.com.br', shareUrl);
+          }
 
           if (mediaItems.length === 1 && mediaItems[0].type === 'video') {
             // Post de vídeo único no Facebook Page
@@ -826,7 +889,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 file_url: mediaItems[0].url,
-                description: fbMessage,
+                description: effectiveFbMessage,
                 access_token: pageToken
               })
             });
@@ -837,15 +900,13 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               throw new Error(fbVidData.error?.message || 'Falha ao publicar vídeo no Facebook');
             }
           } else {
+            // Post no Feed do Facebook com Link Clicável e Prévia do Site (sem o card gerado do Instagram)
             const fbRes = await publishToFacebookPage({
               pageId: effectiveFbPageId,
               token: effectiveToken,
-              blob: imageBlobs[0] || null,
-              publicImageUrl: imageUrls[0] || null,
-              blobs: imageBlobs,
-              publicImageUrls: imageUrls,
-              message: fbMessage,
-              linkUrl: shareUrl
+              message: effectiveFbMessage,
+              linkUrl: shareUrl,
+              asPhoto: false
             });
             fbPostUrl = fbRes.url || `https://www.facebook.com/${effectiveFbPageId}`;
           }
@@ -1049,12 +1110,42 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
         }
       }
 
-      if (fbError && igError) {
-        showToast ? showToast(`FB: ${fbError} | IG: ${igError}`, true) : null;
-      } else if (fbError) {
-        showToast ? showToast(`Falha no Facebook: ${fbError}`, true) : null;
-      } else if (igError) {
-        showToast ? showToast(`Falhou no Instagram: ${igError}`, true) : null;
+      // 4. Postar no Threads
+      let thPostUrl = null;
+      let thError = null;
+      if (effectiveThreadsToken && effectiveThreadsUserId && platforms.includes('threads')) {
+        setPostStatus('Postando no Threads (@portalngbrasil)...');
+        try {
+          const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
+          const thMessage = formatThreadsCaption({ 
+            title: firstCardTitle || article?.title, 
+            subtitle: firstCardSubtitle || article?.subtitle, 
+            categoryLabel: category, 
+            id: article?.id 
+          }, shareUrl);
+
+          const thRes = await publishToThreads({
+            userId: effectiveThreadsUserId,
+            token: effectiveThreadsToken,
+            publicImageUrl: imageUrls[0] || null,
+            text: thMessage,
+            linkUrl: shareUrl
+          });
+          thPostUrl = thRes.url;
+          console.log("Threads publicado com sucesso:", thPostUrl);
+        } catch (e) {
+          console.error("Erro ao publicar no Threads:", e);
+          thError = e.message;
+        }
+      }
+
+      const hasErrors = fbError || igError || thError;
+      if (hasErrors) {
+        const errorMsgs = [];
+        if (fbError) errorMsgs.push(`FB: ${fbError}`);
+        if (igError) errorMsgs.push(`IG: ${igError}`);
+        if (thError) errorMsgs.push(`Threads: ${thError}`);
+        showToast ? showToast(errorMsgs.join(' | '), true) : null;
       } else {
         showToast
           ? showToast(isCarousel ? `Carrossel (${cards.length} cards) publicado com sucesso!` : "Publicado com sucesso nas redes sociais!")
@@ -1062,11 +1153,15 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       }
 
       const postResult = {
-        success: !fbError && !igError,
+        success: (!platforms.includes('facebook') || !fbError) &&
+                 (!platforms.includes('instagram') || !igError) &&
+                 (!platforms.includes('threads') || !thError),
         facebook: fbPostUrl || (effectiveFbPageId ? `https://www.facebook.com/${effectiveFbPageId}` : 'https://www.facebook.com/portalngbrasil'),
         instagram: igPostUrl || 'https://www.instagram.com/portalngbrasil/',
+        threads: thPostUrl || 'https://www.threads.net/@portalngbrasil',
         fbError,
-        igError
+        igError,
+        thError
       };
 
       if (onPostSuccess) {
@@ -1729,19 +1824,45 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             </>
           )}
 
-          {/* Legenda Geral da Publicação */}
+          {/* Legenda Geral da Publicação (Abas Instagram e Facebook) */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1 flex justify-between items-center">
-              <span>Legenda para Redes Sociais</span>
+            <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-200">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveCaptionTab('instagram')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-t-md transition-colors flex items-center gap-1.5 ${
+                    activeCaptionTab === 'instagram'
+                      ? 'bg-pink-50 text-pink-700 border-b-2 border-pink-600'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  Instagram (Card)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCaptionTab('facebook')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-t-md transition-colors flex items-center gap-1.5 ${
+                    activeCaptionTab === 'facebook'
+                      ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  Facebook (Link + Prévia)
+                </button>
+              </div>
+
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleRegenerateCaption}
-                  title="Atualizar legenda gerando resumo automático do texto da matéria"
+                  onClick={activeCaptionTab === 'instagram' ? handleRegenerateCaption : handleRegenerateFbCaption}
+                  title="Atualizar texto da legenda com dados da matéria"
                   className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-semibold transition-colors"
                 >
                   <Sparkles className="w-3 h-3 text-indigo-500" />
-                  Atualizar Resumo
+                  {activeCaptionTab === 'instagram' ? 'Atualizar Resumo' : 'Atualizar Chamada'}
                 </button>
                 <span className="text-slate-300">|</span>
                 <button
@@ -1753,16 +1874,35 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                   {copiedCaption ? 'Copiado!' : 'Copiar'}
                 </button>
               </div>
-            </label>
+            </div>
+
+            {activeCaptionTab === 'facebook' && (
+              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-800 flex items-center gap-2">
+                <LinkIcon className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                <span>
+                  <strong>Post com Prévia no Facebook:</strong> O Facebook postará esta chamada junto com o card clicável e a foto original da matéria no site (sem o card do Instagram).
+                </span>
+              </div>
+            )}
+
             <textarea
-              value={captionText}
+              value={activeCaptionTab === 'instagram' ? captionText : captionFacebook}
               onChange={(e) => {
-                setCaptionText(e.target.value);
-                setIsCaptionCustomized(true);
+                if (activeCaptionTab === 'instagram') {
+                  setCaptionText(e.target.value);
+                  setIsCaptionCustomized(true);
+                } else {
+                  setCaptionFacebook(e.target.value);
+                  setIsFbCaptionCustomized(true);
+                }
               }}
-              rows={8}
-              placeholder="A legenda com resumo automático do texto do portal aparecerá aqui..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-600 focus:ring-2 focus:ring-red-500 focus:outline-none"
+              rows={activeCaptionTab === 'facebook' ? 5 : 8}
+              placeholder={
+                activeCaptionTab === 'facebook'
+                  ? "Chamada curta e impactante para o Facebook que instiga o clique no link..."
+                  : "A legenda com resumo automático do texto do portal aparecerá aqui..."
+              }
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-red-500 focus:outline-none"
             />
           </div>
         </div>

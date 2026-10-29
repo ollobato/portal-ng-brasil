@@ -486,9 +486,11 @@ COMO VOCÊ DEVE AGIR:
     robotClaudeKey: localStorage.getItem("portal_ng_claude_key") || "",
     robotPerplexityKey: localStorage.getItem("portal_ng_perplexity_key") || "",
     robotGoogleSearchKey: localStorage.getItem("portal_ng_google_search_key") || "",
-    metaToken: localStorage.getItem("portal_ng_meta_token") || "EAAfkmL0QDnwBShl80MRmZBTLC0zM1xliUQViccwO4beeR26NpOZBawVgFRIOmLdtHGZC2sZBzKykWtyHcKth5GxbT0wmaC2AhsnXWmZAOqRZA2efBiFPhWytZCILlXNFQCijh0VRwxil0ZAk4cmKdB8vH7Ew2DNQKZCJ9At5xmSVHxGbuwNs3NfQeMVhbI25c",
+    metaToken: localStorage.getItem("portal_ng_meta_token") || "EAAfkmL0QDnwBSZCazrXzU3uVto6vWKdtDEMaWiWIKe9b66NPhCzSlQALQlZBkcNyM3DDoz2iD84JZCGcs9ueHkUsGplljRIbXmUM4Smx3tuIF14ZBYD4NF8EFN5FZBCcbXcEMwzlOZAJEZBW47ASG47DXtDynrNVmDAuKDCnuRZCH3CmiBJZAvpwwswirCAov58prHZCgAMPzZChHkLee1cmtMYPhDu5vXrFT8L4szKiDPlJZAFlEsXm4ryyXoL0qzZAJJ2NUAdKCkCXf1jVmgbOve9NVuyoK",
     metaFbPageId: localStorage.getItem("portal_ng_meta_fb_page_id") || "109031887591187",
     metaIgAccountId: localStorage.getItem("portal_ng_meta_ig_account_id") || "17841455465356006",
+    threadsToken: localStorage.getItem("portal_ng_threads_token") || "THAAVZB1HEtu6ZABYlk5QU0yRTVqZAFJyWENyQWdXOEZAIa3VhUVFSUHJ5S3BIbXdJSnNSSnVQR2V3OWY5OXhwQWFtVGJqQ1phOFU0enpGYWE0Tk5tRHBYTHFPc0dYUEJlWTh2MlJRWkt6WXBuaXdZAcGYtamVqeWw4dW9Fb1pBNkFoZAjA1bVB3cUc4eWFjdk11aHMZD",
+    threadsUserId: localStorage.getItem("portal_ng_threads_user_id") || "29313904888222414",
     imgbbKey: localStorage.getItem("portal_ng_imgbb_key") || "16be6a5efa6c25b8e50bf9ae6ef9b9bf",
     robotFeedback: localStorage.getItem("portal_ng_robot_feedback") ? JSON.parse(localStorage.getItem("portal_ng_robot_feedback")) : { liked: [], disliked: [] },
     robotGoldStandard: localStorage.getItem("portal_ng_robot_gold_standard") ? JSON.parse(localStorage.getItem("portal_ng_robot_gold_standard")) : null,
@@ -533,6 +535,12 @@ COMO VOCÊ DEVE AGIR:
 
   const metaIgAccountId = settings.metaIgAccountId || fallbackSettings.metaIgAccountId;
   const setMetaIgAccountId = (val) => setSettings(prev => ({ ...prev, metaIgAccountId: typeof val === "function" ? val(prev.metaIgAccountId) : val }));
+
+  const threadsToken = settings.threadsToken || fallbackSettings.threadsToken;
+  const setThreadsToken = (val) => setSettings(prev => ({ ...prev, threadsToken: typeof val === "function" ? val(prev.threadsToken) : val }));
+
+  const threadsUserId = settings.threadsUserId || fallbackSettings.threadsUserId;
+  const setThreadsUserId = (val) => setSettings(prev => ({ ...prev, threadsUserId: typeof val === "function" ? val(prev.threadsUserId) : val }));
 
   const imgbbKey = settings.imgbbKey || fallbackSettings.imgbbKey;
   const setImgbbKey = (val) => setSettings(prev => ({ ...prev, imgbbKey: typeof val === "function" ? val(prev.imgbbKey) : val }));
@@ -901,12 +909,19 @@ COMO VOCÊ DEVE AGIR:
       }
 
       let targetId = editingId;
+      const currentCards = socialRef.current?.getCards ? socialRef.current.getCards() : (formData.socialCards || null);
+      const currentCaption = socialRef.current?.getCaptionText ? socialRef.current.getCaptionText() : (formData.captionText || '');
+      const dataToSave = {
+        ...formData,
+        socialCards: currentCards || formData.socialCards || null,
+        captionText: currentCaption || formData.captionText || ''
+      };
 
       if (!targetId || editingIsDraft) {
         if (!targetId) {
           targetId = 'draft-' + Date.now();
           const newDraft = {
-            ...formData,
+            ...dataToSave,
             id: targetId,
             date: formData.date || new Date().toISOString().split('T')[0],
             createdAt: new Date().toISOString(),
@@ -918,7 +933,7 @@ COMO VOCÊ DEVE AGIR:
         } else {
           setDraftData(prev => prev.map(d => String(d.id) === String(targetId) ? {
             ...d,
-            ...formData,
+            ...dataToSave,
             updatedAt: new Date().toISOString()
           } : d));
         }
@@ -926,7 +941,7 @@ COMO VOCÊ DEVE AGIR:
         // Matéria já publicada
         setNewsData(prev => prev.map(n => String(n.id) === String(targetId) ? {
           ...n,
-          ...formData,
+          ...dataToSave,
           updatedAt: new Date().toISOString()
         } : n));
       }
@@ -946,11 +961,18 @@ COMO VOCÊ DEVE AGIR:
       }
 
       let targetId = editingId;
+      const currentCards = socialRef.current?.getCards ? socialRef.current.getCards() : (formData.socialCards || null);
+      const currentCaption = socialRef.current?.getCaptionText ? socialRef.current.getCaptionText() : (formData.captionText || '');
+      const dataToSave = {
+        ...formData,
+        socialCards: currentCards || formData.socialCards || null,
+        captionText: currentCaption || formData.captionText || ''
+      };
 
       if (!targetId) {
         targetId = 'draft-' + Date.now();
         const newDraft = {
-          ...formData,
+          ...dataToSave,
           id: targetId,
           date: formData.date || new Date().toISOString().split('T')[0],
           createdAt: new Date().toISOString(),
@@ -962,7 +984,7 @@ COMO VOCÊ DEVE AGIR:
       } else {
         setDraftData(prev => prev.map(d => d.id === targetId ? {
           ...d,
-          ...formData,
+          ...dataToSave,
           updatedAt: new Date().toISOString()
         } : d));
       }
@@ -976,7 +998,7 @@ COMO VOCÊ DEVE AGIR:
         title: formData.title,
         subtitle: formData.subtitle || '',
         url: link,
-        item: { ...formData, id: targetId }
+        item: { ...dataToSave, id: targetId }
       });
       setCopiedApprovalLink(false);
       showToast("Link de aprovação gerado com sucesso!");
@@ -997,15 +1019,16 @@ COMO VOCÊ DEVE AGIR:
     setPublishModalData({
       isOpen: true,
       isPublishing: true,
-      statusText: '🚀 Publicando no Portal NG Brasil, Instagram e Facebook...',
+      statusText: '🚀 Publicando no Portal NG Brasil, Instagram, Facebook e Threads...',
       article: draft,
       target: 'all',
-      targetPlatforms: ['facebook', 'instagram'],
+      targetPlatforms: ['facebook', 'instagram', 'threads'],
       links: {
         site: siteUrl,
         share: shareUrl,
         instagram: null,
-        facebook: null
+        facebook: null,
+        threads: null
       },
       errors: {}
     });
@@ -1017,6 +1040,8 @@ COMO VOCÊ DEVE AGIR:
           metaToken,
           metaFbPageId,
           metaIgAccountId,
+          threadsToken,
+          threadsUserId,
           imgbbKey
         },
         reviewerName: draft.approvedBy || 'Editora-Chefe',
@@ -1123,6 +1148,7 @@ COMO VOCÊ DEVE AGIR:
     );
 
     setFormData({
+      id: news.id,
       title: safeString(news.title),
       subtitle: safeString(news.subtitle),
       category: typeof news.category === 'string' ? news.category : 'geral',
@@ -1252,10 +1278,10 @@ COMO VOCÊ DEVE AGIR:
 
       if (editingIsDraft) {
         // Ensure editingId matches types perfectly
-        setDraftData(draftData.filter(n => String(n.id) !== String(editingId)));
-        setNewsData([updatedArticle, ...newsData]);
+        await setDraftData(draftData.filter(n => String(n.id) !== String(editingId)));
+        await setNewsData([updatedArticle, ...newsData]);
       } else {
-        setNewsData(newsData.map(n => String(n.id) === String(editingId) ? updatedArticle : n));
+        await setNewsData(newsData.map(n => String(n.id) === String(editingId) ? updatedArticle : n));
       }
     } else {
       // Create new
@@ -1296,14 +1322,16 @@ COMO VOCÊ DEVE AGIR:
           fonte: formData.source || ''
         }
       };
-      setNewsData([newArticle, ...newsData]);
+      await setNewsData([newArticle, ...newsData]);
       
       // Armazena a ref do artigo para usar na automação
       var publishedArticleRef = newArticle;
     }
     
     const target = publishTargetRef.current || 'all';
-    const targetPlatforms = target === 'all' ? ['facebook', 'instagram'] : (target === 'portal' ? [] : [target]);
+    const targetPlatforms = target === 'all' 
+      ? ['facebook', 'instagram', 'threads'] 
+      : (target === 'portal' ? [] : [target]);
     const finalArticleId = editingId || publishedArticleRef?.id || `news-${Date.now()}`;
     const siteUrl = `https://portalngbrasil.com.br/#/noticia/${finalArticleId}`;
     const shareUrl = `https://portalngbrasil.com.br/share.php?id=${finalArticleId}`;
@@ -1332,14 +1360,18 @@ COMO VOCÊ DEVE AGIR:
         site: siteUrl,
         share: shareUrl,
         instagram: null,
-        facebook: null
+        facebook: null,
+        threads: null
       },
       errors: {}
     });
 
     if (isSocialTarget && socialRef.current) {
       try {
-        const socialResult = await socialRef.current.postToMeta(targetPlatforms);
+        const socialResult = await socialRef.current.postToMeta(targetPlatforms, {
+          article: publishedItem,
+          shareUrl: shareUrl
+        });
         setPublishModalData(prev => ({
           ...prev,
           isPublishing: false,
@@ -1347,11 +1379,13 @@ COMO VOCÊ DEVE AGIR:
           links: {
             ...prev.links,
             instagram: socialResult?.instagram || (targetPlatforms.includes('instagram') ? 'https://www.instagram.com/portalngbrasil/' : null),
-            facebook: socialResult?.facebook || (targetPlatforms.includes('facebook') ? (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil') : null)
+            facebook: socialResult?.facebook || (targetPlatforms.includes('facebook') ? (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil') : null),
+            threads: socialResult?.threads || (targetPlatforms.includes('threads') ? 'https://www.threads.net/@portalngbrasil' : null)
           },
           errors: {
             instagram: socialResult?.igError,
-            facebook: socialResult?.fbError
+            facebook: socialResult?.fbError,
+            threads: socialResult?.thError
           }
         }));
       } catch (err) {
@@ -1362,7 +1396,8 @@ COMO VOCÊ DEVE AGIR:
           links: {
             ...prev.links,
             instagram: targetPlatforms.includes('instagram') ? 'https://www.instagram.com/portalngbrasil/' : null,
-            facebook: targetPlatforms.includes('facebook') ? (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil') : null
+            facebook: targetPlatforms.includes('facebook') ? (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil') : null,
+            threads: targetPlatforms.includes('threads') ? 'https://www.threads.net/@portalngbrasil' : null
           },
           errors: {
             general: err.message
@@ -3296,7 +3331,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             {/* Social Post Generator Integrado */}
             <div className="mt-12 mb-8">
               <h3 className="text-xl font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200">Artes e Redes Sociais</h3>
-              <SocialPostGenerator ref={socialRef} hideButtons={true} showToast={showToast} inline={true} article={formData} metaToken={metaToken} metaFbPageId={metaFbPageId} metaIgAccountId={metaIgAccountId} imgbbKey={imgbbKey} />
+              <SocialPostGenerator ref={socialRef} hideButtons={true} showToast={showToast} inline={true} article={formData} onCardsChange={(cards) => setFormData(prev => ({ ...prev, socialCards: cards }))} metaToken={metaToken} metaFbPageId={metaFbPageId} metaIgAccountId={metaIgAccountId} threadsToken={threadsToken} threadsUserId={threadsUserId} imgbbKey={imgbbKey} />
             </div>
 
             {/* Ações de Publicação e Aprovação */}
@@ -3332,27 +3367,34 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
               </button>
               
               {/* Linha 3: Publicação em canais específicos */}
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'portal'}
-                  className="flex-1 bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-lg text-sm font-bold shadow-sm transition-all"
+                  className="bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
                 >
                   Postar Apenas no Portal
                 </button>
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'instagram'}
-                  className="flex-1 bg-pink-600 hover:bg-pink-700 text-white py-3 rounded-lg text-sm font-bold shadow-sm transition-all"
+                  className="bg-pink-600 hover:bg-pink-700 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
                 >
                   Postar Apenas no Instagram
                 </button>
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'facebook'}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-sm font-bold shadow-sm transition-all"
+                  className="bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
                 >
                   Postar Apenas no Facebook
+                </button>
+                <button 
+                  type="submit" 
+                  onClick={() => publishTargetRef.current = 'threads'}
+                  className="bg-black hover:bg-zinc-800 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
+                >
+                  Postar Apenas no Threads
                 </button>
               </div>
             </div>
@@ -3687,16 +3729,33 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             </div>
 
             <div className="mt-8 border-t border-slate-200 pt-6">
-            <h4 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Share2 className="w-4 h-4 text-slate-500" /> Integração de Redes Sociais (Meta & ImgBB)</h4>
+            <h4 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Share2 className="w-4 h-4 text-slate-500" /> Integração de Redes Sociais (Meta, Threads & ImgBB)</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Token de Acesso (Meta)</label>
-                <input type="password" value={metaToken} onChange={e => setMetaToken(e.target.value)} placeholder="EAAG..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Token de Acesso (Meta - Facebook & Instagram)</label>
+                <input type="password" value={metaToken} onChange={e => {
+                  setMetaToken(e.target.value);
+                  localStorage.setItem("portal_ng_meta_token", e.target.value);
+                }} placeholder="EAAG..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                </div>
+                <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Token de Acesso (Threads)</label>
+                <input type="password" value={threadsToken} onChange={e => {
+                  setThreadsToken(e.target.value);
+                  localStorage.setItem("portal_ng_threads_token", e.target.value);
+                }} placeholder="THAAV..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none" />
+                </div>
+                <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">ID do Perfil (Threads)</label>
+                <input type="text" value={threadsUserId} onChange={e => {
+                  setThreadsUserId(e.target.value);
+                  localStorage.setItem("portal_ng_threads_user_id", e.target.value);
+                }} placeholder="29313904888222414" className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none" />
                 </div>
                 <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Chave API ImgBB (Opcional - Backup)</label>
                 <input type="password" value={imgbbKey} onChange={e => setImgbbKey(e.target.value)} placeholder="Opcional (Hospedagem nativa do Portal NG ativa)" className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-                <p className="text-[11px] text-slate-500 mt-1">O Portal NG agora usa hospedagem direta no servidor para o Instagram.</p>
+                <p className="text-[11px] text-slate-500 mt-1">O Portal NG agora usa hospedagem direta no servidor para o Instagram e Threads.</p>
                 </div>
                 <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">ID da Página (Facebook)</label>
@@ -3708,7 +3767,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                 </div>
             </div>
             <div className="mt-4 flex justify-end">
-                <button type="button" onClick={() => showToast('Credenciais de Redes Sociais salvas com sucesso!')} className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-md transition-colors">Salvar Credenciais</button>
+                <button type="button" onClick={() => showToast('Credenciais de Redes Sociais salvas com sucesso!')} className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-md transition-colors cursor-pointer">Salvar Credenciais</button>
             </div>
             </div>
         </div>
@@ -5975,22 +6034,26 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                 statusText: 'Publicado nas redes sociais com sucesso!',
                 article: socialModalArticle,
                 target: 'all',
-                targetPlatforms: ['facebook', 'instagram'],
+                targetPlatforms: ['facebook', 'instagram', 'threads'],
                 links: {
                   site: `https://portalngbrasil.com.br/#/noticia/${artId}`,
                   share: `https://portalngbrasil.com.br/share.php?id=${artId}`,
                   instagram: postResult?.instagram || 'https://www.instagram.com/portalngbrasil/',
-                  facebook: postResult?.facebook || (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil')
+                  facebook: postResult?.facebook || (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil'),
+                  threads: postResult?.threads || 'https://www.threads.net/@portalngbrasil'
                 },
                 errors: {
                   instagram: postResult?.igError,
-                  facebook: postResult?.fbError
+                  facebook: postResult?.fbError,
+                  threads: postResult?.thError
                 }
               });
             }}
             metaToken={metaToken}
             metaFbPageId={metaFbPageId}
             metaIgAccountId={metaIgAccountId}
+            threadsToken={threadsToken}
+            threadsUserId={threadsUserId}
             imgbbKey={imgbbKey}
           />
         )}
