@@ -1102,11 +1102,26 @@ COMO VOCÊ DEVE AGIR:
     const siteUrl = `https://portalngbrasil.com.br/#/noticia/${draft.id}`;
     const shareUrl = `https://portalngbrasil.com.br/share.php?id=${draft.id}`;
 
+    // Garante prioridade para foto customizada / sugerida do card
+    const resolvedCover = (
+      draft.cardInstagram?.imagem ||
+      draft.socialCards?.[0]?.imageUrl ||
+      draft.cards?.[0]?.imageUrl ||
+      draft.image ||
+      draft.metadata?.imagem ||
+      ''
+    ).trim();
+
+    const draftToPublish = {
+      ...draft,
+      image: resolvedCover
+    };
+
     setPublishModalData({
       isOpen: true,
       isPublishing: true,
       statusText: '🚀 Publicando no Portal NG Brasil, Instagram, Facebook, Threads, LinkedIn e X...',
-      article: draft,
+      article: draftToPublish,
       target: 'all',
       targetPlatforms: ['facebook', 'instagram', 'threads', 'linkedin', 'x'],
       links: {
@@ -1123,7 +1138,7 @@ COMO VOCÊ DEVE AGIR:
 
     try {
       const result = await publishArticleToAllChannels({
-        article: draft,
+        article: draftToPublish,
         settings: {
           metaToken,
           metaFbPageId,
@@ -1153,19 +1168,26 @@ COMO VOCÊ DEVE AGIR:
       // Atualiza lista local
       setDraftData(prev => prev.filter(d => String(d.id) !== String(draft.id)));
       setNewsData(prev => [
-        { ...draft, published: true, isFeatured: true, socialLinks: result.links },
+        { ...draftToPublish, published: true, isFeatured: true, socialLinks: result.links },
         ...prev.filter(n => String(n.id) !== String(draft.id))
       ]);
 
+      const hasErrors = result.errors && Object.keys(result.errors).length > 0;
       setPublishModalData(prev => ({
         ...prev,
         isPublishing: false,
-        statusText: '🎉 Publicação concluída com sucesso em todos os canais!',
+        statusText: hasErrors 
+          ? 'Salvo no portal! Algumas redes falharam: use 🔄 para reenviar.'
+          : '🎉 Publicação concluída com sucesso em todos os canais!',
         links: result.links,
-        errors: result.errors
+        errors: result.errors || {}
       }));
 
-      showToast("Matéria postada no Portal, Instagram e Facebook!");
+      if (hasErrors) {
+        showToast("Publicado no portal! Verifique as redes com pendência no modal.");
+      } else {
+        showToast("Matéria postada no Portal, Instagram e Facebook!");
+      }
     } catch (err) {
       console.error("Erro na publicação imediata:", err);
       setPublishModalData(prev => ({
@@ -1467,6 +1489,22 @@ COMO VOCÊ DEVE AGIR:
       },
       errors: {}
     });
+
+    if (target === 'youtube' || target === 'tiktok') {
+      const channelName = target === 'youtube' ? 'YouTube' : 'TikTok';
+      showToast(`Matéria salva no Portal NG Brasil! A integração com a API do ${channelName} está em desenvolvimento.`, false);
+      setPublishModalData(prev => ({
+        ...prev,
+        isPublishing: false,
+        statusText: `Matéria publicada no Portal NG Brasil! A integração com a API do ${channelName} está em desenvolvimento pela equipe.`,
+        links: {
+          ...prev.links,
+          site: siteUrl,
+          share: shareUrl
+        }
+      }));
+      return;
+    }
 
     if (isSocialTarget && socialRef.current) {
       try {
@@ -3251,12 +3289,9 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
           )}
 
           <form onSubmit={handleSaveForm} className="space-y-5">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Left Column: Form Fields */}
-              <div className="lg:col-span-2 space-y-5">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Título da Manchete</label>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Título da Manchete</label>
                   <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-red-500 focus:border-red-500 text-sm" placeholder="Ex: Senado aprova nova lei..." />
                 </div>
                 <div>
@@ -3400,41 +3435,6 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                   </div>
                 </div>
               </div>
-              
-              {/* Right Column: AI Assistant Panel */}
-              <div className="lg:col-span-1">
-                <div className="bg-gradient-to-b from-indigo-50 to-white rounded-xl border border-indigo-100 p-5 sticky top-6 shadow-sm">
-                  <h3 className="font-bold text-indigo-900 mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-600" /> Modificar com IA</h3>
-                  <p className="text-xs text-slate-600 mb-4">Peça à inteligência artificial para reescrever o texto ao lado, corrigir erros, mudar o tom ou criar um título melhor.</p>
-                  
-                  <textarea 
-                    rows={4}
-                    placeholder="Ex: Reescreva a matéria de forma mais dramática, dê um título mais chamativo..."
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    className="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none mb-3 resize-none"
-                  ></textarea>
-                  
-                  <button 
-                    type="button"
-                    onClick={generateAIRevision}
-                    disabled={isGenerating || !aiPrompt.trim()}
-                    className={`w-full font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm transition-all ${
-                      isGenerating || !aiPrompt.trim() 
-                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed' 
-                        : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg'
-                    }`}
-                  >
-                    {isGenerating ? (
-                      <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Modificando...</>
-                    ) : (
-                      <><Sparkles className="w-4 h-4" /> Aplicar Alterações</>
-                    )}
-                  </button>
-                </div>
-              </div>
-              
-            </div>
             
             {/* Social Post Generator Integrado */}
             <div className="mt-12 mb-8">
@@ -3491,52 +3491,68 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                 className="w-full bg-[#d40a38] hover:bg-red-700 text-white py-4 rounded-xl text-lg font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
               >
                 <Send className="w-5 h-5" /> 
-                {editingId ? (editingIsDraft ? 'Aprovar e Publicar Matéria (Portal + Redes Sociais)' : 'Salvar Alterações e Postar (Portal + Redes Sociais)') : 'Publicar Matéria Imediatamente (Portal + Redes Sociais)'}
+                {editingId ? (editingIsDraft ? 'Aprovar e Publicar Matéria' : 'Salvar Alterações e Postar') : 'Publicar Matéria Imediatamente'}
               </button>
               
               {/* Linha 3: Publicação em canais específicos */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-2.5">
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'portal'}
                   className="bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
                 >
-                  Postar Apenas no Portal
+                  Postar no Portal
                 </button>
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'instagram'}
                   className="bg-pink-600 hover:bg-pink-700 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
                 >
-                  Postar Apenas no Instagram
+                  Postar no Instagram
                 </button>
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'facebook'}
                   className="bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
                 >
-                  Postar Apenas no Facebook
+                  Postar no Facebook
                 </button>
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'threads'}
                   className="bg-zinc-800 hover:bg-zinc-900 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
                 >
-                  Postar Apenas no Threads
+                  Postar no Threads
                 </button>
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'linkedin'}
                   className="bg-[#0077b5] hover:bg-[#005f93] text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
                 >
-                  Postar Apenas no LinkedIn
+                  Postar no LinkedIn
                 </button>
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'x'}
                   className="bg-black hover:bg-zinc-900 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
                 >
-                  Postar Apenas no X
+                  Postar no X
+                </button>
+                <button 
+                  type="submit" 
+                  onClick={() => publishTargetRef.current = 'youtube'}
+                  className="bg-[#cc0000] hover:bg-[#b00000] text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
+                  title="Integração com YouTube (API em desenvolvimento)"
+                >
+                  Postar no YouTube
+                </button>
+                <button 
+                  type="submit" 
+                  onClick={() => publishTargetRef.current = 'tiktok'}
+                  className="bg-[#010101] hover:bg-zinc-900 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer border border-zinc-800"
+                  title="Integração com TikTok (API em desenvolvimento)"
+                >
+                  Postar no TikTok
                 </button>
               </div>
             </div>

@@ -1154,7 +1154,7 @@ export async function publishArticleToAllChannels({
         const thRes = await publishToThreads({
           userId: effectiveThreadsUserId,
           token: effectiveThreadsToken,
-          publicImageUrl,
+          publicImageUrl: null,
           text: threadsCaption,
           linkUrl: shareUrl
         });
@@ -1198,8 +1198,8 @@ export async function publishArticleToAllChannels({
       const xRes = await publishArticleToX({
         article: publishedPayload,
         shareUrl,
-        mediaBlob: imageBlobs[0] || null,
-        mediaUrl: publicImageUrl,
+        mediaBlob: null,
+        mediaUrl: null,
         settings: {
           xApiKey: settings?.xApiKey,
           xApiSecret: settings?.xApiSecret,
@@ -1489,7 +1489,7 @@ export async function retryPlatformPublish({
     const thRes = await publishToThreads({
       userId: effectiveThreadsUserId,
       token: effectiveThreadsToken,
-      publicImageUrl,
+      publicImageUrl: null,
       text,
       linkUrl: effectiveShareUrl
     });

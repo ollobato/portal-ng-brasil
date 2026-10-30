@@ -29,7 +29,9 @@ import {
   Globe,
   MoreHorizontal,
   Eye,
-  Edit3
+  Edit3,
+  ThumbsDown,
+  Music
 } from 'lucide-react';
 import { formatInstagramCaption, formatFacebookCaption, formatThreadsCaption, formatLinkedInCaption, formatXCaption, calculateXTweetLength, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
 import { uploadImageForSocial, uploadVideoForSocial } from '../utils/imageUploader';
@@ -48,6 +50,18 @@ export const XIcon = ({ className = "w-3.5 h-3.5" }) => (
 export const ThreadsIcon = ({ className = "w-3.5 h-3.5" }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <path d="M12.186 24C5.466 24 0 18.534 0 11.814 0 5.094 5.466 0 12.186 0c6.643 0 11.96 5.253 12.174 11.895h-2.585c-.208-5.184-4.444-9.31-9.589-9.31-5.305 0-9.601 4.296-9.601 9.601 0 5.305 4.296 9.601 9.601 9.601 3.528 0 6.64-1.905 8.326-4.757l2.25 1.286C20.509 21.68 16.634 24 12.186 24zm4.498-8.156c-.66 2.052-2.38 3.522-4.498 3.522-2.673 0-4.84-2.167-4.84-4.84 0-2.673 2.167-4.84 4.84-4.84 2.673 0 4.84 2.167 4.84 4.84 0 .445-.06.877-.174 1.288h-4.666c.27 1.157 1.305 2.016 2.54 2.016 1.026 0 1.908-.594 2.334-1.46l2.164.974zm-2.028-2.616c-.23-1.077-1.185-1.874-2.31-1.874-1.125 0-2.08.797-2.31 1.874h4.62z"/>
+  </svg>
+);
+
+export const YoutubeIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.55 9.376.55 9.376.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+  </svg>
+);
+
+export const TikTokIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
   </svg>
 );
 
@@ -175,9 +189,35 @@ const SocialPostGenerator = forwardRef(({
   const [isLinkedinCaptionCustomized, setIsLinkedinCaptionCustomized] = useState(false);
   const [captionX, setCaptionX] = useState('');
   const [isXCaptionCustomized, setIsXCaptionCustomized] = useState(false);
+  const [captionYouTube, setCaptionYouTube] = useState('');
+  const [isYouTubeCaptionCustomized, setIsYouTubeCaptionCustomized] = useState(false);
+  const [captionTikTok, setCaptionTikTok] = useState('');
+  const [isTikTokCaptionCustomized, setIsTikTokCaptionCustomized] = useState(false);
   const [copiedPlatform, setCopiedPlatform] = useState('');
   const [editingPlatforms, setEditingPlatforms] = useState({});
   const [cardPreviewUrl, setCardPreviewUrl] = useState('');
+  const [expandedCaptions, setExpandedCaptions] = useState({});
+
+  const toggleExpandCaption = (platform) => {
+    setExpandedCaptions(prev => ({
+      ...prev,
+      [platform]: !prev[platform]
+    }));
+  };
+
+  const toggleAllExpandedCaptions = () => {
+    const isAnyExpanded = Object.values(expandedCaptions).some(Boolean);
+    const nextVal = !isAnyExpanded;
+    setExpandedCaptions({
+      instagram: nextVal,
+      facebook: nextVal,
+      threads: nextVal,
+      linkedin: nextVal,
+      x: nextVal,
+      youtube: nextVal,
+      tiktok: nextVal
+    });
+  };
 
   const safeActiveIndex = Math.min(activeCardIndex, Math.max(0, cards.length - 1));
   const activeCard = cards[safeActiveIndex] || cards[0];
@@ -313,7 +353,19 @@ const SocialPostGenerator = forwardRef(({
         }, shareUrl)
       );
     }
-  }, [firstCardTitle, firstCardSubtitle, category, article?.content, article?.title, article?.subtitle, article?.praca, article?.id, article?.metadata, isCaptionCustomized, isFbCaptionCustomized, isLinkedinCaptionCustomized, isXCaptionCustomized]);
+
+    if (!isYouTubeCaptionCustomized) {
+      const title = firstCardTitle || article?.title || '';
+      const subtitle = firstCardSubtitle || article?.subtitle || '';
+      setCaptionYouTube(`🔴 ${title}\n\n${subtitle ? subtitle + '\n\n' : ''}👉 Leia a reportagem completa no Portal NG Brasil:\n🔗 ${shareUrl}\n\n#PortalNGBrasil #Noticias #Jornalismo #Brasil`);
+    }
+
+    if (!isTikTokCaptionCustomized) {
+      const title = firstCardTitle || article?.title || '';
+      const subtitle = firstCardSubtitle || article?.subtitle || '';
+      setCaptionTikTok(`🚨 ${title}\n\n${subtitle ? subtitle + '\n\n' : ''}🔗 Link da matéria completa no portal: ${shareUrl}\n\n#portalngbrasil #noticias #brasil #urgente #jornalismo`);
+    }
+  }, [firstCardTitle, firstCardSubtitle, category, article?.content, article?.title, article?.subtitle, article?.praca, article?.id, article?.metadata, isCaptionCustomized, isFbCaptionCustomized, isLinkedinCaptionCustomized, isXCaptionCustomized, isYouTubeCaptionCustomized, isTikTokCaptionCustomized]);
 
   const handleRegenerateCaption = () => {
     const fresh = formatInstagramCaption({
@@ -403,14 +455,40 @@ const SocialPostGenerator = forwardRef(({
     }
   };
 
+  const handleRegenerateYouTubeCaption = () => {
+    const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
+    const title = cards[0]?.title || article?.title || '';
+    const subtitle = cards[0]?.subtitle || article?.subtitle || '';
+    const fresh = `🔴 ${title}\n\n${subtitle ? subtitle + '\n\n' : ''}👉 Leia a reportagem completa no Portal NG Brasil:\n🔗 ${shareUrl}\n\n#PortalNGBrasil #Noticias #Jornalismo #Brasil`;
+    setCaptionYouTube(fresh);
+    setIsYouTubeCaptionCustomized(false);
+    if (showToast) {
+      showToast('Texto do YouTube atualizado com sucesso!', false);
+    }
+  };
+
+  const handleRegenerateTikTokCaption = () => {
+    const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
+    const title = cards[0]?.title || article?.title || '';
+    const subtitle = cards[0]?.subtitle || article?.subtitle || '';
+    const fresh = `🚨 ${title}\n\n${subtitle ? subtitle + '\n\n' : ''}🔗 Link da matéria completa no portal: ${shareUrl}\n\n#portalngbrasil #noticias #brasil #urgente #jornalismo`;
+    setCaptionTikTok(fresh);
+    setIsTikTokCaptionCustomized(false);
+    if (showToast) {
+      showToast('Texto do TikTok atualizado com sucesso!', false);
+    }
+  };
+
   const handleRegenerateAllCaptions = () => {
     handleRegenerateCaption();
     handleRegenerateFbCaption();
     handleRegenerateThreadsCaption();
     handleRegenerateLinkedinCaption();
     handleRegenerateXCaption();
+    handleRegenerateYouTubeCaption();
+    handleRegenerateTikTokCaption();
     if (showToast) {
-      showToast('Textos de todas as 5 redes atualizados com sucesso!', false);
+      showToast('Textos de todas as 7 redes atualizados com sucesso!', false);
     }
   };
 
@@ -425,6 +503,8 @@ const SocialPostGenerator = forwardRef(({
     else if (platform === 'threads') text = captionThreads;
     else if (platform === 'linkedin') text = captionLinkedin;
     else if (platform === 'x') text = captionX;
+    else if (platform === 'youtube') text = captionYouTube;
+    else if (platform === 'tiktok') text = captionTikTok;
 
     const success = await copyToClipboard(text);
     if (success) {
@@ -1071,7 +1151,9 @@ const SocialPostGenerator = forwardRef(({
     getCaptionFacebook: () => captionFacebook,
     getCaptionThreads: () => captionThreads,
     getCaptionLinkedin: () => captionLinkedin,
-    getCaptionX: () => captionX
+    getCaptionX: () => captionX,
+    getCaptionYouTube: () => captionYouTube,
+    getCaptionTikTok: () => captionTikTok
   }));
 
   const handlePostToMeta = async (platforms = ['facebook', 'instagram', 'threads', 'linkedin', 'x'], options = {}) => {
@@ -1451,7 +1533,7 @@ const SocialPostGenerator = forwardRef(({
           const thRes = await publishToThreads({
             userId: effectiveThreadsUserId,
             token: effectiveThreadsToken,
-            publicImageUrl: imageUrls[0] || null,
+            publicImageUrl: null,
             text: thMessage,
             linkUrl: shareUrl
           });
@@ -1510,8 +1592,8 @@ const SocialPostGenerator = forwardRef(({
             article: effectiveArticle,
             shareUrl,
             customCaption: xCaption,
-            mediaBlob: imageBlobs[0] || null,
-            mediaUrl: imageUrls[0] || null,
+            mediaBlob: null,
+            mediaUrl: null,
             settings: {
               xApiKey: effectiveXApiKey,
               xApiSecret: effectiveXApiSecret,
@@ -2255,7 +2337,7 @@ const SocialPostGenerator = forwardRef(({
         {/* Form fields */}
         <div className="space-y-4">
           
-          {/* Seção das Redes Sociais: 5 Pré-visualizações Lado a Lado (Instagram, Facebook, Threads, LinkedIn, X) */}
+          {/* Seção das Redes Sociais: 7 Pré-visualizações Lado a Lado (Instagram, Facebook, Threads, LinkedIn, X, YouTube, TikTok) */}
           <div className="space-y-3 pt-1">
             {/* Header da Seção de Redes Sociais */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-200">
@@ -2265,7 +2347,7 @@ const SocialPostGenerator = forwardRef(({
                   Prévia das Redes Sociais (Lado a Lado)
                 </h3>
                 <span className="text-[10px] font-extrabold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
-                  5 Plataformas
+                  7 Plataformas
                 </span>
               </div>
 
@@ -2308,7 +2390,31 @@ const SocialPostGenerator = forwardRef(({
                   >
                     X
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('preview-card-youtube')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })}
+                    className="px-1.5 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 font-bold transition-colors"
+                  >
+                    YouTube
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('preview-card-tiktok')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })}
+                    className="px-1.5 py-0.5 rounded bg-zinc-900 text-white hover:bg-black font-bold transition-colors"
+                  >
+                    TikTok
+                  </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={toggleAllExpandedCaptions}
+                  title="Expandir ou recolher todas as legendas para ler e revisar"
+                  className="text-xs text-slate-700 hover:text-slate-900 flex items-center gap-1 font-semibold transition-colors bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-md border border-slate-300 shadow-2xs"
+                >
+                  <Eye className="w-3 h-3 text-slate-600" />
+                  <span>{Object.values(expandedCaptions).some(Boolean) ? 'Recolher Legendas' : 'Ver Mais Legendas'}</span>
+                </button>
 
                 <button
                   type="button"
@@ -2428,10 +2534,19 @@ const SocialPostGenerator = forwardRef(({
                           Curtido por <span className="font-bold">portalngbrasil</span> e outras pessoas
                         </div>
 
-                        <div className="text-[11px] leading-relaxed text-slate-800 whitespace-pre-wrap line-clamp-4">
+                        <div className={`text-[11px] leading-relaxed text-slate-800 whitespace-pre-wrap ${expandedCaptions.instagram ? '' : 'line-clamp-4'}`}>
                           <span className="font-bold text-slate-900 mr-1">portalngbrasil</span>
                           <span>{captionText || 'Resumo da notícia aparecerá aqui...'}</span>
                         </div>
+                        {(captionText || '').length > 80 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandCaption('instagram')}
+                            className="mt-1 text-[11px] font-bold text-pink-700 hover:text-pink-900 hover:underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            {expandedCaptions.instagram ? 'Ver menos' : '... Ver mais'}
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -2536,8 +2651,19 @@ const SocialPostGenerator = forwardRef(({
                       </div>
 
                       {/* Texto da Chamada */}
-                      <div className="px-3 py-2 text-[11px] text-slate-800 leading-relaxed whitespace-pre-wrap line-clamp-3">
-                        {captionFacebook || article?.subtitle || article?.title}
+                      <div className="px-3 py-2">
+                        <div className={`text-[11px] text-slate-800 leading-relaxed whitespace-pre-wrap ${expandedCaptions.facebook ? '' : 'line-clamp-3'}`}>
+                          {captionFacebook || article?.subtitle || article?.title}
+                        </div>
+                        {(captionFacebook || article?.subtitle || article?.title || '').length > 80 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandCaption('facebook')}
+                            className="mt-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            {expandedCaptions.facebook ? 'Ver menos' : '... Ver mais'}
+                          </button>
+                        )}
                       </div>
 
                       {/* Card de Link (Open Graph) */}
@@ -2602,7 +2728,7 @@ const SocialPostGenerator = forwardRef(({
                     <div className="w-4 h-4 rounded-full bg-black text-white flex items-center justify-center">
                       <ThreadsIcon className="w-2.5 h-2.5" />
                     </div>
-                    <span className="text-xs font-bold text-zinc-900">Threads (Card)</span>
+                    <span className="text-xs font-bold text-zinc-900">Threads (Link da Matéria)</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -2682,13 +2808,43 @@ const SocialPostGenerator = forwardRef(({
                       </div>
 
                       {/* Texto do Post Threads */}
-                      <div className="text-[11px] text-slate-800 leading-relaxed whitespace-pre-wrap line-clamp-4 mb-2">
-                        {captionThreads || article?.title}
+                      <div className="mb-2">
+                        <div className={`text-[11px] text-slate-800 leading-relaxed whitespace-pre-wrap ${expandedCaptions.threads ? '' : 'line-clamp-4'}`}>
+                          {captionThreads || article?.title}
+                        </div>
+                        {(captionThreads || article?.title || '').length > 80 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandCaption('threads')}
+                            className="mt-1 text-[11px] font-bold text-zinc-900 hover:underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            {expandedCaptions.threads ? 'Ver menos' : '... Ver mais'}
+                          </button>
+                        )}
                       </div>
 
-                      {/* Imagem do Threads com Design Canva */}
-                      <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 mb-2">
-                        {renderCanvaArtPreview("aspect-[4/5] max-h-[250px]")}
+                      {/* Card de Link Threads (Open Graph / Prévia do Portal) */}
+                      <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 mb-2">
+                        <div className="relative aspect-[1.91/1] w-full bg-slate-900 overflow-hidden">
+                          {article?.image ? (
+                            <img src={article.image} alt={article.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                              Foto da matéria
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2.5 bg-slate-100/90 border-t border-slate-200">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                            PORTALNGBRASIL.COM.BR
+                          </span>
+                          <h4 className="text-[11px] font-bold text-slate-900 leading-snug line-clamp-2 mt-0.5">
+                            {article?.title || firstCardTitle}
+                          </h4>
+                          <p className="text-[9px] text-slate-600 line-clamp-1 mt-0.5">
+                            {article?.subtitle || article?.excerpt}
+                          </p>
+                        </div>
                       </div>
 
                       {/* Ações Threads */}
@@ -2701,7 +2857,9 @@ const SocialPostGenerator = forwardRef(({
                     </div>
 
                     <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                      <span className="text-slate-400">24 curtidas · 4 respostas</span>
+                      <span className="text-zinc-600 font-medium flex items-center gap-1">
+                        <LinkIcon className="w-2.5 h-2.5 text-zinc-700" /> Link Clicável
+                      </span>
                       <button
                         type="button"
                         onClick={() => toggleEditing('threads')}
@@ -2720,7 +2878,7 @@ const SocialPostGenerator = forwardRef(({
                 <div className="flex items-center justify-between px-3 py-1.5 bg-sky-50/70 rounded-lg border border-sky-200">
                   <div className="flex items-center gap-1.5">
                     <Briefcase className="w-3.5 h-3.5 text-[#0077b5]" />
-                    <span className="text-xs font-bold text-sky-950">LinkedIn (Card)</span>
+                    <span className="text-xs font-bold text-sky-950">LinkedIn (Link da Matéria)</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -2802,13 +2960,43 @@ const SocialPostGenerator = forwardRef(({
                       </div>
 
                       {/* Texto Corporativo */}
-                      <div className="px-3 py-2 text-[11px] text-slate-800 leading-relaxed whitespace-pre-wrap line-clamp-3">
-                        {captionLinkedin || captionFacebook || article?.subtitle || article?.title}
+                      <div className="px-3 py-2">
+                        <div className={`text-[11px] text-slate-800 leading-relaxed whitespace-pre-wrap ${expandedCaptions.linkedin ? '' : 'line-clamp-3'}`}>
+                          {captionLinkedin || captionFacebook || article?.subtitle || article?.title}
+                        </div>
+                        {(captionLinkedin || captionFacebook || article?.subtitle || article?.title || '').length > 80 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandCaption('linkedin')}
+                            className="mt-1 text-[11px] font-bold text-[#0077b5] hover:text-[#005f93] hover:underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            {expandedCaptions.linkedin ? 'Ver menos' : '... Ver mais'}
+                          </button>
+                        )}
                       </div>
 
-                      {/* Card Visual LinkedIn com Design Canva */}
-                      <div className="mx-3 mb-2 rounded-lg overflow-hidden border border-slate-200 bg-slate-900">
-                        {renderCanvaArtPreview("aspect-[4/5] max-h-[250px]")}
+                      {/* Card de Link LinkedIn (Open Graph / Artigo do Portal) */}
+                      <div className="border-t border-b border-slate-200 bg-slate-50">
+                        <div className="relative aspect-[1.91/1] w-full bg-slate-900 overflow-hidden">
+                          {article?.image ? (
+                            <img src={article.image} alt={article.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                              Foto da matéria
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2.5 bg-slate-100/90 border-t border-slate-200">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                            PORTALNGBRASIL.COM.BR
+                          </span>
+                          <h4 className="text-[11px] font-bold text-slate-900 leading-snug line-clamp-2 mt-0.5">
+                            {article?.title || firstCardTitle}
+                          </h4>
+                          <p className="text-[9px] text-slate-600 line-clamp-1 mt-0.5">
+                            {article?.subtitle || article?.excerpt}
+                          </p>
+                        </div>
                       </div>
 
                       {/* Ações LinkedIn */}
@@ -2847,7 +3035,7 @@ const SocialPostGenerator = forwardRef(({
                 <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900 rounded-lg text-white">
                   <div className="flex items-center gap-1.5">
                     <XIcon className="w-3 h-3 text-white" />
-                    <span className="text-xs font-bold text-white">X / Twitter (Card)</span>
+                    <span className="text-xs font-bold text-white">X / Twitter (Link da Matéria)</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -2926,15 +3114,43 @@ const SocialPostGenerator = forwardRef(({
                           </div>
 
                           {/* Texto do Tweet */}
-                          <div className="mt-1 text-[11px] text-slate-900 leading-normal whitespace-pre-wrap line-clamp-3">
+                          <div className={`mt-1 text-[11px] text-slate-900 leading-normal whitespace-pre-wrap ${expandedCaptions.x ? '' : 'line-clamp-3'}`}>
                             {captionX || article?.title}
                           </div>
+                          {(captionX || article?.title || '').length > 80 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandCaption('x')}
+                              className="mt-0.5 text-[10px] font-bold text-slate-600 hover:text-black hover:underline flex items-center gap-0.5 cursor-pointer"
+                            >
+                              {expandedCaptions.x ? 'Ver menos' : '... Ver mais'}
+                            </button>
+                          )}
                         </div>
                       </div>
 
-                      {/* Imagem do Tweet no X com Design Canva */}
-                      <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-900 mt-1 mb-2">
-                        {renderCanvaArtPreview("aspect-[4/5] max-h-[250px]")}
+                      {/* Card de Link X / Twitter (Summary Large Image) */}
+                      <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 mt-1 mb-2">
+                        <div className="relative aspect-[1.91/1] w-full bg-slate-900 overflow-hidden">
+                          {article?.image ? (
+                            <img src={article.image} alt={article.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                              Foto da matéria
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2.5 bg-slate-100/90 border-t border-slate-200">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                            PORTALNGBRASIL.COM.BR
+                          </span>
+                          <h4 className="text-[11px] font-bold text-slate-900 leading-snug line-clamp-2 mt-0.5">
+                            {article?.title || firstCardTitle}
+                          </h4>
+                          <p className="text-[9px] text-slate-600 line-clamp-1 mt-0.5">
+                            {article?.subtitle || article?.excerpt}
+                          </p>
+                        </div>
                       </div>
 
                       {/* Ações X */}
@@ -2947,13 +3163,340 @@ const SocialPostGenerator = forwardRef(({
                     </div>
 
                     <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                      <span className="text-slate-500 font-mono">
-                        {calculateXTweetLength(captionX)} / 280
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-600 font-medium flex items-center gap-1">
+                          <LinkIcon className="w-2.5 h-2.5 text-zinc-700" /> Link Clicável
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-slate-500 font-mono">
+                          {calculateXTweetLength(captionX)} / 280
+                        </span>
+                      </div>
                       <button
                         type="button"
                         onClick={() => toggleEditing('x')}
                         className="text-slate-900 font-bold hover:underline flex items-center gap-0.5"
+                      >
+                        <Edit3 className="w-2.5 h-2.5" /> Editar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 6. YOUTUBE */}
+              <div id="preview-card-youtube" className="w-[285px] sm:w-[325px] shrink-0 snap-start flex flex-col space-y-2">
+                {/* Header do Card YouTube */}
+                <div className="flex items-center justify-between px-3 py-1.5 bg-red-50/70 rounded-lg border border-red-200">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full bg-[#ff0000] text-white flex items-center justify-center">
+                      <YoutubeIcon className="w-2.5 h-2.5" />
+                    </div>
+                    <span className="text-xs font-bold text-red-950">YouTube (Comunidade / Link)</span>
+                    <span className="text-[9px] font-bold bg-red-100 text-red-700 px-1.5 py-0.2 rounded-full">Em breve</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleRegenerateYouTubeCaption}
+                      title="Regerar texto do YouTube"
+                      className="p-1 hover:bg-red-100 rounded text-red-700 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPlatformCaption('youtube')}
+                      title="Copiar texto do YouTube"
+                      className="p-1 hover:bg-red-100 rounded text-red-700 transition-colors"
+                    >
+                      {copiedPlatform === 'youtube' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('youtube')}
+                      title={editingPlatforms.youtube ? "Ver prévia no feed" : "Editar texto"}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                        editingPlatforms.youtube ? 'bg-[#cc0000] text-white' : 'bg-white text-red-900 border border-red-200 hover:bg-red-50'
+                      }`}
+                    >
+                      {editingPlatforms.youtube ? <Eye className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
+                      <span>{editingPlatforms.youtube ? 'Prévia' : 'Editar'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {editingPlatforms.youtube ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      Texto da postagem na Comunidade / Descrição do YouTube:
+                    </div>
+                    <textarea
+                      value={captionYouTube}
+                      onChange={(e) => {
+                        setCaptionYouTube(e.target.value);
+                        setIsYouTubeCaptionCustomized(true);
+                      }}
+                      rows={9}
+                      placeholder="Texto do YouTube..."
+                      className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-red-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('youtube')}
+                      className="w-full py-1.5 bg-[#cc0000] hover:bg-red-700 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1 shadow-xs"
+                    >
+                      <Eye className="w-3 h-3" /> Concluir e ver no feed
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-slate-900 font-sans flex flex-col justify-between">
+                    <div>
+                      {/* Top Bar YouTube */}
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full border border-slate-200 bg-white overflow-hidden p-0.5 shrink-0">
+                            <img src="/favicon.png" alt="Portal NG Brasil" className="w-full h-full object-cover rounded-full" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1 leading-none">
+                              <span className="text-xs font-bold text-slate-900">Portal NG Brasil</span>
+                              <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-slate-400 text-white text-[7px] font-bold">✓</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400">há 1 hora</span>
+                          </div>
+                        </div>
+                        <MoreHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
+
+                      {/* Texto do Post YouTube */}
+                      <div className="px-3 py-2">
+                        <div className={`text-[11px] text-slate-800 leading-relaxed whitespace-pre-wrap ${expandedCaptions.youtube ? '' : 'line-clamp-3'}`}>
+                          {captionYouTube || article?.subtitle || article?.title}
+                        </div>
+                        {(captionYouTube || article?.subtitle || article?.title || '').length > 80 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandCaption('youtube')}
+                            className="mt-1 text-[11px] font-bold text-[#cc0000] hover:underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            {expandedCaptions.youtube ? 'Ver menos' : '... Ver mais'}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Card de Link / Thumbnail 16:9 YouTube */}
+                      <div className="border-t border-b border-slate-200 bg-slate-50">
+                        <div className="relative aspect-video w-full bg-slate-900 overflow-hidden group">
+                          {article?.image ? (
+                            <img src={article.image} alt={article.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                              Thumbnail da matéria
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                            <div className="w-9 h-9 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-md">
+                              <div className="w-0 h-0 border-y-[5px] border-y-transparent border-l-[9px] border-l-white ml-0.5" />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-2.5 bg-slate-100/90 border-t border-slate-200">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                            PORTALNGBRASIL.COM.BR
+                          </span>
+                          <h4 className="text-[11px] font-bold text-slate-900 leading-snug line-clamp-2 mt-0.5">
+                            {article?.title || firstCardTitle}
+                          </h4>
+                          <p className="text-[9px] text-slate-600 line-clamp-1 mt-0.5">
+                            {article?.subtitle || article?.excerpt}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Barra de Ações YouTube */}
+                      <div className="px-3 py-2 flex items-center justify-between border-b border-slate-100 text-slate-600 text-[10px] font-medium">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1 hover:text-black cursor-pointer">
+                            <ThumbsUp className="w-3.5 h-3.5" /> <span>1.4K</span>
+                          </div>
+                          <div className="flex items-center gap-1 hover:text-black cursor-pointer">
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1 hover:text-black cursor-pointer">
+                            <Share2 className="w-3.5 h-3.5" /> <span>Compartilhar</span>
+                          </div>
+                          <div className="flex items-center gap-1 hover:text-black cursor-pointer">
+                            <MessageSquare className="w-3.5 h-3.5" /> <span>89</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-3 py-1.5 bg-slate-50 flex items-center justify-between text-[10px]">
+                      <span className="text-red-700 font-medium flex items-center gap-1">
+                        <LinkIcon className="w-2.5 h-2.5" /> Link Clicável
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleEditing('youtube')}
+                        className="text-red-700 font-bold hover:underline flex items-center gap-0.5"
+                      >
+                        <Edit3 className="w-2.5 h-2.5" /> Editar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 7. TIKTOK */}
+              <div id="preview-card-tiktok" className="w-[285px] sm:w-[325px] shrink-0 snap-start flex flex-col space-y-2">
+                {/* Header do Card TikTok */}
+                <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-100 rounded-lg border border-zinc-200">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full bg-black text-white flex items-center justify-center">
+                      <TikTokIcon className="w-2.5 h-2.5 text-white" />
+                    </div>
+                    <span className="text-xs font-bold text-zinc-900">TikTok (Feed / Vídeo)</span>
+                    <span className="text-[9px] font-bold bg-zinc-200 text-zinc-800 px-1.5 py-0.2 rounded-full">Em breve</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleRegenerateTikTokCaption}
+                      title="Regerar texto do TikTok"
+                      className="p-1 hover:bg-zinc-200 rounded text-zinc-700 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPlatformCaption('tiktok')}
+                      title="Copiar texto do TikTok"
+                      className="p-1 hover:bg-zinc-200 rounded text-zinc-700 transition-colors"
+                    >
+                      {copiedPlatform === 'tiktok' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('tiktok')}
+                      title={editingPlatforms.tiktok ? "Ver prévia no feed" : "Editar texto"}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                        editingPlatforms.tiktok ? 'bg-black text-white' : 'bg-white text-zinc-800 border border-zinc-200 hover:bg-zinc-50'
+                      }`}
+                    >
+                      {editingPlatforms.tiktok ? <Eye className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
+                      <span>{editingPlatforms.tiktok ? 'Prévia' : 'Editar'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {editingPlatforms.tiktok ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      Legenda e hashtags do vídeo no TikTok:
+                    </div>
+                    <textarea
+                      value={captionTikTok}
+                      onChange={(e) => {
+                        setCaptionTikTok(e.target.value);
+                        setIsTikTokCaptionCustomized(true);
+                      }}
+                      rows={9}
+                      placeholder="Legenda do TikTok..."
+                      className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-black focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('tiktok')}
+                      className="w-full py-1.5 bg-black hover:bg-zinc-800 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1 shadow-xs"
+                    >
+                      <Eye className="w-3 h-3" /> Concluir e ver no feed
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-slate-950 rounded-xl border border-slate-800 shadow-md overflow-hidden text-white font-sans flex flex-col justify-between">
+                    <div>
+                      {/* Simulação do Player TikTok */}
+                      <div className="relative aspect-[4/5] max-h-[290px] w-full bg-slate-900 overflow-hidden flex flex-col justify-between p-3">
+                        {/* Imagem de fundo */}
+                        {article?.image ? (
+                          <img src={article.image} alt={article.title} className="absolute inset-0 w-full h-full object-cover" />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs">
+                            Capa / Vídeo TikTok
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/30 pointer-events-none" />
+
+                        {/* Top Bar TikTok */}
+                        <div className="relative z-10 flex items-center justify-between text-white/90 text-xs">
+                          <span className="font-bold text-[11px] tracking-wide">Seguindo | <span className="underline decoration-2">Para Você</span></span>
+                          <MoreHorizontal className="w-4 h-4" />
+                        </div>
+
+                        {/* Lateral Direita TikTok (Ações) */}
+                        <div className="absolute right-2 bottom-12 z-10 flex flex-col items-center gap-3">
+                          <div className="relative">
+                            <div className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-white">
+                              <img src="/favicon.png" alt="Portal NG" className="w-full h-full object-cover" />
+                            </div>
+                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-red-600 text-white flex items-center justify-center text-[9px] font-bold">+</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <Heart className="w-5 h-5 text-white hover:text-red-500 cursor-pointer" />
+                            <span className="text-[9px] font-semibold mt-0.5">3.8K</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <MessageCircle className="w-5 h-5 text-white hover:text-cyan-400 cursor-pointer" />
+                            <span className="text-[9px] font-semibold mt-0.5">245</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <Bookmark className="w-5 h-5 text-white hover:text-yellow-400 cursor-pointer" />
+                            <span className="text-[9px] font-semibold mt-0.5">812</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <Share2 className="w-5 h-5 text-white hover:text-green-400 cursor-pointer" />
+                            <span className="text-[9px] font-semibold mt-0.5">178</span>
+                          </div>
+                        </div>
+
+                        {/* Inferior Esquerdo TikTok (Legenda + Áudio) */}
+                        <div className="relative z-10 pr-12 text-left">
+                          <div className="flex items-center gap-1 mb-1">
+                            <span className="text-xs font-bold">@portalngbrasil</span>
+                            <span className="inline-flex items-center justify-center w-2.5 h-2.5 rounded-full bg-cyan-400 text-black text-[7px] font-bold">✓</span>
+                          </div>
+                          <div className={`text-[10px] text-white/95 leading-snug whitespace-pre-wrap ${expandedCaptions.tiktok ? '' : 'line-clamp-2'}`}>
+                            {captionTikTok || article?.title}
+                          </div>
+                          {(captionTikTok || article?.title || '').length > 60 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandCaption('tiktok')}
+                              className="text-[10px] font-bold text-white/80 hover:text-white underline cursor-pointer mt-0.5 block"
+                            >
+                              {expandedCaptions.tiktok ? 'Ver menos' : '... Ver mais'}
+                            </button>
+                          )}
+                          <div className="flex items-center gap-1.5 text-[9px] text-white/80 mt-1.5">
+                            <Music className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
+                            <span className="truncate">Som original - Portal NG Brasil</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-3 py-1.5 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-[10px]">
+                      <span className="text-cyan-400 font-medium flex items-center gap-1">
+                        <LinkIcon className="w-2.5 h-2.5" /> Link na Bio / Portal
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleEditing('tiktok')}
+                        className="text-white font-bold hover:underline flex items-center gap-0.5"
                       >
                         <Edit3 className="w-2.5 h-2.5" /> Editar
                       </button>
