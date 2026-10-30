@@ -2,6 +2,9 @@
   RewriteEngine On
   RewriteBase /
 
+  # 0. Endpoint de leads comerciais da landing (/anuncie/)
+  RewriteRule ^api/leads/?$ /leads.php [L,QSA]
+
   # 1. Imagem direta da matéria para Open Graph / WhatsApp (ex: /imagem-materia/12345.jpg)
   RewriteRule ^imagem-materia/([0-9a-zA-Z_-]+)\.(jpg|jpeg|png|webp)$ /image.php?id=$1 [L,QSA]
 
@@ -11,7 +14,7 @@
   # 3. Rotas de Notícia / Matéria pública (ex: /noticia/12345 ou /materia/12345)
   RewriteRule ^(noticia|materia)/([0-9a-zA-Z_-]+)/?$ /aprovacao.php?id=$2&type=noticia [L,QSA]
 
-  # 4. Arquivos e diretórios existentes físicos
+  # 4. Arquivos e diretórios existentes físicos (inclui /anuncie/index.html)
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

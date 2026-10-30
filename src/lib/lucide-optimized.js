@@ -61,6 +61,7 @@ export { default as LucideMessageCircle, default as MessageCircle, default as Me
 export { default as LucideMessageSquare, default as MessageSquare, default as MessageSquareIcon } from 'lucide-react/dist/esm/icons/message-square.mjs';
 export { default as LucideMonitorPlay, default as MonitorPlay, default as MonitorPlayIcon } from 'lucide-react/dist/esm/icons/monitor-play.mjs';
 export { default as LucideMoreHorizontal, default as MoreHorizontal, default as MoreHorizontalIcon, default as Ellipsis, default as EllipsisIcon, default as LucideEllipsis } from 'lucide-react/dist/esm/icons/ellipsis.mjs';
+export { default as LucideMusic, default as Music, default as MusicIcon } from 'lucide-react/dist/esm/icons/music.mjs';
 export { default as LucideMusic2, default as Music2, default as Music2Icon } from 'lucide-react/dist/esm/icons/music-2.mjs';
 export { default as LucideNetwork, default as Network, default as NetworkIcon } from 'lucide-react/dist/esm/icons/network.mjs';
 export { default as LucideNewspaper, default as Newspaper, default as NewspaperIcon } from 'lucide-react/dist/esm/icons/newspaper.mjs';
@@ -92,6 +93,7 @@ export { default as LucideThumbsDown, default as ThumbsDown, default as ThumbsDo
 export { default as LucideThumbsUp, default as ThumbsUp, default as ThumbsUpIcon } from 'lucide-react/dist/esm/icons/thumbs-up.mjs';
 export { default as LucideTrash, default as LucideTrash2, default as Trash, default as Trash2, default as Trash2Icon, default as TrashIcon } from 'lucide-react/dist/esm/icons/trash.mjs';
 export { default as LucideTrendingUp, default as TrendingUp, default as TrendingUpIcon } from 'lucide-react/dist/esm/icons/trending-up.mjs';
+export { default as Tag, default as TagIcon, default as LucideTag } from 'lucide-react/dist/esm/icons/tag.mjs';
 export { default as LucideType, default as Type, default as TypeIcon } from 'lucide-react/dist/esm/icons/type.mjs';
 export { default as LucideUpload, default as Upload, default as UploadIcon } from 'lucide-react/dist/esm/icons/upload.mjs';
 export { default as LucideUser, default as User, default as UserIcon } from 'lucide-react/dist/esm/icons/user.mjs';
@@ -105,3 +107,12 @@ export { default as LucideWind, default as Wind, default as WindIcon } from 'luc
 export { default as LucideWorkflow, default as Workflow, default as WorkflowIcon } from 'lucide-react/dist/esm/icons/workflow.mjs';
 export { default as LucideX, default as X, default as XIcon } from 'lucide-react/dist/esm/icons/x.mjs';
 export { default as LucideZap, default as Zap, default as ZapIcon } from 'lucide-react/dist/esm/icons/zap.mjs';
+export { default as LucidePause, default as Pause, default as PauseIcon } from 'lucide-react/dist/esm/icons/pause.mjs';
+export { default as LucideMegaphone, default as Megaphone, default as MegaphoneIcon } from 'lucide-react/dist/esm/icons/megaphone.mjs';
+export { default as LucidePlay, default as Play, default as PlayIcon } from 'lucide-react/dist/esm/icons/play.mjs';
+export { default as LucideSliders, default as Sliders, default as SlidersIcon } from 'lucide-react/dist/esm/icons/sliders.mjs';
+export { default as LucideRotateCcw, default as RotateCcw, default as RotateCcwIcon } from 'lucide-react/dist/esm/icons/rotate-ccw.mjs';
+export { default as LayoutGrid, default as LayoutGridIcon, default as LucideLayoutGrid } from 'lucide-react/dist/esm/icons/layout-grid.mjs';
+export { default as List, default as ListIcon, default as LucideList } from 'lucide-react/dist/esm/icons/list.mjs';
+export { default as Building2, default as Building2Icon, default as LucideBuilding2 } from 'lucide-react/dist/esm/icons/building-2.mjs';
+export { default as Handshake, default as HandshakeIcon, default as LucideHandshake } from 'lucide-react/dist/esm/icons/handshake.mjs';

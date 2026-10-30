@@ -2,11 +2,19 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-function scraperPlugin() {
+function portalCustomPlugin() {
   return {
-    name: 'scraper-plugin',
+    name: 'portal-custom-plugin',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
+        // Redireciona /anuncie e /anuncie/ para a landing page em public/anuncie/index.html
+        if (req.url === '/anuncie' || req.url === '/anuncie/') {
+          req.url = '/anuncie/index.html';
+        } else if (req.url && req.url.startsWith('/anuncie/?')) {
+          req.url = req.url.replace('/anuncie/', '/anuncie/index.html');
+        }
+
+        // Web scraping de notícias para o gerador de matérias
         if (req.url && req.url.startsWith('/api/scrape?url=')) {
           const targetUrl = new URL(req.url, `http://${req.headers.host}`).searchParams.get('url');
           try {
@@ -25,6 +33,24 @@ function scraperPlugin() {
           }
           return;
         }
+
+        // Simulação / recepção local de leads para desenvolvimento
+        if (req.url && req.url.startsWith('/api/leads') && req.method === 'POST') {
+          let body = '';
+          for await (const chunk of req) body += chunk;
+          try {
+            const data = JSON.parse(body);
+            console.log(' [LOCAL DEV LEAD RECEBIDO]:', data.name, data.company, data.email, data.phone);
+            res.statusCode = 201;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ id: data.requestId || 'mock-local-id', preview: true }));
+          } catch (e) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'JSON inválido' }));
+          }
+          return;
+        }
+
         next();
       });
     }
@@ -36,7 +62,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    scraperPlugin()
+    portalCustomPlugin()
   ],
   server: {
     port: 3000,

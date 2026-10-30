@@ -505,7 +505,8 @@ export default function App() {
   }
 
   if (isAdminView) {
-    if (!isLoggedIn) {
+    const isDevPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('dev') === '1';
+    if (!isLoggedIn && !isDevPreview) {
       return <Navigate to="/painel/login" replace />;
     }
 

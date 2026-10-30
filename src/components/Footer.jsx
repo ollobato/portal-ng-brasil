@@ -143,6 +143,8 @@ export default function Footer({ setActiveCategory, setSelectedPraca }) {
               <a href="/termos" className="hover:text-slate-300 transition-colors">Termos de Serviço</a>
               <span>•</span>
               <a href="/privacidade" className="hover:text-slate-300 transition-colors">Política de Privacidade</a>
+              <span>•</span>
+              <a href="/anuncie/" className="hover:text-slate-300 transition-colors">Anuncie</a>
             </div>
           </div>
           

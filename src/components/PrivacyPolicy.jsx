@@ -31,6 +31,7 @@ export default function PrivacyPolicy() {
           <ul className="list-disc pl-5 text-slate-600 space-y-1">
             <li>Dados de navegação (endereço IP, tipo de navegador, páginas visitadas) através de cookies e ferramentas de analytics.</li>
             <li>Informações fornecidas voluntariamente ao assinar nossa newsletter, participar de enquetes ou entrar em contato.</li>
+            <li>Dados de contato comercial (nome, empresa, e-mail, WhatsApp opcional e briefing) informados voluntariamente por anunciantes na página <a href="/anuncie/" className="underline">Anuncie</a>, usados apenas para responder à proposta solicitada, mediante consentimento.</li>
           </ul>
         </section>
 

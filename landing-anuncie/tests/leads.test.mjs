@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import{validateLead}from'../src/lib/lead-schema.mjs';
+const valid={requestId:'471669c4-1d6d-40aa-82f3-02b324fa6562',name:'Pessoa Teste',company:'Empresa Exemplo',email:'teste@example.com',goal:'Visitas e contatos',consent:true};
+test('valid lead retains only permitted fields and bounded attribution',()=>{const r=validateLead({...valid,admin:true,utm:{utm_source:'x'.repeat(500),token:'secret'}});assert.equal(r.data.name,valid.name);assert.equal(r.data.utm.utm_source.length,180);assert.equal(r.data.admin,undefined);assert.equal(r.data.utm.token,undefined);});
+test('rejects missing consent, malformed email, unknown goal and unsafe id',()=>{for(const extra of [{consent:false},{email:'bad'},{goal:'invented'},{requestId:'../../escape'},{websiteTrap:'bot'}])assert.ok(validateLead({...valid,...extra}).error);});
+test('rejects null and array payloads',()=>{assert.ok(validateLead(null).error);assert.ok(validateLead([]).error);});
+test('phone is optional, sanitized and validated',()=>{assert.equal(validateLead(valid).data.phone,'');assert.equal(validateLead({...valid,phone:'(54) 99999-1234abc'}).data.phone,'(54) 99999-1234');assert.ok(validateLead({...valid,phone:'123'}).error);});

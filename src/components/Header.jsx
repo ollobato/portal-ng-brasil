@@ -1,6 +1,6 @@
 import React from 'react';
 import { trackEvent } from '../utils/analytics';
-import { Search, Mail, Compass, Landmark, Film, Globe, Filter, Sparkles, UserCircle, Cpu, HeartPulse, Newspaper, ShieldAlert } from 'lucide-react';
+import { Search, Mail, Compass, Landmark, Film, Globe, Filter, Sparkles, UserCircle, Cpu, HeartPulse, Newspaper, ShieldAlert, Megaphone } from 'lucide-react';
 
 export default function Header({ 
   activeCategory, 
@@ -76,7 +76,7 @@ export default function Header({
         </div>
 
         {/* Search & Actions */}
-        <div className="flex items-center gap-3 w-full md:max-w-sm">
+        <div className="flex items-center gap-3 w-full md:max-w-md">
           
           <div className="relative w-full">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -104,6 +104,15 @@ export default function Header({
             <Mail className="w-4 h-4" />
             <span>Newsletter</span>
           </button>
+
+          <a
+            href="/anuncie/"
+            onClick={() => trackEvent('Interação', 'Clique Anuncie Aqui')}
+            className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-[#040f1d] px-3 sm:px-4 py-2.5 rounded-lg text-xs font-extrabold uppercase tracking-wide shrink-0 shadow-sm transition-colors whitespace-nowrap"
+          >
+            <Megaphone className="w-4 h-4" />
+            <span>Anuncie aqui</span>
+          </a>
 
         </div>
 

@@ -35,3 +35,18 @@ try {
 export const db = firestoreDb;
 
 export const storage = getStorage(app);
+
+export const sanitizeForFirestore = (data) => {
+  if (data === null || data === undefined) return null;
+  if (Array.isArray(data)) return data.map(sanitizeForFirestore);
+  if (typeof data === 'object' && !(data instanceof Date) && typeof data?.toDate !== 'function') {
+    const clean = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        clean[key] = sanitizeForFirestore(value);
+      }
+    }
+    return clean;
+  }
+  return data;
+};

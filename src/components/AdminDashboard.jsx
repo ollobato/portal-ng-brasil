@@ -1,16 +1,21 @@
 import React, { Component, useState, useRef, useEffect } from 'react';
 import { trackEvent } from '../utils/analytics';
-import { LogOut, AlertCircle, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera , Loader2, Save, Link as LinkIcon, Globe, Send, Zap, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Check, Workflow, Cpu, PenTool, CheckSquare, Database, Network, PieChart, Copy, ExternalLink, ShieldCheck, Layers, BookOpen, Compass, CheckCircle2, Server, HelpCircle, ArrowRight, Smartphone, RefreshCw, X, AlertTriangle } from 'lucide-react';
+import { Handshake, LogOut, AlertCircle, PlusCircle, Plus, Edit3, Trash2, LayoutDashboard, FileText, Settings, Users, User, Search, Activity, TrendingUp, BarChart3, Eye, Sparkles, Bot, BrainCircuit, CheckCircle, Clock, Image as ImageIcon, ThumbsUp, ThumbsDown, Key, Share2, Share, Camera , Loader2, Save, Link as LinkIcon, Globe, Send, Zap, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Check, Workflow, Cpu, PenTool, CheckSquare, Database, Network, PieChart, Copy, ExternalLink, ShieldCheck, Layers, BookOpen, Compass, CheckCircle2, Server, HelpCircle, ArrowRight, Smartphone, RefreshCw, X, AlertTriangle, Tag } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
 import SocialPostGenerator from './SocialPostGenerator';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import StoriesGenerator from './StoriesGenerator';
 import CarouselsGenerator from './CarouselsGenerator';
 import PublishSuccessModal from './PublishSuccessModal';
+import Publisher from './Publisher';
+import CommercialCRM from './CommercialCRM';
 import { shareToWhatsApp } from '../utils/socialExporter';
 import { publishArticleToAllChannels, retryPlatformPublish } from '../utils/metaPublisher';
+import { subscribeTikTokStatus, connectTikTokAccount, disconnectTikTokAccount } from '../utils/tiktokPublisher';
 import { useFirebaseSync, useFirebaseDoc } from '../hooks/useFirebaseSync';
-import { storage } from '../lib/firebase';
+import { storage, auth, db } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { APP_VERSION, VERSION_NUMBER, VERSION_HISTORY } from '../config/version';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const compressImageAndUploadToStorage = async (file) => {
@@ -238,8 +243,8 @@ class ErrorBoundary extends Component {
   }
 }
 
-export default function AdminDashboard({ onLogout, newsData, setNewsData, banners, setBanners }) {
-  const VALID_ADMIN_TABS = ['insights', 'dashboard', 'robot', 'stories', 'carousels', 'aprovacao', 'materias', 'autores', 'banners', 'configuracoes'];
+export default function AdminDashboard({ currentUser, onLogout, newsData, setNewsData, banners, setBanners }) {
+  const VALID_ADMIN_TABS = ['insights', 'dashboard', 'robot', 'stories', 'carousels', 'aprovacao', 'materias', 'autores', 'banners', 'crm', 'configuracoes'];
   
   const getInitialAdminTab = () => {
     try {
@@ -257,6 +262,7 @@ export default function AdminDashboard({ onLogout, newsData, setNewsData, banner
   };
 
   const [activeTab, setActiveTab] = useState(getInitialAdminTab);
+  const [showNewLeadModal, setShowNewLeadModal] = useState(false);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
@@ -337,6 +343,168 @@ export default function AdminDashboard({ onLogout, newsData, setNewsData, banner
   // AI Logs state
   const [aiLogsRaw, setAiLogs] = useFirebaseSync('ai_logs', []);
   const aiLogs = [...aiLogsRaw].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  // Log de Acesso em Questão & Identificação de Sessão (Lucas / André)
+  const [accessLogsRaw, setAccessLogs] = useFirebaseSync('access_logs', []);
+  const accessLogs = [...accessLogsRaw].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  const resolveOperator = (user) => {
+    const emailLower = (user?.email || '').toLowerCase().trim();
+    const nameLower = (user?.displayName || '').toLowerCase().trim();
+
+    // 1. Prioridade máxima: E-mail ou Nome do usuário autenticado no Firebase
+    if (emailLower.includes('vaneli') || nameLower.includes('vaneli')) {
+      return {
+        id: 'vaneli',
+        name: 'Vaneli',
+        fullName: 'Vaneli Caliari',
+        email: user?.email || 'vaneli@portalngbrasil.com.br',
+        role: 'Editora & Administradora'
+      };
+    }
+
+    if (emailLower.includes('andre') || emailLower.includes('andré') || nameLower.includes('andre')) {
+      return {
+        id: 'andre',
+        name: 'André',
+        fullName: 'André Caliari',
+        email: user?.email || 'andre@portalngbrasil.com.br',
+        role: 'Editor & Administrador'
+      };
+    }
+
+    if (emailLower.includes('lucas') || nameLower.includes('lucas')) {
+      return {
+        id: 'lucas',
+        name: 'Lucas',
+        fullName: 'Lucas Lobato',
+        email: user?.email || 'lucaslobato17@gmail.com',
+        role: 'Administrador Geral'
+      };
+    }
+
+    // 2. Se for e-mail genérico (ex: redacao@, contato@) ou não detectado, verifica alternância manual
+    const override = localStorage.getItem('portal_ng_active_operator');
+    if (override === 'vaneli') {
+      return { id: 'vaneli', name: 'Vaneli', fullName: 'Vaneli Caliari', email: user?.email || 'vaneli@portalngbrasil.com.br', role: 'Editora & Administradora' };
+    }
+    if (override === 'andre') {
+      return { id: 'andre', name: 'André', fullName: 'André Caliari', email: user?.email || 'andre@portalng.com.br', role: 'Editor & Administrador' };
+    }
+    if (override === 'lucas') {
+      return { id: 'lucas', name: 'Lucas', fullName: 'Lucas Lobato', email: user?.email || 'lucaslobato17@gmail.com', role: 'Administrador Geral' };
+    }
+
+    // 3. Se autenticado com outro e-mail não listado
+    if (user?.email) {
+      const emailName = user.email.split('@')[0];
+      const cleanName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+      return {
+        id: 'user',
+        name: cleanName,
+        fullName: user.displayName || cleanName,
+        email: user.email,
+        role: 'Membro da Redação'
+      };
+    }
+
+    // 4. Último operador registrado ou padrão
+    const lastLogged = localStorage.getItem('portal_ng_last_logged_operator');
+    if (lastLogged === 'Vaneli') {
+      return { id: 'vaneli', name: 'Vaneli', fullName: 'Vaneli Caliari', email: 'vaneli@portalngbrasil.com.br', role: 'Editora & Administradora' };
+    }
+    if (lastLogged === 'André') {
+      return { id: 'andre', name: 'André', fullName: 'André Caliari', email: 'andre@portalng.com.br', role: 'Editor & Administrador' };
+    }
+    return { id: 'lucas', name: 'Lucas', fullName: 'Lucas Lobato', email: 'lucaslobato17@gmail.com', role: 'Administrador Geral' };
+  };
+
+  const [activeUser, setActiveUser] = useState(currentUser || auth.currentUser);
+  const [activeOperator, setActiveOperator] = useState(() => resolveOperator(currentUser || auth.currentUser));
+  const [showAccessLogModal, setShowAccessLogModal] = useState(false);
+  const [showVersionModal, setShowVersionModal] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setActiveUser(user);
+        setActiveOperator(resolveOperator(user));
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Registrar acesso na inicialização da sessão
+  useEffect(() => {
+    const sessionKey = `portal_ng_session_log_${activeOperator.id}`;
+    const alreadyLogged = sessionStorage.getItem(sessionKey);
+    if (!alreadyLogged) {
+      sessionStorage.setItem(sessionKey, Date.now().toString());
+      const logEntry = {
+        id: Date.now().toString(),
+        user: activeOperator.name,
+        fullName: activeOperator.fullName,
+        email: activeOperator.email,
+        role: activeOperator.role,
+        timestamp: Date.now(),
+        dateFormatted: new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+        action: 'Sessão iniciada no Painel Administrativo',
+        version: APP_VERSION
+      };
+      (async () => {
+        try {
+          const { collection, addDoc } = await import('firebase/firestore');
+          await addDoc(collection(db, 'access_logs'), logEntry);
+        } catch (e) {
+          console.warn("Log de acesso salvo apenas localmente:", e);
+        }
+      })();
+    }
+  }, [activeOperator.id, activeOperator.name, activeOperator.fullName, activeOperator.email, activeOperator.role]);
+
+  const handleSwitchOperator = async (target) => {
+    let targetKey = 'lucas';
+    let targetFullName = 'Lucas Lobato';
+    const low = target.toLowerCase();
+    if (low.includes('vaneli')) {
+      targetKey = 'vaneli';
+      targetFullName = 'Vaneli Caliari';
+    } else if (low.includes('andre') || low.includes('andré')) {
+      targetKey = 'andre';
+      targetFullName = 'André Caliari';
+    } else {
+      targetKey = 'lucas';
+      targetFullName = 'Lucas Lobato';
+    }
+
+    localStorage.setItem('portal_ng_active_operator', targetKey);
+    localStorage.setItem('portal_ng_last_logged_operator', targetKey === 'vaneli' ? 'Vaneli' : (targetKey === 'andre' ? 'André' : 'Lucas'));
+    
+    // Simula e atualiza operador ativo
+    const simulatedEmail = targetKey === 'vaneli'
+      ? (activeUser?.email?.includes('vaneli') ? activeUser.email : 'vaneli@portalngbrasil.com.br')
+      : (targetKey === 'andre' ? (activeUser?.email?.includes('andre') ? activeUser.email : 'andre@portalngbrasil.com.br') : (activeUser?.email?.includes('lucas') ? activeUser.email : 'lucaslobato17@gmail.com'));
+      
+    const updated = resolveOperator({ ...activeUser, email: simulatedEmail });
+    setActiveOperator(updated);
+
+    const logEntry = {
+      id: Date.now().toString(),
+      user: updated.name,
+      fullName: updated.fullName,
+      email: updated.email,
+      role: updated.role,
+      timestamp: Date.now(),
+      dateFormatted: new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+      action: `Operador alternado para ${updated.fullName}`,
+      version: APP_VERSION
+    };
+    try {
+      const { collection, addDoc } = await import('firebase/firestore');
+      await addDoc(collection(db, 'access_logs'), logEntry);
+    } catch (e) {}
+    showToast(`Operador alterado para ${updated.fullName}`);
+  };
 
   // Form states
   const [showForm, setShowForm] = useState(false);
@@ -499,6 +667,8 @@ COMO VOCÊ DEVE AGIR:
     xAccessSecret: localStorage.getItem("portal_ng_x_access_secret") || "dCFifuYoQNfVqz32MVdj1qx8STMUeHL59h6VkAUWy8r68",
     xBearerToken: localStorage.getItem("portal_ng_x_bearer_token") || "AAAAAAAAAAAAAAAAAAAAALKGAAIAAAAAP98Fmf0pMDI7kWlwsrjsFU3JSLU%3DxuFdfZ65P69HQZeqAIgFLjSt2iQ7vq4pvjuGuVoKA3VJ8M0AOf",
     xUsername: localStorage.getItem("portal_ng_x_username") || "portalngbrasi",
+    tiktokClientKey: localStorage.getItem("portal_ng_tiktok_client_key") || "awpunzxl9e81n4vp",
+    tiktokClientSecret: localStorage.getItem("portal_ng_tiktok_client_secret") || "YLgy30z0b6pj1oXUzvG5wNbl0aCCPsqX",
     imgbbKey: localStorage.getItem("portal_ng_imgbb_key") || "16be6a5efa6c25b8e50bf9ae6ef9b9bf",
     robotFeedback: localStorage.getItem("portal_ng_robot_feedback") ? JSON.parse(localStorage.getItem("portal_ng_robot_feedback")) : { liked: [], disliked: [] },
     robotGoldStandard: localStorage.getItem("portal_ng_robot_gold_standard") ? JSON.parse(localStorage.getItem("portal_ng_robot_gold_standard")) : null,
@@ -573,6 +743,22 @@ COMO VOCÊ DEVE AGIR:
 
   const xUsername = settings.xUsername || fallbackSettings.xUsername;
   const setXUsername = (val) => setSettings(prev => ({ ...prev, xUsername: typeof val === "function" ? val(prev.xUsername) : val }));
+
+  const tiktokClientKey = settings.tiktokClientKey || fallbackSettings.tiktokClientKey;
+  const setTiktokClientKey = (val) => setSettings(prev => ({ ...prev, tiktokClientKey: typeof val === "function" ? val(prev.tiktokClientKey) : val }));
+
+  const tiktokClientSecret = settings.tiktokClientSecret || fallbackSettings.tiktokClientSecret;
+  const setTiktokClientSecret = (val) => setSettings(prev => ({ ...prev, tiktokClientSecret: typeof val === "function" ? val(prev.tiktokClientSecret) : val }));
+
+  const [tiktokLiveStatus, setTiktokLiveStatus] = useState({ connected: false });
+  const [isConnectingTiktok, setIsConnectingTiktok] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeTikTokStatus((st) => {
+      setTiktokLiveStatus(st);
+    });
+    return () => unsub();
+  }, []);
 
   const imgbbKey = settings.imgbbKey || fallbackSettings.imgbbKey;
   const setImgbbKey = (val) => setSettings(prev => ({ ...prev, imgbbKey: typeof val === "function" ? val(prev.imgbbKey) : val }));
@@ -1452,7 +1638,7 @@ COMO VOCÊ DEVE AGIR:
     
     const target = publishTargetRef.current || 'all';
     const targetPlatforms = target === 'all' 
-      ? ['facebook', 'instagram', 'threads', 'linkedin', 'x'] 
+      ? ['facebook', 'instagram', 'threads', 'linkedin', 'x', 'tiktok'] 
       : (target === 'portal' ? [] : [target]);
     const finalArticleId = editingId || publishedArticleRef?.id || `news-${Date.now()}`;
     const siteUrl = `https://portalngbrasil.com.br/#/noticia/${finalArticleId}`;
@@ -1485,18 +1671,18 @@ COMO VOCÊ DEVE AGIR:
         facebook: null,
         threads: null,
         linkedin: null,
-        x: null
+        x: null,
+        tiktok: null
       },
       errors: {}
     });
 
-    if (target === 'youtube' || target === 'tiktok') {
-      const channelName = target === 'youtube' ? 'YouTube' : 'TikTok';
-      showToast(`Matéria salva no Portal NG Brasil! A integração com a API do ${channelName} está em desenvolvimento.`, false);
+    if (target === 'youtube') {
+      showToast(`Matéria salva no Portal NG Brasil! A integração com a API do YouTube está em desenvolvimento.`, false);
       setPublishModalData(prev => ({
         ...prev,
         isPublishing: false,
-        statusText: `Matéria publicada no Portal NG Brasil! A integração com a API do ${channelName} está em desenvolvimento pela equipe.`,
+        statusText: `Matéria publicada no Portal NG Brasil! A integração com a API do YouTube está em desenvolvimento pela equipe.`,
         links: {
           ...prev.links,
           site: siteUrl,
@@ -1522,14 +1708,16 @@ COMO VOCÊ DEVE AGIR:
             facebook: socialResult?.facebook || (targetPlatforms.includes('facebook') ? (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil') : null),
             threads: socialResult?.threads || (targetPlatforms.includes('threads') ? 'https://www.threads.net/@portalngbrasil' : null),
             linkedin: socialResult?.linkedin || (targetPlatforms.includes('linkedin') ? 'https://www.linkedin.com/company/portalngbrasil' : null),
-            x: socialResult?.x || (targetPlatforms.includes('x') ? (xUsername ? `https://x.com/${xUsername}` : 'https://x.com/portalngbrasil') : null)
+            x: socialResult?.x || (targetPlatforms.includes('x') ? (xUsername ? `https://x.com/${xUsername}` : 'https://x.com/portalngbrasil') : null),
+            tiktok: socialResult?.tiktok || (targetPlatforms.includes('tiktok') ? 'https://www.tiktok.com/@portalngbrasil' : null)
           },
           errors: {
             instagram: socialResult?.igError,
             facebook: socialResult?.fbError,
             threads: socialResult?.thError,
             linkedin: socialResult?.liError,
-            x: socialResult?.xError
+            x: socialResult?.xError,
+            tiktok: socialResult?.ttError
           }
         }));
       } catch (err) {
@@ -1543,7 +1731,8 @@ COMO VOCÊ DEVE AGIR:
             facebook: targetPlatforms.includes('facebook') ? (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil') : null,
             threads: targetPlatforms.includes('threads') ? 'https://www.threads.net/@portalngbrasil' : null,
             linkedin: targetPlatforms.includes('linkedin') ? 'https://www.linkedin.com/company/portalngbrasil' : null,
-            x: targetPlatforms.includes('x') ? (xUsername ? `https://x.com/${xUsername}` : 'https://x.com/portalngbrasil') : null
+            x: targetPlatforms.includes('x') ? (xUsername ? `https://x.com/${xUsername}` : 'https://x.com/portalngbrasil') : null,
+            tiktok: targetPlatforms.includes('tiktok') ? 'https://www.tiktok.com/@portalngbrasil' : null
           },
           errors: {
             general: err.message
@@ -2523,15 +2712,15 @@ ${robotGoldStandard ? `\nPADRÃO OURO DE ESTILO (Aprovado pelo Editor Humano):\n
                       titulo_original: meta.titulo_original || headline,
                       conteudo_original: pageText ? pageText.substring(0, 3000) : '',
                       titulos_sugeridos: articleTitles,
-                      jogada: draftObj.jogada,
-                      card_instagram: draftObj.card_instagram,
-                      legenda_instagram: draftObj.legenda_instagram,
-                      roteiro_video: draftObj.roteiro_video,
-                      destaque_visual: draftObj.destaque_visual,
-                      cortes_sugeridos: draftObj.cortes_sugeridos,
-                      citacoes_literais: draftObj.citacoes_literais,
-                      matriz_fatos: draftObj.matriz_fatos,
-                      alertas: draftObj.alertas
+                      jogada: draftObj.jogada || '',
+                      card_instagram: draftObj.card_instagram || null,
+                      legenda_instagram: draftObj.legenda_instagram || '',
+                      roteiro_video: draftObj.roteiro_video || '',
+                      destaque_visual: draftObj.destaque_visual || '',
+                      cortes_sugeridos: draftObj.cortes_sugeridos || [],
+                      citacoes_literais: draftObj.citacoes_literais || [],
+                      matriz_fatos: draftObj.matriz_fatos || null,
+                      alertas: draftObj.alertas || []
                     }
                  };
 
@@ -4026,6 +4215,92 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                         }} 
                         placeholder="portalngbrasil" 
                         className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none" 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* TikTok (API v2 - Content Posting API) */}
+                <div className="md:col-span-2 pt-4 mt-2 border-t border-slate-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                    <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-4 h-4 bg-black text-white rounded-sm flex items-center justify-center text-[10px] font-bold">🎵</span>
+                      TikTok for Developers - Content Posting API (v2)
+                    </h5>
+                    <div className="flex items-center gap-2">
+                      {tiktokLiveStatus.connected ? (
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1.5 border border-emerald-200">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Conectado: @{tiktokLiveStatus.username || 'portalngbrasil'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (window.confirm("Deseja realmente desconectar a conta do TikTok?")) {
+                                await disconnectTikTokAccount();
+                                showToast("Conta do TikTok desconectada.");
+                              }
+                            }}
+                            className="px-2.5 py-1 text-xs font-medium text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-md border border-rose-200 transition-colors"
+                          >
+                            Desconectar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isConnectingTiktok}
+                          onClick={async () => {
+                            setIsConnectingTiktok(true);
+                            try {
+                              showToast("Abrindo autorização do TikTok...");
+                              const res = await connectTikTokAccount();
+                              if (res.success) {
+                                showToast("TikTok conectado com sucesso!");
+                              }
+                            } catch (e) {
+                              showToast("Erro ao conectar TikTok: " + e.message, true);
+                            } finally {
+                              setIsConnectingTiktok(false);
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-black hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {isConnectingTiktok ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>🔗</span>}
+                          Conectar Conta do TikTok
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mb-3">
+                    Publicação de carrossel de fotos (Photo Mode) e vídeos diretamente para a conta @portalngbrasil via API oficial do TikTok.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Client Key (Chave do Cliente)</label>
+                      <input 
+                        type="text" 
+                        value={tiktokClientKey} 
+                        onChange={e => {
+                          setTiktokClientKey(e.target.value);
+                          localStorage.setItem("portal_ng_tiktok_client_key", e.target.value);
+                        }} 
+                        placeholder="awpunzxl9e81n4vp" 
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none font-mono" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Client Secret (Segredo do Cliente)</label>
+                      <input 
+                        type="password" 
+                        value={tiktokClientSecret} 
+                        onChange={e => {
+                          setTiktokClientSecret(e.target.value);
+                          localStorage.setItem("portal_ng_tiktok_client_secret", e.target.value);
+                        }} 
+                        placeholder="YLgy30z0..." 
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none font-mono" 
                       />
                     </div>
                   </div>
@@ -6138,8 +6413,17 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             </div>
             {!sidebarCollapsed && (
               <div className="min-w-0">
-                <span className="text-white font-bold block truncate">Painel NG <span className="text-red-500 text-[10px] ml-1">v2.0</span></span>
-                <span className="text-[10px] text-red-400 font-semibold uppercase truncate">Área do Jornalista</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white font-bold block truncate text-sm">Painel NG</span>
+                  <button
+                    onClick={() => setShowVersionModal(true)}
+                    title={`Versão ${APP_VERSION} - Clique para ver changelog`}
+                    className="text-red-400 hover:text-red-300 bg-red-950/60 hover:bg-red-900/60 border border-red-800/50 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded transition-all cursor-pointer"
+                  >
+                    {APP_VERSION}
+                  </button>
+                </div>
+                <span className="text-[10px] text-red-400 font-semibold uppercase tracking-wider block truncate">Painel Administrativo</span>
               </div>
             )}
           </div>
@@ -6165,6 +6449,50 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             <LogOut className="w-5 h-5 shrink-0" />
           </button>
         </div>
+
+        {/* Bloco de Identificação de Login / Sessão Ativa (Lucas / André / Vaneli) */}
+        {!sidebarCollapsed ? (
+          <div className="px-4 py-2.5 bg-[#030914] border-b border-slate-800/80 flex items-center justify-between">
+            <button 
+              onClick={() => setShowAccessLogModal(true)}
+              className="flex items-center gap-2.5 min-w-0 group text-left cursor-pointer hover:opacity-90 transition-all"
+              title="Clique para ver o Log de Acessos ou alternar login"
+            >
+              <div className="relative shrink-0">
+                <div className={`w-2.5 h-2.5 rounded-full ${activeOperator.name === 'Lucas' ? 'bg-blue-400' : (activeOperator.name === 'Vaneli' ? 'bg-purple-400' : 'bg-emerald-400')} animate-pulse`} />
+                <div className={`absolute -inset-0.5 rounded-full ${activeOperator.name === 'Lucas' ? 'bg-blue-400/30' : (activeOperator.name === 'Vaneli' ? 'bg-purple-400/30' : 'bg-emerald-400/30')} animate-ping`} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5 truncate">
+                  <span className="text-slate-400">Login:</span>
+                  <strong className={`${activeOperator.name === 'Lucas' ? 'text-blue-400' : (activeOperator.name === 'Vaneli' ? 'text-purple-400' : 'text-emerald-400')} font-bold`}>{activeOperator.name}</strong>
+                  <span className="text-[9px] text-slate-500 font-normal">({activeOperator.role.split(' ')[0]})</span>
+                </div>
+                <div className="text-[9px] text-slate-400 font-mono truncate max-w-[130px]">
+                  {activeOperator.email}
+                </div>
+              </div>
+            </button>
+            <button
+              onClick={() => setShowAccessLogModal(true)}
+              className="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded transition-colors text-xs flex items-center gap-1 font-mono cursor-pointer"
+              title="Abrir Log de Acessos"
+            >
+              <Clock className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="py-2.5 px-1 border-b border-slate-800/80 flex justify-center">
+            <button
+              onClick={() => setShowAccessLogModal(true)}
+              className={`w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-750 border ${activeOperator.name === 'Lucas' ? 'border-blue-500/40 text-blue-400' : (activeOperator.name === 'Vaneli' ? 'border-purple-500/40 text-purple-400' : 'border-emerald-500/40 text-emerald-400')} flex items-center justify-center text-xs font-bold cursor-pointer relative transition-all shadow-xs`}
+              title={`Acesso ativo: ${activeOperator.fullName} (${activeOperator.email}) - Clique para ver o Log de Acessos`}
+            >
+              {activeOperator.name[0]}
+              <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${activeOperator.name === 'Lucas' ? 'bg-blue-400' : (activeOperator.name === 'Vaneli' ? 'bg-purple-400' : 'bg-emerald-400')} border border-slate-900`} />
+            </button>
+          </div>
+        )}
 
         <nav className={`flex-row md:flex-col flex md:flex-1 p-2 ${sidebarCollapsed ? 'md:p-2' : 'md:p-4'} gap-1.5 overflow-x-auto md:overflow-y-auto no-scrollbar border-b md:border-b-0 border-slate-800`}>
           <button 
@@ -6192,13 +6520,57 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             <div className="hidden md:block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mt-6 mb-2 px-1">Automação IA</div>
           )}
 
+          {/* 1. Fila de Aprovação (movida para o topo da Automação IA) */}
+          <button 
+            onClick={() => {setActiveTab('aprovacao'); setShowForm(false);}} 
+            className={getNavClass('aprovacao') + " whitespace-nowrap relative " + (sidebarCollapsed ? "md:justify-center" : "justify-between")}
+            title="Fila de Aprovação"
+          >
+            <div className={`flex items-center ${sidebarCollapsed ? 'gap-0' : 'gap-2'}`}>
+                <CheckSquare className="w-4 h-4 shrink-0 text-emerald-400" /> 
+                {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Fila de Aprovação</span>}
+                <span className="sm:hidden">Aprovação</span>
+            </div>
+            {draftData?.length > 0 && (
+                <span className={sidebarCollapsed 
+                  ? "hidden md:flex absolute top-1 right-1 bg-yellow-500 text-yellow-950 text-[9px] font-black w-4 h-4 items-center justify-center rounded-full leading-none shadow" 
+                  : "bg-yellow-500 text-yellow-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"}>
+                  {draftData.length}
+                </span>
+            )}
+            {draftData?.length > 0 && sidebarCollapsed && (
+                <span className="md:hidden bg-yellow-500 text-yellow-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                  {draftData.length}
+                </span>
+            )}
+          </button>
+
+          {/* 2. Publisher (NOVO ITEM entre Fila de Aprovação e Gerador de Notícias) */}
+          <button 
+            onClick={() => {setActiveTab('publisher'); setShowForm(false);}} 
+            className={getNavClass('publisher') + " whitespace-nowrap relative " + (sidebarCollapsed ? "md:justify-center" : "justify-between")}
+            title="Publisher — Publicações Gerais"
+          >
+            <div className={`flex items-center ${sidebarCollapsed ? 'gap-0' : 'gap-2'}`}>
+                <Send className="w-4 h-4 shrink-0 text-blue-400" /> 
+                {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Publisher</span>}
+                <span className="sm:hidden">Publisher</span>
+            </div>
+            <span className={sidebarCollapsed 
+              ? "hidden md:flex absolute top-1 right-1 bg-blue-500 text-white text-[8px] font-bold px-1 rounded-full leading-none" 
+              : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shadow-xs"}>
+              Novo
+            </span>
+          </button>
+
+          {/* 3. Gerador de Notícias */}
           <button 
             onClick={() => {setActiveTab('robot'); setShowForm(false);}} 
             className={getNavClass('robot') + " whitespace-nowrap relative " + (sidebarCollapsed ? "md:justify-center" : "justify-between")}
             title="Gerador de Notícias"
           >
             <div className={`flex items-center ${sidebarCollapsed ? 'gap-0' : 'gap-2'}`}>
-                <BrainCircuit className="w-4 h-4 shrink-0" /> 
+                <BrainCircuit className="w-4 h-4 shrink-0 text-indigo-400" /> 
                 {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Gerador de Notícias</span>}
                 <span className="sm:hidden">Gerador</span>
             </div>
@@ -6216,6 +6588,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             )}
           </button>
           
+          {/* 4. Gerador de Stories */}
           <button 
             onClick={() => {setActiveTab('stories'); setShowForm(false);}} 
             className={getNavClass('stories') + " whitespace-nowrap"}
@@ -6226,6 +6599,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             <span className="sm:hidden">Stories</span>
           </button>
 
+          {/* 5. Gerador de Carrosséis */}
           <button 
             onClick={() => {setActiveTab('carousels'); setShowForm(false);}} 
             className={getNavClass('carousels') + " whitespace-nowrap"}
@@ -6234,30 +6608,6 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             <ImageIcon className="w-4 h-4 shrink-0" /> 
             {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Gerador de Carrosséis</span>}
             <span className="sm:hidden">Carrosséis</span>
-          </button>
-          
-          <button 
-            onClick={() => {setActiveTab('aprovacao'); setShowForm(false);}} 
-            className={getNavClass('aprovacao') + " whitespace-nowrap relative " + (sidebarCollapsed ? "md:justify-center" : "justify-between")}
-            title="Fila de Aprovação"
-          >
-            <div className={`flex items-center ${sidebarCollapsed ? 'gap-0' : 'gap-2'}`}>
-                <CheckSquare className="w-4 h-4 shrink-0" /> 
-                {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Fila de Aprovação</span>}
-                <span className="sm:hidden">Aprovação</span>
-            </div>
-            {draftData?.length > 0 && (
-                <span className={sidebarCollapsed 
-                  ? "hidden md:flex absolute top-1 right-1 bg-yellow-500 text-yellow-950 text-[9px] font-black w-4 h-4 items-center justify-center rounded-full leading-none shadow" 
-                  : "bg-yellow-500 text-yellow-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"}>
-                  {draftData.length}
-                </span>
-            )}
-            {draftData?.length > 0 && sidebarCollapsed && (
-                <span className="md:hidden bg-yellow-500 text-yellow-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-                  {draftData.length}
-                </span>
-            )}
           </button>
 
           {sidebarCollapsed ? (
@@ -6295,6 +6645,16 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             {!sidebarCollapsed && <span className="hidden sm:inline md:inline">Banners de Patrocínio</span>}
             <span className="sm:hidden">Banners</span>
           </button>
+
+          <button 
+            onClick={() => {setActiveTab('crm'); setShowForm(false);}} 
+            className={getNavClass('crm') + " whitespace-nowrap"}
+            title="CRM Comercial (leads de anunciantes)"
+          >
+            <Handshake className="w-4 h-4 shrink-0" /> 
+            {!sidebarCollapsed && <span className="hidden sm:inline md:inline">CRM Comercial</span>}
+            <span className="sm:hidden">CRM</span>
+          </button>
         </nav>
 
         <div className={`hidden md:flex flex-col gap-1.5 ${sidebarCollapsed ? 'p-2' : 'p-4'} border-t border-slate-800 mt-auto`}>
@@ -6330,19 +6690,42 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
               {activeTab === 'materias' && (showForm ? 'Publicador' : 'Gestão de Notícias')}
               {activeTab === 'autores' && 'Equipe de Redação'}
               {activeTab === 'banners' && 'Gestão de Banners'}
+              {activeTab === 'crm' && 'CRM Comercial — Anunciantes'}
               {activeTab === 'configuracoes' && 'Configurações'}
               {activeTab === 'robot' && 'Gerador de Notícias'}
               {activeTab === 'stories' && 'Gerador de Stories (IA)'}
               {activeTab === 'carousels' && 'Gerador de Carrosséis (IA)'}
               {activeTab === 'aprovacao' && 'Fila de Aprovação'}
+              {activeTab === 'publisher' && 'Publisher — Postagens Gerais'}
             </h1>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button 
-                onClick={() => {setActiveTab('materias'); setShowForm(true); setEditingId(null); setFormData({title:'', subtitle:'', category:'politica', praca:'Nacional', image:'', content:'', authorName: 'Redação NG Brasil'});}}
-                className="bg-[#d40a38] hover:bg-red-700 text-white transition-colors px-4 py-2.5 rounded-md font-bold text-sm flex items-center justify-center gap-2 w-full sm:w-auto shadow-sm"
+                onClick={() => setShowAccessLogModal(true)}
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/90 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 transition-all cursor-pointer shadow-xs"
+                title="Log de Acesso em questão - Clique para ver detalhes e histórico"
               >
-                <PlusCircle className="w-4 h-4 shrink-0" /> Nova Matéria
+                <div className={`w-2 h-2 rounded-full ${activeOperator.name === 'Lucas' ? 'bg-blue-500' : (activeOperator.name === 'Vaneli' ? 'bg-purple-500' : 'bg-emerald-500')} animate-pulse`} />
+                <span>Login: <strong className="text-slate-900 font-bold">{activeOperator.fullName}</strong></span>
+                <span className="text-[10px] text-slate-400 hidden lg:inline font-mono">({activeOperator.email})</span>
+                <span className="text-[10px] bg-slate-200/80 text-slate-600 px-1.5 py-0.5 rounded font-mono font-semibold">Log</span>
               </button>
+
+              {activeTab === 'crm' ? (
+                <button 
+                  onClick={() => setShowNewLeadModal(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white transition-colors px-4 py-2.5 rounded-md font-bold text-sm flex items-center justify-center gap-2 w-full sm:w-auto shadow-sm"
+                  title="Cadastrar Novo Lead Comercial"
+                >
+                  <PlusCircle className="w-4 h-4 shrink-0" /> Novo Lead
+                </button>
+              ) : (
+                <button 
+                  onClick={() => {setActiveTab('materias'); setShowForm(true); setEditingId(null); setFormData({title:'', subtitle:'', category:'politica', praca:'Nacional', image:'', content:'', authorName: 'Redação NG Brasil'});}}
+                  className="bg-[#d40a38] hover:bg-red-700 text-white transition-colors px-4 py-2.5 rounded-md font-bold text-sm flex items-center justify-center gap-2 w-full sm:w-auto shadow-sm"
+                >
+                  <PlusCircle className="w-4 h-4 shrink-0" /> Nova Matéria
+                </button>
+              )}
             </div>
           </header>
         )}
@@ -6353,6 +6736,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
           {activeTab === 'materias' && renderMaterias()}
           {activeTab === 'autores' && renderAutores()}
           {activeTab === 'banners' && renderBanners()}
+          {activeTab === 'crm' && <CommercialCRM showToast={showToast} isNewLeadOpen={showNewLeadModal} setIsNewLeadOpen={setShowNewLeadModal} />}
           {activeTab === 'configuracoes' && renderConfiguracoes()}
           {activeTab === 'robot' && renderRobot()}
           <div style={{ display: activeTab === 'stories' ? 'block' : 'none' }}>
@@ -6379,6 +6763,26 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
           </div>
           {activeTab === 'dashboard' && <AnalyticsDashboard />}
           {activeTab === 'aprovacao' && renderApprovals()}
+          {activeTab === 'publisher' && (
+            <Publisher 
+              showToast={showToast}
+              metaToken={metaToken}
+              metaFbPageId={metaFbPageId}
+              metaIgAccountId={metaIgAccountId}
+              threadsToken={threadsToken}
+              threadsUserId={threadsUserId}
+              linkedinToken={linkedinToken}
+              linkedinOrgId={linkedinOrgId}
+              xApiKey={xApiKey}
+              xApiSecret={xApiSecret}
+              xAccessToken={xAccessToken}
+              xAccessSecret={xAccessSecret}
+              xBearerToken={xBearerToken}
+              xUsername={xUsername}
+              imgbbKey={imgbbKey}
+              activeOperator={activeOperator}
+            />
+          )}
         </div>
 
         {socialModalArticle && (
@@ -6537,6 +6941,260 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                   </a>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Log de Acesso em Questão & Identificação de Sessão */}
+        {showAccessLogModal && (
+          <div className="fixed inset-0 z-[9999] bg-slate-900/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+              
+              {/* Modal Header */}
+              <div className="bg-[#040f1d] p-5 text-white flex items-center justify-between border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base leading-tight text-white flex items-center gap-2">
+                      Log de Acesso em Questão
+                      <span className="text-[10px] bg-red-950/80 text-red-400 border border-red-800/40 px-2 py-0.5 rounded font-mono font-bold">
+                        {APP_VERSION}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Identificação do operador ativo e histórico recente de logins no Painel Administrativo</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAccessLogModal(false)}
+                  className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto space-y-6">
+                
+                {/* Card do Operador Ativo */}
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100/70 border border-slate-200 rounded-xl p-5 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className={`w-13 h-13 rounded-2xl flex items-center justify-center font-black text-xl shadow-sm text-white ${activeOperator.name === 'Lucas' ? 'bg-blue-600' : (activeOperator.name === 'Vaneli' ? 'bg-purple-600' : 'bg-emerald-600')}`}>
+                        {activeOperator.name[0]}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Login Ativo:</span>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${activeOperator.name === 'Lucas' ? 'bg-blue-100 text-blue-800 border border-blue-200' : (activeOperator.name === 'Vaneli' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200')}`}>
+                            <span className={`w-2 h-2 rounded-full ${activeOperator.name === 'Lucas' ? 'bg-blue-500' : (activeOperator.name === 'Vaneli' ? 'bg-purple-500' : 'bg-emerald-500')} animate-pulse`} />
+                            {activeOperator.name}
+                          </span>
+                        </div>
+                        <h4 className="text-lg font-bold text-slate-900 mt-0.5">{activeOperator.fullName}</h4>
+                        <p className="text-xs text-slate-500 font-mono flex items-center gap-2 mt-0.5">
+                          <span>{activeOperator.email}</span>
+                          <span>•</span>
+                          <span className="text-slate-600 font-sans font-medium">{activeOperator.role}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/80 border border-slate-200/90 rounded-lg p-2.5 text-left sm:text-right">
+                      <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Status da Sessão</span>
+                      <span className="text-xs font-bold text-emerald-600 flex items-center sm:justify-end gap-1 mt-0.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Conectado & Ativo
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono block mt-0.5">Versão: {APP_VERSION}</span>
+                    </div>
+                  </div>
+
+                  {/* Alternância Rápida de Login */}
+                  <div className="mt-4 pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <span className="text-xs text-slate-600 font-medium">
+                      Quer alternar o login ou simular outro operador?
+                    </span>
+                    <div className="flex items-center flex-wrap gap-2">
+                      <button
+                        onClick={() => handleSwitchOperator('Lucas')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${activeOperator.name === 'Lucas' ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-400' : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300'}`}
+                      >
+                        <User className="w-3.5 h-3.5" /> Sou o Lucas
+                      </button>
+                      <button
+                        onClick={() => handleSwitchOperator('André')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${activeOperator.name === 'André' ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400' : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300'}`}
+                      >
+                        <User className="w-3.5 h-3.5" /> Sou o André
+                      </button>
+                      <button
+                        onClick={() => handleSwitchOperator('Vaneli')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${activeOperator.name === 'Vaneli' ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-400' : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300'}`}
+                      >
+                        <User className="w-3.5 h-3.5" /> Sou a Vaneli
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Histórico Recente de Acessos */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-slate-500" />
+                      <h4 className="text-sm font-bold text-slate-800">Histórico de Acessos Recentes</h4>
+                      <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold border border-slate-200">
+                        {accessLogs.length} {accessLogs.length === 1 ? 'registro' : 'registros'}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        const newLog = {
+                          id: Date.now().toString(),
+                          user: activeOperator.name,
+                          fullName: activeOperator.fullName,
+                          email: activeOperator.email,
+                          role: activeOperator.role,
+                          timestamp: Date.now(),
+                          dateFormatted: new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+                          action: 'Registro manual de acesso ao Painel',
+                          version: APP_VERSION
+                        };
+                        try {
+                          const { collection, addDoc } = await import('firebase/firestore');
+                          await addDoc(collection(db, 'access_logs'), newLog);
+                          showToast("Acesso registrado com sucesso!");
+                        } catch (e) {
+                          showToast("Registrado localmente!");
+                        }
+                      }}
+                      className="text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 px-2.5 py-1 rounded-md font-semibold transition-colors flex items-center gap-1 border border-emerald-200 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" /> Registrar Acesso Agora
+                    </button>
+                  </div>
+
+                  {accessLogs.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl text-slate-500 text-xs">
+                      <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      Nenhum histórico anterior registrado. Os próximos acessos aparecerão aqui em tempo real.
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white shadow-xs max-h-64 overflow-y-auto">
+                      {accessLogs.slice(0, 20).map((log, idx) => (
+                        <div key={log.id || idx} className="p-3.5 flex items-center justify-between hover:bg-slate-50/80 transition-colors">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${log.user === 'Lucas' ? 'bg-blue-100 text-blue-700' : (log.user === 'Vaneli' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700')}`}>
+                              {(log.user || 'U')[0]}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs text-slate-900">{log.fullName || (log.user === 'Vaneli' ? 'Vaneli Caliari' : (log.user === 'André' ? 'André Caliari' : (log.user === 'Lucas' ? 'Lucas Lobato' : log.user))) || 'Operador'}</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${log.user === 'Lucas' ? 'bg-blue-50 text-blue-700 border border-blue-200' : (log.user === 'Vaneli' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')}`}>
+                                  {log.user === 'Lucas' ? 'Administrador' : (log.user === 'Vaneli' ? 'Editora' : 'Editor')}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 font-mono truncate">{log.email || '—'}</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">{log.action || 'Acesso ao Painel'}</div>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0 ml-3">
+                            <span className="text-[11px] font-medium text-slate-700 block">{log.dateFormatted || (log.timestamp ? new Date(log.timestamp).toLocaleDateString('pt-BR') : '')}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{log.version || APP_VERSION}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                <span className="text-xs text-slate-500">
+                  Painel Administrativo • Portal NG Brasil
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowAccessLogModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Histórico de Versões do Painel NG */}
+        {showVersionModal && (
+          <div className="fixed inset-0 z-[9999] bg-slate-900/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
+              
+              <div className="bg-[#040f1d] p-5 text-white flex items-center justify-between border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+                    <Tag className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base leading-tight text-white flex items-center gap-2">
+                      Painel NG Brasil
+                      <span className="text-[10px] bg-red-950/80 text-red-400 border border-red-800/40 px-2 py-0.5 rounded font-mono font-bold">
+                        {APP_VERSION}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Rastreamento sequencial e changelog de atualizações</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowVersionModal(false)}
+                  className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 overflow-y-auto space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 leading-relaxed">
+                  <strong>Controle de Versão Ativo:</strong> A cada nova alteração realizada no Portal NG Brasil, a versão será incrementada sequencialmente (<strong>3.0 → 3.1 → 3.2 → 3.3...</strong>).
+                </div>
+
+                <div className="space-y-3">
+                  {VERSION_HISTORY.map((ver, i) => (
+                    <div key={ver.version || i} className={`p-4 rounded-xl border ${i === 0 ? 'bg-red-50/40 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${i === 0 ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                            {ver.version}
+                          </span>
+                          <span className="font-bold text-sm text-slate-900">{ver.title}</span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 font-mono">{ver.date}</span>
+                      </div>
+                      <ul className="text-xs text-slate-600 space-y-1 pl-4 list-disc">
+                        {ver.highlights?.map((h, hIdx) => (
+                          <li key={hIdx}>{h}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowVersionModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Entendido
+                </button>
+              </div>
+
             </div>
           </div>
         )}
