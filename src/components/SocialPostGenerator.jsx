@@ -17,13 +17,39 @@ import {
   FileText,
   Video,
   Camera,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Briefcase,
+  Heart,
+  MessageCircle,
+  MessageSquare,
+  Bookmark,
+  ThumbsUp,
+  Repeat2,
+  BarChart2,
+  Globe,
+  MoreHorizontal,
+  Eye,
+  Edit3
 } from 'lucide-react';
-import { formatInstagramCaption, formatFacebookCaption, formatThreadsCaption, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
+import { formatInstagramCaption, formatFacebookCaption, formatThreadsCaption, formatLinkedInCaption, formatXCaption, calculateXTweetLength, shareToWhatsApp, copyToClipboard } from '../utils/socialExporter';
 import { uploadImageForSocial, uploadVideoForSocial } from '../utils/imageUploader';
 import { safeLoadImageForCanvas } from '../utils/imageLoader';
 import { publishToFacebookPage, resolveFacebookPageToken, publishToThreads, FALLBACK_META_SETTINGS } from '../utils/metaPublisher';
+import { publishArticleToLinkedIn, FALLBACK_LINKEDIN_SETTINGS } from '../utils/linkedinPublisher';
+import { publishArticleToX, FALLBACK_X_SETTINGS } from '../utils/xPublisher';
 import { calculateAutoFitTypography, getHighlightRange, ensureBarlowCondensedLoaded } from '../utils/ngCardRenderer.js';
+
+export const XIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </svg>
+);
+
+export const ThreadsIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12.186 24C5.466 24 0 18.534 0 11.814 0 5.094 5.466 0 12.186 0c6.643 0 11.96 5.253 12.174 11.895h-2.585c-.208-5.184-4.444-9.31-9.589-9.31-5.305 0-9.601 4.296-9.601 9.601 0 5.305 4.296 9.601 9.601 9.601 3.528 0 6.64-1.905 8.326-4.757l2.25 1.286C20.509 21.68 16.634 24 12.186 24zm4.498-8.156c-.66 2.052-2.38 3.522-4.498 3.522-2.673 0-4.84-2.167-4.84-4.84 0-2.673 2.167-4.84 4.84-4.84 2.673 0 4.84 2.167 4.84 4.84 0 .445-.06.877-.174 1.288h-4.666c.27 1.157 1.305 2.016 2.54 2.016 1.026 0 1.908-.594 2.334-1.46l2.164.974zm-2.028-2.616c-.23-1.077-1.185-1.874-2.31-1.874-1.125 0-2.08.797-2.31 1.874h4.62z"/>
+  </svg>
+);
 
 const formatText = (text) => {
   if (!text) return '';
@@ -101,7 +127,29 @@ export const createDefaultCards = (article) => [
   createDefaultCtaCard()
 ];
 
-const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = false, metaToken, metaFbPageId, metaIgAccountId, threadsToken, threadsUserId, imgbbKey, hideButtons = false, onPostSuccess, onCardsChange }, ref) => {
+const SocialPostGenerator = forwardRef(({ 
+  showToast, 
+  article, 
+  onClose, 
+  inline = false, 
+  metaToken, 
+  metaFbPageId, 
+  metaIgAccountId, 
+  threadsToken, 
+  threadsUserId, 
+  imgbbKey, 
+  linkedinToken, 
+  linkedinOrgId,
+  xApiKey,
+  xApiSecret,
+  xAccessToken,
+  xAccessSecret,
+  xBearerToken,
+  xUsername,
+  hideButtons = false, 
+  onPostSuccess, 
+  onCardsChange 
+}, ref) => {
   const canvasRef = useRef(null);
   const directUploadInputRef = useRef(null);
   const multiUploadInputRef = useRef(null);
@@ -121,7 +169,15 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   const [isCaptionCustomized, setIsCaptionCustomized] = useState(false);
   const [captionFacebook, setCaptionFacebook] = useState('');
   const [isFbCaptionCustomized, setIsFbCaptionCustomized] = useState(false);
-  const [activeCaptionTab, setActiveCaptionTab] = useState('instagram'); // 'instagram' | 'facebook'
+  const [captionThreads, setCaptionThreads] = useState('');
+  const [isThreadsCaptionCustomized, setIsThreadsCaptionCustomized] = useState(false);
+  const [captionLinkedin, setCaptionLinkedin] = useState('');
+  const [isLinkedinCaptionCustomized, setIsLinkedinCaptionCustomized] = useState(false);
+  const [captionX, setCaptionX] = useState('');
+  const [isXCaptionCustomized, setIsXCaptionCustomized] = useState(false);
+  const [copiedPlatform, setCopiedPlatform] = useState('');
+  const [editingPlatforms, setEditingPlatforms] = useState({});
+  const [cardPreviewUrl, setCardPreviewUrl] = useState('');
 
   const safeActiveIndex = Math.min(activeCardIndex, Math.max(0, cards.length - 1));
   const activeCard = cards[safeActiveIndex] || cards[0];
@@ -144,6 +200,9 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       setActiveCardIndex(0);
       setIsCaptionCustomized(false);
       setIsFbCaptionCustomized(false);
+      setIsThreadsCaptionCustomized(false);
+      setIsLinkedinCaptionCustomized(false);
+      setIsXCaptionCustomized(false);
     } else {
       setCards(prev => {
         if (!prev.length) return createDefaultCards(article);
@@ -214,7 +273,47 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
         }, shareUrl)
       );
     }
-  }, [firstCardTitle, firstCardSubtitle, category, article?.content, article?.title, article?.subtitle, article?.praca, article?.id, article?.metadata, isCaptionCustomized, isFbCaptionCustomized]);
+
+    if (!isThreadsCaptionCustomized) {
+      setCaptionThreads(
+        formatThreadsCaption({
+          title: firstCardTitle || article?.title,
+          subtitle: firstCardSubtitle || article?.subtitle,
+          category,
+          categoryLabel: category,
+          id: article?.id
+        }, shareUrl)
+      );
+    }
+
+    if (!isLinkedinCaptionCustomized) {
+      setCaptionLinkedin(
+        formatLinkedInCaption({
+          title: firstCardTitle || article?.title,
+          subtitle: firstCardSubtitle || article?.subtitle,
+          category,
+          categoryLabel: category,
+          praca: article?.praca,
+          id: article?.id,
+          content: article?.content
+        }, shareUrl)
+      );
+    }
+
+    if (!isXCaptionCustomized) {
+      setCaptionX(
+        formatXCaption({
+          title: firstCardTitle || article?.title,
+          subtitle: firstCardSubtitle || article?.subtitle,
+          category,
+          categoryLabel: category,
+          praca: article?.praca,
+          id: article?.id,
+          content: article?.content
+        }, shareUrl)
+      );
+    }
+  }, [firstCardTitle, firstCardSubtitle, category, article?.content, article?.title, article?.subtitle, article?.praca, article?.id, article?.metadata, isCaptionCustomized, isFbCaptionCustomized, isLinkedinCaptionCustomized, isXCaptionCustomized]);
 
   const handleRegenerateCaption = () => {
     const fresh = formatInstagramCaption({
@@ -249,6 +348,91 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     setIsFbCaptionCustomized(false);
     if (showToast) {
       showToast('Chamada do Facebook atualizada com sucesso!', false);
+    }
+  };
+
+  const handleRegenerateLinkedinCaption = () => {
+    const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
+    const fresh = formatLinkedInCaption({
+      title: cards[0]?.title || article?.title || '',
+      subtitle: cards[0]?.subtitle || article?.subtitle || '',
+      category,
+      categoryLabel: category,
+      praca: article?.praca,
+      id: article?.id,
+      content: article?.content
+    }, shareUrl);
+    setCaptionLinkedin(fresh);
+    setIsLinkedinCaptionCustomized(false);
+    if (showToast) {
+      showToast('Texto do LinkedIn atualizado com sucesso!', false);
+    }
+  };
+
+  const handleRegenerateXCaption = () => {
+    const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
+    const fresh = formatXCaption({
+      title: cards[0]?.title || article?.title || '',
+      subtitle: cards[0]?.subtitle || article?.subtitle || '',
+      category,
+      categoryLabel: category,
+      praca: article?.praca,
+      id: article?.id,
+      content: article?.content
+    }, shareUrl);
+    setCaptionX(fresh);
+    setIsXCaptionCustomized(false);
+    if (showToast) {
+      showToast('Texto do X (Twitter) atualizado com sucesso!', false);
+    }
+  };
+
+  const handleRegenerateThreadsCaption = () => {
+    const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
+    const fresh = formatThreadsCaption({
+      title: cards[0]?.title || article?.title || '',
+      subtitle: cards[0]?.subtitle || article?.subtitle || '',
+      category,
+      categoryLabel: category,
+      id: article?.id
+    }, shareUrl);
+    setCaptionThreads(fresh);
+    setIsThreadsCaptionCustomized(false);
+    if (showToast) {
+      showToast('Texto do Threads atualizado com sucesso!', false);
+    }
+  };
+
+  const handleRegenerateAllCaptions = () => {
+    handleRegenerateCaption();
+    handleRegenerateFbCaption();
+    handleRegenerateThreadsCaption();
+    handleRegenerateLinkedinCaption();
+    handleRegenerateXCaption();
+    if (showToast) {
+      showToast('Textos de todas as 5 redes atualizados com sucesso!', false);
+    }
+  };
+
+  const toggleEditing = (platform) => {
+    setEditingPlatforms(prev => ({ ...prev, [platform]: !prev[platform] }));
+  };
+
+  const handleCopyPlatformCaption = async (platform) => {
+    let text = '';
+    if (platform === 'instagram') text = captionText;
+    else if (platform === 'facebook') text = captionFacebook;
+    else if (platform === 'threads') text = captionThreads;
+    else if (platform === 'linkedin') text = captionLinkedin;
+    else if (platform === 'x') text = captionX;
+
+    const success = await copyToClipboard(text);
+    if (success) {
+      setCopiedPlatform(platform);
+      setTimeout(() => setCopiedPlatform(''), 2500);
+      if (showToast) {
+        showToast(`Texto do ${platform.toUpperCase()} copiado!`, false);
+      }
     }
   };
 
@@ -489,7 +673,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
             } catch (_) {}
             if (logo && logo.naturalWidth > 0) {
-              ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
+              ctx.drawImage(logo, width - 165, 45, 125, 125 * (logo.height / logo.width));
             }
           }
           return;
@@ -534,7 +718,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
             logo = (await safeLoadImageForCanvas('/logo-ng.png')) || (await safeLoadImageForCanvas('/logo/logo-oficial.png'));
           } catch (_) {}
           if (logo && logo.naturalWidth > 0) {
-            ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
+            ctx.drawImage(logo, width - 165, 45, 125, 125 * (logo.height / logo.width));
           }
         }
         return;
@@ -638,6 +822,15 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       } catch (_) {}
 
       finalizeTemplateDraw(ctx, width, height, logo, cardData.title || '', cardData.subtitle || '');
+      
+      if (targetCanvas === canvasRef.current) {
+        try {
+          const previewUrl = targetCanvas.toDataURL('image/jpeg', 0.95);
+          if (previewUrl && previewUrl.length > 50) {
+            setCardPreviewUrl(previewUrl);
+          }
+        } catch (_) {}
+      }
     } catch (err) {
       console.error("Erro ao desenhar card no canvas:", err);
     }
@@ -671,35 +864,35 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     let logoDrawn = false;
     if (logo && logo.naturalWidth > 0) {
       try {
-        ctx.drawImage(logo, width - 260, 45, 210, 210 * (logo.height / logo.width));
+        ctx.drawImage(logo, width - 165, 45, 125, 125 * (logo.height / logo.width));
         logoDrawn = true;
       } catch (_) {}
     }
 
     if (!logoDrawn) {
       ctx.save();
-      const bx = width - 230;
+      const bw = 115;
+      const bh = 46;
+      const bx = width - bw - 40;
       const by = 45;
-      const bw = 175;
-      const bh = 65;
 
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 10) : ctx.rect(bx, by, bw, bh);
+      ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 8) : ctx.rect(bx, by, bw, bh);
       ctx.fill();
 
-      ctx.font = 'bold 38px "Barlow Condensed", sans-serif';
+      ctx.font = 'bold 26px "Barlow Condensed", sans-serif';
       ctx.fillStyle = '#040f1d';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText('NG', bx + 18, by + bh / 2);
+      ctx.fillText('NG', bx + 12, by + bh / 2);
 
       ctx.fillStyle = '#d40a38';
-      ctx.fillRect(bx + 80, by + 12, 4, bh - 24);
+      ctx.fillRect(bx + 52, by + 8, 3, bh - 16);
 
-      ctx.font = '900 18px "Barlow Condensed", sans-serif';
+      ctx.font = '900 13px "Barlow Condensed", sans-serif';
       ctx.fillStyle = '#d40a38';
-      ctx.fillText('BRASIL', bx + 95, by + bh / 2);
+      ctx.fillText('BRASIL', bx + 62, by + bh / 2);
       ctx.restore();
     }
 
@@ -797,10 +990,23 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   };
 
   useEffect(() => {
+    let isMounted = true;
     if (canvasRef.current && activeCard) {
       const isVideoOverlay = activeCard.mediaType === 'video' && Boolean(activeCard.videoUrl);
-      drawCardOnCanvas(canvasRef.current, activeCard, aspectRatio, isVideoOverlay);
+      drawCardOnCanvas(canvasRef.current, activeCard, aspectRatio, isVideoOverlay).then(() => {
+        if (isMounted && canvasRef.current) {
+          try {
+            const url = canvasRef.current.toDataURL('image/jpeg', 0.95);
+            if (url && url.length > 50) {
+              setCardPreviewUrl(url);
+            }
+          } catch (e) {
+            console.warn("Failed to export preview url:", e);
+          }
+        }
+      });
     }
+    return () => { isMounted = false; };
   }, [activeCard, aspectRatio, refreshKey]);
 
   const handleForceImageRefresh = () => {
@@ -843,8 +1049,8 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
     }
   };
 
-  const handleCopyCaption = async () => {
-    const textToCopy = activeCaptionTab === 'instagram' ? captionText : captionFacebook;
+  const handleCopyCaption = async (customText) => {
+    const textToCopy = typeof customText === 'string' ? customText : (captionText || captionFacebook || captionThreads || captionLinkedin || captionX);
     const success = await copyToClipboard(textToCopy);
     if (success) {
       setCopiedCaption(true);
@@ -857,24 +1063,51 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   };
 
   useImperativeHandle(ref, () => ({
-    postToMeta: async (platforms = ['facebook', 'instagram', 'threads'], options = {}) => {
+    postToMeta: async (platforms = ['facebook', 'instagram', 'threads', 'linkedin', 'x'], options = {}) => {
       return await handlePostToMeta(platforms, options);
     },
     getCards: () => cards,
     getCaptionText: () => captionText,
-    getCaptionFacebook: () => captionFacebook
+    getCaptionFacebook: () => captionFacebook,
+    getCaptionThreads: () => captionThreads,
+    getCaptionLinkedin: () => captionLinkedin,
+    getCaptionX: () => captionX
   }));
 
-  const handlePostToMeta = async (platforms = ['facebook', 'instagram', 'threads'], options = {}) => {
+  const handlePostToMeta = async (platforms = ['facebook', 'instagram', 'threads', 'linkedin', 'x'], options = {}) => {
     const effectiveToken = (metaToken || FALLBACK_META_SETTINGS.metaToken || '').trim();
     const effectiveFbPageId = (metaFbPageId || FALLBACK_META_SETTINGS.metaFbPageId || '').trim();
     const effectiveIgAccountId = (metaIgAccountId || FALLBACK_META_SETTINGS.metaIgAccountId || '').trim();
     const effectiveThreadsToken = (threadsToken || FALLBACK_META_SETTINGS.threadsToken || '').trim();
     const effectiveThreadsUserId = (threadsUserId || FALLBACK_META_SETTINGS.threadsUserId || '').trim();
     const effectiveImgbbKey = (imgbbKey || FALLBACK_META_SETTINGS.imgbbKey || '').trim();
+    const effectiveLinkedinToken = (linkedinToken || '').trim();
+    const effectiveLinkedinOrgId = (linkedinOrgId || FALLBACK_LINKEDIN_SETTINGS.linkedinOrgId || '145261110').trim();
 
-    if (!effectiveToken && !effectiveThreadsToken) {
-      const msg = "Configure o Token de Acesso do Meta / Threads nas Configurações.";
+    const effectiveXApiKey = (xApiKey || FALLBACK_X_SETTINGS.xApiKey || '').trim();
+    const effectiveXApiSecret = (xApiSecret || FALLBACK_X_SETTINGS.xApiSecret || '').trim();
+    const effectiveXAccessToken = (xAccessToken || FALLBACK_X_SETTINGS.xAccessToken || '').trim();
+    const effectiveXAccessSecret = (xAccessSecret || FALLBACK_X_SETTINGS.xAccessSecret || '').trim();
+    const effectiveXBearerToken = (xBearerToken || FALLBACK_X_SETTINGS.xBearerToken || '').trim();
+    const effectiveXUsername = (xUsername || FALLBACK_X_SETTINGS.xUsername || 'portalngbrasil').trim();
+
+    const requiresMeta = platforms.includes('facebook') || platforms.includes('instagram');
+    const requiresThreads = platforms.includes('threads');
+    const requiresLinkedin = platforms.includes('linkedin');
+    const requiresX = platforms.includes('x');
+
+    if (requiresMeta && !effectiveToken) {
+      const msg = "Configure o Token de Acesso do Meta (Facebook/Instagram) nas Configurações.";
+      showToast ? showToast(msg, true) : alert(msg);
+      throw new Error(msg);
+    }
+    if (requiresThreads && (!effectiveThreadsToken || !effectiveThreadsUserId)) {
+      const msg = "Configure o Token e ID do Threads nas Configurações.";
+      showToast ? showToast(msg, true) : alert(msg);
+      throw new Error(msg);
+    }
+    if (requiresX && (!effectiveXBearerToken && (!effectiveXApiKey || !effectiveXApiSecret || !effectiveXAccessToken || !effectiveXAccessSecret))) {
+      const msg = "Configure as credenciais da API do X (Twitter) nas Configurações.";
       showToast ? showToast(msg, true) : alert(msg);
       throw new Error(msg);
     }
@@ -1206,12 +1439,14 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
         setPostStatus('Postando no Threads (@portalngbrasil)...');
         try {
           const shareUrl = article?.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br';
-          const thMessage = formatThreadsCaption({ 
-            title: firstCardTitle || article?.title, 
-            subtitle: firstCardSubtitle || article?.subtitle, 
-            categoryLabel: category, 
-            id: article?.id 
-          }, shareUrl);
+          const thMessage = (isThreadsCaptionCustomized && captionThreads)
+            ? captionThreads
+            : formatThreadsCaption({ 
+                title: firstCardTitle || article?.title, 
+                subtitle: firstCardSubtitle || article?.subtitle, 
+                categoryLabel: category, 
+                id: article?.id 
+              }, shareUrl);
 
           const thRes = await publishToThreads({
             userId: effectiveThreadsUserId,
@@ -1228,12 +1463,86 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
         }
       }
 
-      const hasErrors = fbError || igError || thError;
+      // 5. Postar no LinkedIn (Company Page oficial)
+      let liPostUrl = null;
+      let liError = null;
+      if (platforms.includes('linkedin')) {
+        setPostStatus('Postando no LinkedIn da empresa (Company Page)...');
+        try {
+          const effectiveArticle = options?.article || article;
+          const shareUrl = options?.shareUrl || (effectiveArticle?.id ? `https://portalngbrasil.com.br/share.php?id=${effectiveArticle.id}` : 'https://portalngbrasil.com.br');
+          const liCaption = isLinkedinCaptionCustomized ? captionLinkedin : undefined;
+
+          const liRes = await publishArticleToLinkedIn({
+            article: effectiveArticle,
+            shareUrl,
+            customCaption: liCaption,
+            settings: {
+              linkedinToken: effectiveLinkedinToken,
+              linkedinOrgId: effectiveLinkedinOrgId
+            }
+          });
+
+          if (liRes.success) {
+            liPostUrl = liRes.url;
+            console.log("LinkedIn publicado com sucesso:", liPostUrl);
+          } else {
+            liError = liRes.error;
+            console.warn("Aviso na publicação do LinkedIn:", liError);
+          }
+        } catch (e) {
+          console.error("Erro ao publicar no LinkedIn:", e);
+          liError = e.message;
+        }
+      }
+
+      // 6. Postar no X (antigo Twitter)
+      let xPostUrl = null;
+      let xError = null;
+      if (platforms.includes('x')) {
+        setPostStatus('Postando no X (@portalngbrasil)...');
+        try {
+          const effectiveArticle = options?.article || article;
+          const shareUrl = options?.shareUrl || (effectiveArticle?.id ? `https://portalngbrasil.com.br/share.php?id=${effectiveArticle.id}` : 'https://portalngbrasil.com.br');
+          const xCaption = isXCaptionCustomized ? captionX : undefined;
+
+          const xRes = await publishArticleToX({
+            article: effectiveArticle,
+            shareUrl,
+            customCaption: xCaption,
+            mediaBlob: imageBlobs[0] || null,
+            mediaUrl: imageUrls[0] || null,
+            settings: {
+              xApiKey: effectiveXApiKey,
+              xApiSecret: effectiveXApiSecret,
+              xAccessToken: effectiveXAccessToken,
+              xAccessSecret: effectiveXAccessSecret,
+              xBearerToken: effectiveXBearerToken,
+              xUsername: effectiveXUsername
+            }
+          });
+
+          if (xRes.success) {
+            xPostUrl = xRes.url;
+            console.log("X (Twitter) publicado com sucesso:", xPostUrl);
+          } else {
+            xError = xRes.error;
+            console.warn("Aviso na publicação do X:", xError);
+          }
+        } catch (e) {
+          console.error("Erro ao publicar no X:", e);
+          xError = e.message;
+        }
+      }
+
+      const hasErrors = fbError || igError || thError || liError || xError;
       if (hasErrors) {
         const errorMsgs = [];
         if (fbError) errorMsgs.push(`FB: ${fbError}`);
         if (igError) errorMsgs.push(`IG: ${igError}`);
         if (thError) errorMsgs.push(`Threads: ${thError}`);
+        if (liError) errorMsgs.push(`LinkedIn: ${liError}`);
+        if (xError) errorMsgs.push(`X: ${xError}`);
         showToast ? showToast(errorMsgs.join(' | '), true) : null;
       } else {
         showToast
@@ -1244,13 +1553,19 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       const postResult = {
         success: (!platforms.includes('facebook') || !fbError) &&
                  (!platforms.includes('instagram') || !igError) &&
-                 (!platforms.includes('threads') || !thError),
+                 (!platforms.includes('threads') || !thError) &&
+                 (!platforms.includes('linkedin') || !liError) &&
+                 (!platforms.includes('x') || !xError),
         facebook: fbPostUrl || (effectiveFbPageId ? `https://www.facebook.com/${effectiveFbPageId}` : 'https://www.facebook.com/portalngbrasil'),
         instagram: igPostUrl || 'https://www.instagram.com/portalngbrasil/',
         threads: thPostUrl || 'https://www.threads.net/@portalngbrasil',
+        linkedin: liPostUrl || (effectiveLinkedinOrgId ? `https://www.linkedin.com/company/${effectiveLinkedinOrgId}` : 'https://www.linkedin.com/company/portalngbrasil'),
+        x: xPostUrl || (effectiveXUsername ? `https://x.com/${effectiveXUsername}` : 'https://x.com/portalngbrasil'),
         fbError,
         igError,
-        thError
+        thError,
+        liError,
+        xError
       };
 
       if (onPostSuccess) {
@@ -1275,8 +1590,28 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
 
   const hasMediaInActiveCard = activeCard?.mediaType === 'video' ? Boolean(activeCard?.videoUrl) : Boolean(activeCard?.imageUrl);
 
+  // Renderiza a arte idêntica gerada pelo Canva (exatamente como em Imagem 2)
+  const renderCanvaArtPreview = (extraClass = "aspect-[4/5] max-h-[300px]") => {
+    return (
+      <div className={`relative bg-[#00172e] w-full flex items-center justify-center overflow-hidden select-none ${aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-[4/5]'} ${extraClass}`}>
+        {cardPreviewUrl ? (
+          <img
+            src={cardPreviewUrl}
+            alt="Arte Oficial do Canva Portal NG"
+            className="w-full h-full object-contain"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-4 bg-[#040f1d]">
+            <RefreshCw className="w-5 h-5 animate-spin text-red-500 mb-2" />
+            <span className="text-[10px] font-bold text-slate-300">Carregando arte do Canva...</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const content = (
-    <div className={`bg-white shadow-sm overflow-hidden flex flex-col ${inline ? 'rounded-xl border border-slate-200 h-full' : 'md:flex-row rounded-2xl max-w-5xl w-full my-8 border border-slate-200'}`}>
+    <div className={`bg-white shadow-sm overflow-hidden flex flex-col ${inline ? 'rounded-xl border border-slate-200 h-full w-full' : 'md:flex-row rounded-2xl max-w-7xl w-full my-4 border border-slate-200'}`}>
       
       {/* Inputs ocultos para upload rápido de Fotos e Vídeos no preview */}
       <input
@@ -1307,49 +1642,380 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
       />
 
       {/* Left / Top Column: Canvas Preview & Carousel Builder */}
-      <div className={`w-full ${inline ? '' : 'md:w-1/2'} bg-slate-950 p-6 flex flex-col items-center justify-center relative ${inline ? 'border-b' : 'border-r'} border-slate-800`}>
+      <div className={`w-full ${inline ? '' : 'md:w-1/2'} bg-slate-950 flex flex-col md:flex-row relative ${inline ? 'border-b' : 'border-r'} border-slate-800`}>
         
-        {/* Top Header Pill */}
-        <div className="flex items-center gap-2 mb-4 bg-slate-900 px-3.5 py-1.5 rounded-full border border-slate-800">
-          <Sparkles className="w-4 h-4 text-red-500 animate-pulse" />
-          <span className="text-xs font-bold text-slate-300">Pré-visualização da Arte</span>
-          {cards.length > 1 && (
-            <span className="ml-1 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider bg-red-600/20 text-red-400 border border-red-500/30 rounded-full">
-              Carrossel {safeActiveIndex + 1}/{cards.length}
+        {/* Painel Esquerdo de Configuração (Sidebar sem espaço vazio na esquerda e com linha divisória à direita) */}
+        <div className="w-full md:w-[320px] lg:w-[360px] shrink-0 p-4 sm:p-5 border-b md:border-b-0 md:border-r border-slate-800/80 flex flex-col justify-start space-y-4 bg-slate-950/70 overflow-y-auto max-h-[850px] scrollbar-thin">
+          
+          {/* Header do Painel Esquerdo */}
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
+              <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                Configurar Card
+              </span>
+            </div>
+            <span className="text-[10px] font-extrabold text-slate-400 bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800">
+              Card {safeActiveIndex + 1}/{cards.length}
             </span>
+          </div>
+
+          {/* Seletor de Modo (Template NG vs Foto Inteira) */}
+          <div className="space-y-1.5">
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider px-0.5">
+              Tipo de Arte
+            </span>
+            <div className="inline-flex p-1 bg-slate-900/90 rounded-xl border border-slate-800 shadow-inner w-full">
+              <button
+                type="button"
+                onClick={() => updateActiveCard({ mode: 'template' })}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-bold transition-all ${
+                  activeCard?.mode === 'template'
+                    ? 'bg-red-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span className="truncate">Template NG</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => updateActiveCard({ mode: 'full_image' })}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-bold transition-all ${
+                  activeCard?.mode === 'full_image'
+                    ? 'bg-red-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {activeCard?.mediaType === 'video' ? (
+                  <Video className="w-3.5 h-3.5" />
+                ) : (
+                  <ImageIcon className="w-3.5 h-3.5" />
+                )}
+                <span className="truncate">Foto Inteira</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Formatos Lado a Lado (Espaçosos e com Proporção Clara) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between px-0.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Formato do Feed
+              </span>
+              <span className="text-[10px] font-bold text-red-400 bg-red-950/40 px-1.5 py-0.5 rounded border border-red-900/40">
+                {aspectRatio}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setAspectRatio('4:5')}
+                title="Feed Retrato Instagram (4:5 Oficial)"
+                className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all ${
+                  aspectRatio === '4:5'
+                    ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-950/40 ring-1 ring-white/20'
+                    : 'bg-slate-900/90 hover:bg-slate-800 border-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                <div className={`w-3.5 h-4.5 rounded-xs border-2 mb-1 ${aspectRatio === '4:5' ? 'border-white bg-white/30' : 'border-slate-500'}`} />
+                <span className="font-extrabold text-xs leading-tight">4:5</span>
+                <span className="text-[9px] font-medium opacity-80 leading-tight">Portrait</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAspectRatio('1:1')}
+                title="Feed Quadrado (1:1)"
+                className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all ${
+                  aspectRatio === '1:1'
+                    ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-950/40 ring-1 ring-white/20'
+                    : 'bg-slate-900/90 hover:bg-slate-800 border-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-xs border-2 mb-1 ${aspectRatio === '1:1' ? 'border-white bg-white/30' : 'border-slate-500'}`} />
+                <span className="font-extrabold text-xs leading-tight">1:1</span>
+                <span className="text-[9px] font-medium opacity-80 leading-tight">Quadrado</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAspectRatio('9:16')}
+                title="Stories e Reels (9:16)"
+                className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all ${
+                  aspectRatio === '9:16'
+                    ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-950/40 ring-1 ring-white/20'
+                    : 'bg-slate-900/90 hover:bg-slate-800 border-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                <div className={`w-2.5 h-5 rounded-xs border-2 mb-1 ${aspectRatio === '9:16' ? 'border-white bg-white/30' : 'border-slate-500'}`} />
+                <span className="font-extrabold text-xs leading-tight">9:16</span>
+                <span className="text-[9px] font-medium opacity-80 leading-tight">Stories</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Item de Dividir Tela (Duas Fotos Lado a Lado) posicionado logo abaixo do formato */}
+          {activeCard?.mode === 'template' && activeCard?.mediaType !== 'video' && (
+            <div className="w-full p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 shadow-inner space-y-3">
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(activeCard.useTwoPhotos)}
+                  onChange={(e) => updateActiveCard({ useTwoPhotos: e.target.checked })}
+                  className="w-4 h-4 mt-0.5 text-red-600 rounded border-slate-700 bg-slate-950 focus:ring-red-500 cursor-pointer shrink-0"
+                />
+                <span className="text-xs font-bold text-slate-200 leading-snug">
+                  Usar duas fotos lado a lado neste card (Tela Dividida)
+                </span>
+              </label>
+
+              {activeCard.useTwoPhotos && (
+                <div className="pt-2.5 border-t border-slate-800/80 space-y-2.5">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold">
+                    <span>📸 2ª Foto (Metade Direita):</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 cursor-pointer bg-slate-950 hover:bg-slate-800 border border-dashed border-slate-700 hover:border-red-500 rounded-lg py-2 px-3 flex items-center justify-center gap-1.5 text-xs text-slate-300 font-bold transition-colors">
+                      <Upload className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      <span>Upload da 2ª Foto</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onloadend = () => updateActiveCard({ secondImageUrl: reader.result });
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                    {activeCard.secondImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => updateActiveCard({ secondImageUrl: '' })}
+                        className="p-2 bg-slate-950 hover:bg-red-950 text-slate-400 hover:text-red-400 rounded-lg border border-slate-800 transition-colors shrink-0"
+                        title="Remover 2ª foto"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Ou cole o link (URL) da 2ª foto..."
+                    value={activeCard.secondImageUrl && activeCard.secondImageUrl.startsWith('http') ? activeCard.secondImageUrl : ''}
+                    onChange={(e) => updateActiveCard({ secondImageUrl: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-800 rounded-lg text-xs font-semibold text-slate-200 bg-slate-950 focus:ring-1 focus:ring-red-500 focus:outline-none placeholder:text-slate-500"
+                  />
+                </div>
+              )}
+            </div>
           )}
-          <button
-            type="button"
-            onClick={handleForceImageRefresh}
-            title="Forçar recarregamento da mídia"
-            className="ml-1 bg-slate-800 hover:bg-slate-700 p-1 rounded-full text-slate-300 transition-colors flex items-center justify-center"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
+
+          {/* Personalização dos Textos da Arte (Título e Subtítulo) posicionado logo abaixo de Tela Dividida */}
+          {activeCard?.mode === 'template' && (
+            <div className="w-full p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 shadow-inner space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" />
+                  <span className="text-[11px] font-bold text-slate-200 truncate">
+                    {activeCard?.isCtaCard || activeCard?.imageUrl === DEFAULT_CTA_IMAGE_URL
+                      ? `Card ${safeActiveIndex + 1} (CTA Final)`
+                      : safeActiveIndex === 0
+                      ? 'Capa Principal (Card 1)'
+                      : `Card ${safeActiveIndex + 1} de ${cards.length}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {safeActiveIndex === 0 && activeCard?.customImage && article?.image && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateActiveCard({
+                          mediaType: 'image',
+                          imageUrl: getInitialImage(article),
+                          videoUrl: '',
+                          videoFile: null,
+                          customImage: false
+                        })
+                      }
+                      className="text-[10px] font-bold text-red-400 hover:text-red-300 hover:underline bg-red-950/60 px-1.5 py-0.5 rounded border border-red-900/40 transition-colors"
+                      title="Restaurar a foto original da matéria"
+                    >
+                      Foto original
+                    </button>
+                  )}
+                  {activeCard?.isCtaCard && activeCard?.imageUrl !== DEFAULT_CTA_IMAGE_URL && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateActiveCard({
+                          mediaType: 'image',
+                          imageUrl: DEFAULT_CTA_IMAGE_URL,
+                          videoUrl: '',
+                          videoFile: null,
+                          customImage: true
+                        })
+                      }
+                      className="text-[10px] font-bold text-amber-400 hover:text-amber-300 hover:underline bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-900/40 transition-colors"
+                    >
+                      CTA
+                    </button>
+                  )}
+                  <span className="text-[9px] font-bold text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                    Template NG
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-300">
+                      Título da Arte (Card {safeActiveIndex + 1})
+                    </label>
+                    {activeCard.customTitle && safeActiveIndex === 0 && article?.title && (
+                      <button
+                        type="button"
+                        onClick={() => updateActiveCard({ title: article.title, customTitle: false })}
+                        className="text-[9px] text-slate-400 hover:text-slate-200 underline"
+                      >
+                        Restaurar
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    value={activeCard.title || ''}
+                    onChange={(e) => updateActiveCard({ title: e.target.value, customTitle: true })}
+                    rows={2}
+                    placeholder="Título da arte..."
+                    className="w-full px-3 py-2 border border-slate-800 rounded-lg text-xs font-semibold text-slate-200 bg-slate-950 focus:ring-1 focus:ring-red-500 focus:outline-none placeholder:text-slate-500 resize-y"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-300">
+                      Subtítulo / Linha Fina (Card {safeActiveIndex + 1})
+                    </label>
+                    {activeCard.customSubtitle && safeActiveIndex === 0 && article?.subtitle && (
+                      <button
+                        type="button"
+                        onClick={() => updateActiveCard({ subtitle: article.subtitle, customSubtitle: false })}
+                        className="text-[9px] text-slate-400 hover:text-slate-200 underline"
+                      >
+                        Restaurar
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    value={activeCard.subtitle || ''}
+                    onChange={(e) => updateActiveCard({ subtitle: e.target.value, customSubtitle: true })}
+                    rows={2}
+                    placeholder="Subtítulo da arte..."
+                    className="w-full px-3 py-2 border border-slate-800 rounded-lg text-xs font-semibold text-slate-200 bg-slate-950 focus:ring-1 focus:ring-red-500 focus:outline-none placeholder:text-slate-500 resize-y"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Opções extras quando em modo Foto/Vídeo Inteiro */}
+          {activeCard?.mode === 'full_image' && (
+            <div className="w-full p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3 shadow-inner">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Enquadramento da Imagem</span>
+                <div className="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => updateActiveCard({ objectFit: 'cover' })}
+                    className={`py-1.5 rounded text-xs font-bold transition-colors ${
+                      activeCard.objectFit !== 'contain' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Preencher tudo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateActiveCard({ objectFit: 'contain' })}
+                    className={`py-1.5 rounded text-xs font-bold transition-colors ${
+                      activeCard.objectFit === 'contain' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Sem corte
+                  </button>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-800/80">
+                <input
+                  type="checkbox"
+                  checked={Boolean(activeCard.showLogoOnFullImage)}
+                  onChange={(e) => updateActiveCard({ showLogoOnFullImage: e.target.checked })}
+                  className="w-4 h-4 text-red-600 rounded border-slate-700 bg-slate-950 cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-300">Aplicar Logo NG no topo</span>
+              </label>
+            </div>
+          )}
         </div>
 
-        {/* Main Row: Prev Arrow + Card Preview + Next Arrow + Botão "+" ao lado */}
-        <div className="flex items-center justify-center gap-3 sm:gap-4 w-full">
+        {/* Lado Direito do Estúdio: Área Visual do Card, Ações e Carrossel */}
+        <div className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-between min-w-0 space-y-4">
           
-          {/* Seta Anterior (se houver mais de 1 card) */}
-          {cards.length > 1 && (
+          {/* Top Header Discreto: Status dos Slides & Botão de Recarregar */}
+          <div className="flex items-center justify-between w-full max-w-[480px] px-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-400">Estúdio de Criação</span>
+              {cards.length > 1 && (
+                <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider bg-red-600/20 text-red-400 border border-red-500/30 rounded-full">
+                  Slide {safeActiveIndex + 1}/{cards.length}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleForceImageRefresh}
+              title="Forçar recarregamento da mídia"
+              className="bg-slate-900 hover:bg-slate-800 border border-slate-800 py-1.5 px-2.5 rounded-lg text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 text-xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span className="text-xs font-medium">Recarregar</span>
+            </button>
+          </div>
+
+          {/* Main Row: Prev + Preview Centralizado + Next + Dock de Ações (Direita) */}
+          <div className="flex items-center justify-center gap-2 sm:gap-3.5 w-full">
+
+            {/* Seta Anterior (se houver mais de 1 card) */}
+            {cards.length > 1 && (
             <button
               type="button"
               onClick={() => setActiveCardIndex(prev => Math.max(0, prev - 1))}
               disabled={safeActiveIndex === 0}
               title="Card anterior"
-              className={`p-2.5 rounded-full border transition-all shrink-0 ${
+              className={`p-1.5 sm:p-2 rounded-full border transition-all shrink-0 self-center ${
                 safeActiveIndex === 0
-                  ? 'bg-slate-900/40 border-slate-800/50 text-slate-600 cursor-not-allowed'
+                  ? 'bg-slate-900/30 border-slate-800/40 text-slate-700 cursor-not-allowed opacity-30'
                   : 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-white shadow-lg'
               }`}
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           )}
 
-          {/* Card Preview Box */}
-          <div className="relative w-full max-w-[340px] aspect-[4/5] rounded-xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex items-center justify-center group">
+          {/* Card Preview Box com Proporção Dinâmica */}
+          <div className={`relative w-full ${
+            aspectRatio === '1:1'
+              ? 'max-w-[280px] sm:max-w-[310px] aspect-square'
+              : aspectRatio === '9:16'
+              ? 'max-w-[190px] sm:max-w-[215px] aspect-[9/16]'
+              : 'max-w-[255px] xs:max-w-[285px] sm:max-w-[315px] aspect-[4/5]'
+          } rounded-xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex items-center justify-center group transition-all duration-200`}>
             
             {/* Player de Vídeo integrado ao card quando o slide atual é um vídeo */}
             {activeCard?.mediaType === 'video' && activeCard?.videoUrl && (
@@ -1378,35 +2044,22 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               }`}
             />
 
-            {/* Badge superior indicando o card atual e ações rápidas */}
-            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none z-10">
-              <span className="bg-slate-950/80 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full border border-slate-700/80 shadow flex items-center gap-1">
+            {/* Badge superior com ações no canto esquerdo (mantendo o canto direito livre para a logo NG) */}
+            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-10 pointer-events-auto">
+              <span className="bg-slate-950/85 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-full border border-slate-700/80 shadow flex items-center gap-1">
                 {activeCard?.mediaType === 'video' && <Video className="w-3 h-3 text-red-400" />}
-                <span>Card {safeActiveIndex + 1} de {cards.length}</span>
+                <span>Card {safeActiveIndex + 1}/{cards.length}</span>
               </span>
 
-              <div className="flex items-center gap-1.5 pointer-events-auto">
-                <button
-                  type="button"
-                  onClick={() => directUploadInputRef.current?.click()}
-                  title="Fazer upload de foto ou vídeo para este card"
-                  className="bg-slate-950/80 hover:bg-red-600 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full border border-slate-700/80 transition-colors flex items-center gap-1 shadow"
-                >
-                  <Upload className="w-3 h-3" />
-                  <span>{hasMediaInActiveCard ? 'Trocar Mídia' : 'Subir Foto/Vídeo'}</span>
-                </button>
-
-                {cards.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCard(safeActiveIndex)}
-                    title="Remover este card do carrossel"
-                    className="bg-red-600/90 hover:bg-red-700 text-white p-1.5 rounded-full shadow transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => directUploadInputRef.current?.click()}
+                title="Fazer upload de foto ou vídeo para este card"
+                className="bg-slate-950/85 hover:bg-red-600 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-700/80 transition-colors flex items-center gap-1 shadow"
+              >
+                <Upload className="w-3 h-3 text-red-400" />
+                <span>{hasMediaInActiveCard ? 'Trocar Mídia' : 'Subir Mídia'}</span>
+              </button>
             </div>
 
             {/* Overlay clicável quando o card ainda não possui imagem ou vídeo */}
@@ -1424,14 +2077,14 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                   activeCard?.mode === 'full_image' ? 'inset-y-12' : 'top-12 h-[44%]'
                 } border-2 border-dashed border-slate-600 hover:border-red-500 rounded-xl bg-slate-950/75 hover:bg-slate-900/85 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center cursor-pointer transition-all`}
               >
-                <div className="w-11 h-11 rounded-full bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 mb-2">
+                <div className="w-10 h-10 rounded-full bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 mb-1.5">
                   <Upload className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-bold text-white">
-                  Clique ou solte Foto ou Vídeo no Card {safeActiveIndex + 1}
+                  Foto ou Vídeo para o Card {safeActiveIndex + 1}
                 </span>
-                <span className="text-[11px] text-slate-400 mt-1">
-                  Suporta imagens (JPG/PNG) e vídeos (MP4/MOV)
+                <span className="text-[10px] text-slate-400 mt-0.5">
+                  JPG, PNG, WebP ou MP4/MOV
                 </span>
               </div>
             )}
@@ -1444,32 +2097,30 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               onClick={() => setActiveCardIndex(prev => Math.min(cards.length - 1, prev + 1))}
               disabled={safeActiveIndex === cards.length - 1}
               title="Próximo card"
-              className={`p-2.5 rounded-full border transition-all shrink-0 ${
+              className={`p-1.5 sm:p-2 rounded-full border transition-all shrink-0 self-center ${
                 safeActiveIndex === cards.length - 1
-                  ? 'bg-slate-900/40 border-slate-800/50 text-slate-600 cursor-not-allowed'
+                  ? 'bg-slate-900/30 border-slate-800/40 text-slate-700 cursor-not-allowed opacity-30'
                   : 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-white shadow-lg'
               }`}
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           )}
 
-          {/* Botão "+" ao lado do card para adicionar mais cards / subir fotos ou vídeos */}
-          <div className="flex flex-col items-center gap-2.5 shrink-0">
+          {/* Dock de Ações Rápidas no Lado Direito */}
+          <div className="flex flex-col items-center gap-1.5 sm:gap-2 shrink-0 self-center">
+            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Ações</span>
             <button
               type="button"
               onClick={() => handleAddCard('', 'full_image')}
               title="Adicionar novo card ao lado (Carrossel)"
-              className="group flex flex-col items-center justify-center w-16 sm:w-20 h-28 sm:h-36 rounded-2xl border-2 border-dashed border-slate-700 hover:border-red-500 bg-slate-900/70 hover:bg-slate-900 text-slate-300 hover:text-white transition-all shadow-lg hover:shadow-red-950/30"
+              className="group flex flex-col items-center justify-center w-11 sm:w-14 py-1.5 sm:py-2 rounded-xl border border-dashed border-slate-700 hover:border-red-500 bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white transition-all shadow-md"
             >
-              <div className="w-10 h-10 rounded-full bg-red-600 group-hover:bg-red-500 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform mb-2">
-                <Plus className="w-6 h-6" />
+              <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-red-600 group-hover:bg-red-500 text-white flex items-center justify-center shadow-xs mb-0.5 sm:mb-1 group-hover:scale-110 transition-transform">
+                <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
               </div>
-              <span className="text-[11px] font-bold leading-tight text-center px-1">
-                Novo Card
-              </span>
-              <span className="text-[9px] text-slate-400 mt-0.5">
-                Carrossel
+              <span className="text-[9px] sm:text-[10px] font-bold leading-tight text-center">
+                + Card
               </span>
             </button>
 
@@ -1477,560 +2128,855 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
               type="button"
               onClick={() => multiUploadInputRef.current?.click()}
               title="Fazer upload de fotos ou vídeos direto para o carrossel"
-              className="flex flex-col items-center justify-center w-16 sm:w-20 py-2.5 px-2 rounded-xl border border-slate-800 hover:border-slate-600 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-center"
+              className="flex flex-col items-center justify-center w-11 sm:w-14 py-1.5 sm:py-2 px-1 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white transition-all text-center"
             >
-              <Upload className="w-4 h-4 text-red-400 mb-1" />
-              <span className="text-[10px] font-bold leading-tight">
-                Subir Foto/Vídeo
+              <Upload className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400 mb-0.5 sm:mb-1" />
+              <span className="text-[8px] sm:text-[9px] font-bold leading-tight">
+                Upload
               </span>
             </button>
           </div>
         </div>
 
-        {/* Barra de Miniaturas / Navegação dos Slides do Carrossel */}
-        <div className="flex items-center gap-2 mt-4 max-w-full overflow-x-auto py-1 px-2">
-          {cards.map((c, idx) => {
-            const isSelected = idx === safeActiveIndex;
-            const isCta = c.isCtaCard || c.imageUrl === DEFAULT_CTA_IMAGE_URL;
-            return (
-              <button
-                key={c.id || idx}
-                type="button"
-                onClick={() => setActiveCardIndex(idx)}
-                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 border ${
-                  isSelected
-                    ? isCta
-                      ? 'bg-amber-600 text-white border-amber-500 shadow-md'
-                      : 'bg-red-600 text-white border-red-500 shadow-md'
-                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
-                }`}
-              >
-                <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[10px]">
-                  {idx + 1}
-                </span>
-                <span>{idx === 0 ? 'Capa' : isCta ? 'Siga NG (Final)' : `Card ${idx + 1}`}</span>
-                <span className="text-[10px] opacity-75">
-                  ({isCta ? 'CTA' : c.mediaType === 'video' ? '🎬 Vídeo' : c.mode === 'full_image' ? 'Imagem' : 'Template'})
-                </span>
-              </button>
-            );
-          })}
+        {/* Barra de Miniaturas e Gerenciamento dos Slides do Carrossel */}
+        <div className="flex flex-col items-center gap-2 mt-4 w-full">
+          <div className="flex items-center gap-1.5 max-w-full overflow-x-auto py-1 px-2 scrollbar-none">
+            {cards.map((c, idx) => {
+              const isSelected = idx === safeActiveIndex;
+              const isCta = c.isCtaCard || c.imageUrl === DEFAULT_CTA_IMAGE_URL;
+              return (
+                <button
+                  key={c.id || idx}
+                  type="button"
+                  onClick={() => setActiveCardIndex(idx)}
+                  className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 border ${
+                    isSelected
+                      ? isCta
+                        ? 'bg-amber-600 text-white border-amber-500 shadow-md ring-2 ring-amber-500/20'
+                        : 'bg-red-600 text-white border-red-500 shadow-md ring-2 ring-red-500/20'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
+                  }`}
+                >
+                  <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[10px]">
+                    {idx + 1}
+                  </span>
+                  <span>{idx === 0 ? 'Capa' : isCta ? 'Siga NG (Final)' : `Card ${idx + 1}`}</span>
+                  <span className="text-[10px] opacity-75">
+                    ({isCta ? 'CTA' : c.mediaType === 'video' ? 'Vídeo' : c.mode === 'full_image' ? 'Imagem' : 'Template'})
+                  </span>
+                </button>
+              );
+            })}
 
-          <button
-            type="button"
-            onClick={() => handleAddCard('', 'full_image')}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 text-red-400 border border-dashed border-slate-700 hover:border-red-500 transition-all shrink-0"
-            title="Adicionar mais um card"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Adicionar</span>
-          </button>
-
-          {!cards.some(c => c.isCtaCard || c.imageUrl === DEFAULT_CTA_IMAGE_URL) && (
-            <button
-              type="button"
-              onClick={handleAddCtaCard}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 text-amber-400 border border-dashed border-amber-600/60 hover:border-amber-400 transition-all shrink-0"
-              title="Adicionar o card final padrão (Siga @portalngbrasil)"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>+ Slide Final (Siga NG)</span>
-            </button>
-          )}
-        </div>
-
-        {/* Aspect Ratio Selector */}
-        <div className="flex flex-wrap gap-2 mt-3 justify-center">
-          <button
-            type="button"
-            onClick={() => setAspectRatio('1:1')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${aspectRatio === '1:1' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
-          >
-            Feed 1:1
-          </button>
-          <button
-            type="button"
-            onClick={() => setAspectRatio('4:5')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${aspectRatio === '4:5' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
-          >
-            Portrait 4:5
-          </button>
-          <button
-            type="button"
-            onClick={() => setAspectRatio('9:16')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${aspectRatio === '9:16' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
-          >
-            Stories/Reels 9:16
-          </button>
-        </div>
-      </div>
-
-      {/* Right / Bottom Column: Controls & Actions */}
-      <div className={`w-full ${inline ? '' : 'md:w-1/2'} p-6 flex flex-col justify-between space-y-6 ${inline ? '' : 'max-h-[85vh] overflow-y-auto'}`}>
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <span>Estúdio Criativo (Artes & Carrossel)</span>
-              {cards.length > 1 && (
-                <span className="text-xs bg-red-50 text-red-600 border border-red-200 px-2.5 py-0.5 rounded-full font-extrabold">
-                  {cards.length} Cards
-                </span>
-              )}
-            </h2>
-            <p className="text-xs text-slate-500">
-              Personalize cada card individualmente ou envie fotos e vídeos para carrossel
-            </p>
-          </div>
-          {onClose && (
-            <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1">✕</button>
-          )}
-        </div>
-
-        {/* Form fields */}
-        <div className="space-y-4">
-          
-          {/* Barra de controle do Card Ativo */}
-          <div className="p-3.5 bg-slate-900 text-white rounded-xl flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-red-400" />
-              <span className="text-xs font-bold">
-                Editando: {activeCard?.isCtaCard || activeCard?.imageUrl === DEFAULT_CTA_IMAGE_URL
-                  ? `Card ${safeActiveIndex + 1} de ${cards.length} (📢 Slide Final: Siga NG)`
-                  : `Card ${safeActiveIndex + 1} de ${cards.length} ${safeActiveIndex === 0 ? '(Capa)' : ''}`}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              {cards.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleMoveCard(safeActiveIndex, -1)}
-                    disabled={safeActiveIndex === 0}
-                    title="Mover card para trás"
-                    className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-[11px] font-bold"
-                  >
-                    ← Mover
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleMoveCard(safeActiveIndex, 1)}
-                    disabled={safeActiveIndex === cards.length - 1}
-                    title="Mover card para frente"
-                    className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-[11px] font-bold"
-                  >
-                    Mover →
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCard(safeActiveIndex)}
-                    title="Excluir este card"
-                    className="px-2.5 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold flex items-center gap-1"
-                  >
-                    <Trash2 className="w-3 h-3" /> Excluir Card
-                  </button>
-                </>
-              )}
+            {!cards.some(c => c.isCtaCard || c.imageUrl === DEFAULT_CTA_IMAGE_URL) && (
               <button
                 type="button"
-                onClick={() => handleAddCard('', 'full_image')}
-                className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center gap-1"
+                onClick={handleAddCtaCard}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 text-amber-400 border border-dashed border-amber-600/60 hover:border-amber-400 transition-all shrink-0"
+                title="Adicionar o card final padrão (Siga @portalngbrasil)"
               >
-                <Plus className="w-3 h-3" /> + Card
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>+ Slide Final (Siga NG)</span>
               </button>
-            </div>
-          </div>
-
-          {/* Seletor de Estilo do Card: Mídia Inteira vs Template NG com Texto */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
-            <button
-              type="button"
-              onClick={() => updateActiveCard({ mode: 'template' })}
-              className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                activeCard?.mode === 'template'
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <FileText className="w-4 h-4 text-red-600" />
-              <span>Template NG (Mídia + Texto)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => updateActiveCard({ mode: 'full_image' })}
-              className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                activeCard?.mode === 'full_image'
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {activeCard?.mediaType === 'video' ? (
-                <Video className="w-4 h-4 text-indigo-600" />
-              ) : (
-                <ImageIcon className="w-4 h-4 text-indigo-600" />
-              )}
-              <span>Apenas Foto/Vídeo Inteiro</span>
-            </button>
-          </div>
-
-          {/* Upload da Mídia (Foto ou Vídeo) deste Card */}
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <span>{activeCard?.mediaType === 'video' ? '🎬 Vídeo' : '📸 Foto / Vídeo'} do Card {safeActiveIndex + 1}</span>
-              </label>
-              {safeActiveIndex === 0 && activeCard?.customImage && article?.image && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateActiveCard({
-                      mediaType: 'image',
-                      imageUrl: getInitialImage(article),
-                      videoUrl: '',
-                      videoFile: null,
-                      customImage: false
-                    })
-                  }
-                  className="text-[11px] font-bold text-red-600 hover:underline"
-                >
-                  Restaurar foto da matéria
-                </button>
-              )}
-              {activeCard?.isCtaCard && activeCard?.imageUrl !== DEFAULT_CTA_IMAGE_URL && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateActiveCard({
-                      mediaType: 'image',
-                      imageUrl: DEFAULT_CTA_IMAGE_URL,
-                      videoUrl: '',
-                      videoFile: null,
-                      customImage: true
-                    })
-                  }
-                  className="text-[11px] font-bold text-amber-600 hover:underline"
-                >
-                  Restaurar imagem padrão Siga NG
-                </button>
-              )}
-            </div>
-
-            <div
-              className="w-full h-20 border-2 border-dashed border-slate-300 hover:border-red-500 rounded-lg flex items-center justify-center bg-white cursor-pointer hover:bg-slate-50 transition-colors relative"
-              onPaste={(e) => {
-                const items = e.clipboardData?.items || [];
-                const pastedFiles = [];
-                for (let i = 0; i < items.length; i++) {
-                  if (items[i].type.indexOf('image') !== -1 || items[i].type.indexOf('video') !== -1) {
-                    const f = items[i].getAsFile();
-                    if (f) pastedFiles.push(f);
-                  }
-                }
-                if (pastedFiles.length) {
-                  handleFilesToCarousel(pastedFiles, 'replace_active');
-                  e.preventDefault();
-                }
-              }}
-            >
-              <div className="text-center text-slate-500 pointer-events-none flex flex-col items-center px-2">
-                <Upload className="w-4 h-4 mb-1 text-red-500" />
-                <span className="text-xs font-bold text-slate-700">
-                  Clique para enviar Foto(s) ou Vídeo(s) (MP4/MOV) ou cole com Ctrl+V
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  Selecione vários arquivos de uma vez para criar múltiplos slides no carrossel
-                </span>
-              </div>
-              <input
-                type="file"
-                accept="image/*,video/mp4,video/quicktime,video/webm,video/*"
-                multiple
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                onChange={(e) => {
-                  if (e.target.files?.length) {
-                    handleFilesToCarousel(e.target.files, 'replace_active');
-                    e.target.value = '';
-                  }
-                }}
-              />
-            </div>
-
-            <input
-              type="text"
-              placeholder="Ou cole o link (URL) de uma imagem ou vídeo (.mp4)..."
-              value={
-                activeCard?.mediaType === 'video'
-                  ? activeCard.videoUrl && activeCard.videoUrl.startsWith('http')
-                    ? activeCard.videoUrl
-                    : ''
-                  : activeCard?.imageUrl && activeCard.imageUrl.startsWith('http')
-                    ? activeCard.imageUrl
-                    : ''
-              }
-              onChange={(e) => {
-                const val = e.target.value;
-                if (isVideoFileOrUrl(val)) {
-                  updateActiveCard({ mediaType: 'video', videoUrl: val, videoFile: null, customImage: true });
-                } else {
-                  updateActiveCard({ mediaType: 'image', imageUrl: val, videoUrl: '', videoFile: null, customImage: true });
-                }
-              }}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-red-500 focus:outline-none"
-            />
-
-            {/* Opções extras quando em modo Foto/Vídeo Inteiro */}
-            {activeCard?.mode === 'full_image' && (
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-slate-600">Ajuste:</span>
-                  <button
-                    type="button"
-                    onClick={() => updateActiveCard({ objectFit: 'cover' })}
-                    className={`px-2.5 py-1 rounded text-[11px] font-bold ${
-                      activeCard.objectFit !== 'contain'
-                        ? 'bg-slate-800 text-white'
-                        : 'bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    Preencher tudo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateActiveCard({ objectFit: 'contain' })}
-                    className={`px-2.5 py-1 rounded text-[11px] font-bold ${
-                      activeCard.objectFit === 'contain'
-                        ? 'bg-slate-800 text-white'
-                        : 'bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    Inteiro (sem corte)
-                  </button>
-                </div>
-
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(activeCard.showLogoOnFullImage)}
-                    onChange={(e) => updateActiveCard({ showLogoOnFullImage: e.target.checked })}
-                    className="w-3.5 h-3.5 text-red-600 rounded border-slate-300"
-                  />
-                  <span className="text-[11px] font-bold text-slate-700">Aplicar Logo NG no topo</span>
-                </label>
-              </div>
             )}
           </div>
 
-          {/* Controles exclusivos do modo Template NG (Foto Dupla, Título e Subtítulo) */}
-          {activeCard?.mode === 'template' && (
-            <>
-              {activeCard?.mediaType !== 'video' && (
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-xs">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(activeCard.useTwoPhotos)}
-                      onChange={(e) => updateActiveCard({ useTwoPhotos: e.target.checked })}
-                      className="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500"
-                    />
-                    <span className="text-xs font-bold text-slate-700">
-                      Usar duas fotos lado a lado neste card (Tela Dividida)
-                    </span>
-                  </label>
-
-                  {activeCard.useTwoPhotos && (
-                    <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
-                      <label className="block text-xs font-bold text-slate-700">
-                        📸 Segunda Imagem (Metade Direita)
-                      </label>
-                      <div
-                        className="w-full h-14 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-white cursor-pointer hover:bg-slate-50 transition-colors relative"
-                        onPaste={(e) => {
-                          const items = e.clipboardData?.items || [];
-                          for (let i = 0; i < items.length; i++) {
-                            if (items[i].type.indexOf('image') !== -1) {
-                              const blob = items[i].getAsFile();
-                              const reader = new FileReader();
-                              reader.onloadend = () => updateActiveCard({ secondImageUrl: reader.result });
-                              reader.readAsDataURL(blob);
-                              e.preventDefault();
-                            }
-                          }
-                        }}
-                      >
-                        <div className="text-center text-slate-500 pointer-events-none flex items-center gap-1.5">
-                          <Upload className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-bold">Upload ou Ctrl+V da segunda foto</span>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onloadend = () => updateActiveCard({ secondImageUrl: reader.result });
-                            reader.readAsDataURL(file);
-                          }}
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Ou cole o link da segunda imagem..."
-                        value={activeCard.secondImageUrl && activeCard.secondImageUrl.startsWith('http') ? activeCard.secondImageUrl : ''}
-                        onChange={(e) => updateActiveCard({ secondImageUrl: e.target.value })}
-                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-red-500 focus:outline-none"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Título da Arte (Card {safeActiveIndex + 1})
-                </label>
-                <textarea
-                  value={activeCard.title}
-                  onChange={(e) => updateActiveCard({ title: e.target.value, customTitle: true })}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-red-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Subtítulo / Linha Fina (Card {safeActiveIndex + 1})
-                </label>
-                <textarea
-                  value={activeCard.subtitle}
-                  onChange={(e) => updateActiveCard({ subtitle: e.target.value, customSubtitle: true })}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-red-500 focus:outline-none"
-                />
-              </div>
-            </>
+          {/* Reordenar / Excluir Card Selecionado */}
+          {cards.length > 1 && (
+            <div className="flex items-center gap-2 pt-1 text-slate-400">
+              <span className="text-[11px] text-slate-400">Card {safeActiveIndex + 1}:</span>
+              <button
+                type="button"
+                onClick={() => handleMoveCard(safeActiveIndex, -1)}
+                disabled={safeActiveIndex === 0}
+                title="Mover card para a esquerda"
+                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 text-[11px] font-bold"
+              >
+                ← Mover
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMoveCard(safeActiveIndex, 1)}
+                disabled={safeActiveIndex === cards.length - 1}
+                title="Mover card para a direita"
+                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 text-[11px] font-bold"
+              >
+                Mover →
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRemoveCard(safeActiveIndex)}
+                title="Excluir este card"
+                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-red-950/80 border border-slate-800 hover:border-red-800/80 text-red-400 text-[11px] font-bold flex items-center gap-1 transition-colors"
+              >
+                <Trash2 className="w-3 h-3" /> Excluir
+              </button>
+            </div>
           )}
 
-          {/* Legenda Geral da Publicação (Abas Instagram e Facebook) */}
-          <div>
-            <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-200">
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveCaptionTab('instagram')}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-t-md transition-colors flex items-center gap-1.5 ${
-                    activeCaptionTab === 'instagram'
-                      ? 'bg-pink-50 text-pink-700 border-b-2 border-pink-600'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  Instagram (Card)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveCaptionTab('facebook')}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-t-md transition-colors flex items-center gap-1.5 ${
-                    activeCaptionTab === 'facebook'
-                      ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  Facebook (Link + Prévia)
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={activeCaptionTab === 'instagram' ? handleRegenerateCaption : handleRegenerateFbCaption}
-                  title="Atualizar texto da legenda com dados da matéria"
-                  className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-semibold transition-colors"
-                >
-                  <Sparkles className="w-3 h-3 text-indigo-500" />
-                  {activeCaptionTab === 'instagram' ? 'Atualizar Resumo' : 'Atualizar Chamada'}
-                </button>
-                <span className="text-slate-300">|</span>
-                <button
-                  type="button"
-                  onClick={handleCopyCaption}
-                  className="text-xs text-[#d40a38] flex items-center gap-1 hover:underline"
-                >
-                  {copiedCaption ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                  {copiedCaption ? 'Copiado!' : 'Copiar'}
-                </button>
-              </div>
-            </div>
-
-            {activeCaptionTab === 'facebook' && (
-              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-800 flex items-center gap-2">
-                <LinkIcon className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-                <span>
-                  <strong>Post com Prévia no Facebook:</strong> O Facebook postará esta chamada junto com o card clicável e a foto original da matéria no site (sem o card do Instagram).
-                </span>
-              </div>
-            )}
-
-            <textarea
-              value={activeCaptionTab === 'instagram' ? captionText : captionFacebook}
-              onChange={(e) => {
-                if (activeCaptionTab === 'instagram') {
-                  setCaptionText(e.target.value);
-                  setIsCaptionCustomized(true);
-                } else {
-                  setCaptionFacebook(e.target.value);
-                  setIsFbCaptionCustomized(true);
-                }
-              }}
-              rows={activeCaptionTab === 'facebook' ? 5 : 8}
-              placeholder={
-                activeCaptionTab === 'facebook'
-                  ? "Chamada curta e impactante para o Facebook que instiga o clique no link..."
-                  : "A legenda com resumo automático do texto do portal aparecerá aqui..."
-              }
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-red-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Botões rápidos de download mesmo quando integrado ao formulário */}
-        {hideButtons && (
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+          {/* Botões de Download Integrados ao Quadro Preto do Canva */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 mt-3 pt-3 border-t border-slate-800/80 w-full max-w-[440px]">
             <button
               type="button"
               onClick={handleDownloadCurrent}
-              className="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all text-xs"
+              className="flex-1 min-w-[140px] bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-white font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-all text-xs shadow-md group"
             >
-              <Download className="w-3.5 h-3.5" />
-              {cards.length > 1
-                ? `Baixar Card ${safeActiveIndex + 1} (${activeCard?.mediaType === 'video' ? 'MP4' : 'PNG'})`
-                : `Baixar Arte (${activeCard?.mediaType === 'video' ? 'MP4' : 'PNG'})`}
+              <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors" />
+              <span>
+                {cards.length > 1
+                  ? `Baixar Card ${safeActiveIndex + 1} (${activeCard?.mediaType === 'video' ? 'MP4' : 'PNG'})`
+                  : `Baixar Arte (${activeCard?.mediaType === 'video' ? 'MP4' : 'PNG'})`}
+              </span>
             </button>
+
             {cards.length > 1 && (
               <button
                 type="button"
                 onClick={handleDownloadAll}
-                className="flex-1 bg-[#d40a38] hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all text-xs"
+                className="flex-1 min-w-[140px] bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-all text-xs shadow-md shadow-red-950/40"
               >
                 <Download className="w-3.5 h-3.5" />
-                Baixar Todos ({cards.length} Cards)
+                <span>Baixar Todos ({cards.length} Cards)</span>
               </button>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+
+      {/* Right / Bottom Column: Controls & Actions */}
+      <div className={`w-full ${inline ? '' : 'md:w-1/2'} p-4 sm:p-6 flex flex-col justify-between space-y-4 sm:space-y-6 ${inline ? '' : 'max-h-[85vh] overflow-y-auto'}`}>
+        {onClose && (
+          <div className="flex justify-end pb-2">
+            <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1">✕ Fechar</button>
+          </div>
         )}
+
+        {/* Form fields */}
+        <div className="space-y-4">
+          
+          {/* Seção das Redes Sociais: 5 Pré-visualizações Lado a Lado (Instagram, Facebook, Threads, LinkedIn, X) */}
+          <div className="space-y-3 pt-1">
+            {/* Header da Seção de Redes Sociais */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Prévia das Redes Sociais (Lado a Lado)
+                </h3>
+                <span className="text-[10px] font-extrabold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                  5 Plataformas
+                </span>
+              </div>
+
+              {/* Botões rápidos de salto / atalho para cada card no scroll */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="hidden sm:flex items-center gap-1 mr-2 text-[11px] text-slate-500 font-medium">
+                  <span>Ir para:</span>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('preview-card-instagram')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })}
+                    className="px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 hover:bg-pink-100 font-bold transition-colors"
+                  >
+                    Instagram
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('preview-card-facebook')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })}
+                    className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold transition-colors"
+                  >
+                    Facebook
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('preview-card-threads')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })}
+                    className="px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-900 hover:bg-zinc-200 font-bold transition-colors"
+                  >
+                    Threads
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('preview-card-linkedin')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })}
+                    className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-800 hover:bg-sky-100 font-bold transition-colors"
+                  >
+                    LinkedIn
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('preview-card-x')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })}
+                    className="px-1.5 py-0.5 rounded bg-zinc-900 text-white hover:bg-black font-bold transition-colors"
+                  >
+                    X
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRegenerateAllCaptions}
+                  title="Atualizar textos de todas as 5 redes com os dados da matéria"
+                  className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-semibold transition-colors bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md border border-indigo-200"
+                >
+                  <Sparkles className="w-3 h-3 text-indigo-500" />
+                  <span>Atualizar Todas</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Container Lado a Lado com Scroll Horizontal Suave */}
+            <div className="flex flex-row items-start gap-4 overflow-x-auto pb-4 pt-1 snap-x scrollbar-thin">
+              
+              {/* 1. INSTAGRAM */}
+              <div id="preview-card-instagram" className="w-[285px] sm:w-[325px] shrink-0 snap-start flex flex-col space-y-2">
+                {/* Header do Card Instagram */}
+                <div className="flex items-center justify-between px-3 py-1.5 bg-pink-50/70 rounded-lg border border-pink-200">
+                  <div className="flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-pink-600" />
+                    <span className="text-xs font-bold text-pink-900">Instagram (Card)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleRegenerateCaption}
+                      title="Regerar resumo do Instagram"
+                      className="p-1 hover:bg-pink-100 rounded text-pink-700 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPlatformCaption('instagram')}
+                      title="Copiar legenda do Instagram"
+                      className="p-1 hover:bg-pink-100 rounded text-pink-700 transition-colors"
+                    >
+                      {copiedPlatform === 'instagram' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('instagram')}
+                      title={editingPlatforms.instagram ? "Ver prévia no feed" : "Editar texto"}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                        editingPlatforms.instagram ? 'bg-pink-700 text-white' : 'bg-white text-pink-800 border border-pink-200 hover:bg-pink-50'
+                      }`}
+                    >
+                      {editingPlatforms.instagram ? <Eye className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
+                      <span>{editingPlatforms.instagram ? 'Prévia' : 'Editar'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {editingPlatforms.instagram ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      Legenda formatada para o feed do Instagram:
+                    </div>
+                    <textarea
+                      value={captionText}
+                      onChange={(e) => {
+                        setCaptionText(e.target.value);
+                        setIsCaptionCustomized(true);
+                      }}
+                      rows={9}
+                      placeholder="Legenda do Instagram..."
+                      className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-pink-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('instagram')}
+                      className="w-full py-1.5 bg-pink-700 hover:bg-pink-800 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1 shadow-xs"
+                    >
+                      <Eye className="w-3 h-3" /> Concluir e ver no feed
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-slate-900 font-sans flex flex-col justify-between">
+                    <div>
+                      {/* Top Bar Instagram */}
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full p-[1.5px] bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600">
+                            <div className="w-full h-full rounded-full bg-white p-[1px] overflow-hidden">
+                              <img src="/favicon.png" alt="Portal NG" className="w-full h-full object-cover rounded-full" />
+                            </div>
+                          </div>
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1 leading-none">
+                              <span className="text-[11px] font-bold text-slate-900">portalngbrasil</span>
+                              <span className="text-[9px] text-slate-400">•</span>
+                              <span className="text-[10px] font-bold text-blue-500">Seguir</span>
+                            </div>
+                            <span className="text-[9px] text-slate-500 leading-tight">Portal NG Brasil</span>
+                          </div>
+                        </div>
+                        <MoreHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
+
+                      {/* Mídia do Card com o Design Oficial do Canva */}
+                      {renderCanvaArtPreview("aspect-[4/5] max-h-[260px]")}
+
+                      {/* Ações e Legenda Instagram */}
+                      <div className="p-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-3 text-slate-800">
+                            <Heart className="w-4 h-4 hover:text-red-500 cursor-pointer" />
+                            <MessageCircle className="w-4 h-4 hover:text-slate-600 cursor-pointer" />
+                            <Send className="w-4 h-4 hover:text-slate-600 cursor-pointer" />
+                          </div>
+                          <Bookmark className="w-4 h-4 text-slate-800" />
+                        </div>
+
+                        <div className="text-[10px] font-semibold text-slate-900 mb-1">
+                          Curtido por <span className="font-bold">portalngbrasil</span> e outras pessoas
+                        </div>
+
+                        <div className="text-[11px] leading-relaxed text-slate-800 whitespace-pre-wrap line-clamp-4">
+                          <span className="font-bold text-slate-900 mr-1">portalngbrasil</span>
+                          <span>{captionText || 'Resumo da notícia aparecerá aqui...'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400 uppercase">HÁ 2 MINUTOS</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleEditing('instagram')}
+                        className="text-pink-700 font-bold hover:underline flex items-center gap-0.5"
+                      >
+                        <Edit3 className="w-2.5 h-2.5" /> Editar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. FACEBOOK */}
+              <div id="preview-card-facebook" className="w-[285px] sm:w-[325px] shrink-0 snap-start flex flex-col space-y-2">
+                {/* Header do Card Facebook */}
+                <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50/70 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-1.5">
+                    <Share2 className="w-3.5 h-3.5 text-blue-600" />
+                    <span className="text-xs font-bold text-blue-900">Facebook (Link da Matéria)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleRegenerateFbCaption}
+                      title="Regerar chamada do Facebook"
+                      className="p-1 hover:bg-blue-100 rounded text-blue-700 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPlatformCaption('facebook')}
+                      title="Copiar texto do Facebook"
+                      className="p-1 hover:bg-blue-100 rounded text-blue-700 transition-colors"
+                    >
+                      {copiedPlatform === 'facebook' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('facebook')}
+                      title={editingPlatforms.facebook ? "Ver prévia no feed" : "Editar texto"}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                        editingPlatforms.facebook ? 'bg-blue-700 text-white' : 'bg-white text-blue-800 border border-blue-200 hover:bg-blue-50'
+                      }`}
+                    >
+                      {editingPlatforms.facebook ? <Eye className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
+                      <span>{editingPlatforms.facebook ? 'Prévia' : 'Editar'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {editingPlatforms.facebook ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      Chamada curta que acompanha o link no Facebook:
+                    </div>
+                    <textarea
+                      value={captionFacebook}
+                      onChange={(e) => {
+                        setCaptionFacebook(e.target.value);
+                        setIsFbCaptionCustomized(true);
+                      }}
+                      rows={9}
+                      placeholder="Chamada do Facebook..."
+                      className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('facebook')}
+                      className="w-full py-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1 shadow-xs"
+                    >
+                      <Eye className="w-3 h-3" /> Concluir e ver no feed
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-slate-900 font-sans flex flex-col justify-between">
+                    <div>
+                      {/* Top Bar Facebook */}
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full border border-slate-200 p-[1px] bg-white overflow-hidden shrink-0">
+                            <img src="/favicon.png" alt="Portal NG Brasil" className="w-full h-full object-cover rounded-full" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1 leading-none">
+                              <span className="text-xs font-bold text-slate-900">Portal NG Brasil</span>
+                              <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-blue-600 text-white text-[7px] font-bold">✓</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[9px] text-slate-400 mt-0.5">
+                              <span>Agora</span>
+                              <span>•</span>
+                              <Globe className="w-2.5 h-2.5" />
+                            </div>
+                          </div>
+                        </div>
+                        <MoreHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
+
+                      {/* Texto da Chamada */}
+                      <div className="px-3 py-2 text-[11px] text-slate-800 leading-relaxed whitespace-pre-wrap line-clamp-3">
+                        {captionFacebook || article?.subtitle || article?.title}
+                      </div>
+
+                      {/* Card de Link (Open Graph) */}
+                      <div className="border-t border-b border-slate-200 bg-slate-50">
+                        <div className="relative aspect-[1.91/1] w-full bg-slate-900 overflow-hidden">
+                          {article?.image ? (
+                            <img src={article.image} alt={article.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                              Foto da matéria
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2 bg-slate-100/90 border-t border-slate-200">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                            PORTALNGBRASIL.COM.BR
+                          </span>
+                          <h4 className="text-[11px] font-bold text-slate-900 leading-snug line-clamp-2 mt-0.5">
+                            {article?.title || firstCardTitle}
+                          </h4>
+                          <p className="text-[9px] text-slate-600 line-clamp-1 mt-0.5">
+                            {article?.subtitle || article?.excerpt}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Barra de Ações Facebook */}
+                      <div className="px-2 py-1.5 flex items-center justify-between border-b border-slate-100 text-slate-600 text-[10px] font-semibold">
+                        <div className="flex-1 flex items-center justify-center gap-1 py-1 hover:bg-slate-50 rounded">
+                          <ThumbsUp className="w-3 h-3" /> <span>Curtir</span>
+                        </div>
+                        <div className="flex-1 flex items-center justify-center gap-1 py-1 hover:bg-slate-50 rounded">
+                          <MessageSquare className="w-3 h-3" /> <span>Comentar</span>
+                        </div>
+                        <div className="flex-1 flex items-center justify-center gap-1 py-1 hover:bg-slate-50 rounded">
+                          <Share2 className="w-3 h-3" /> <span>Compartilhar</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-3 py-1.5 bg-slate-50 flex items-center justify-between text-[10px]">
+                      <span className="text-blue-700 font-medium flex items-center gap-1">
+                        <LinkIcon className="w-2.5 h-2.5" /> Link Clicável
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleEditing('facebook')}
+                        className="text-blue-700 font-bold hover:underline flex items-center gap-0.5"
+                      >
+                        <Edit3 className="w-2.5 h-2.5" /> Editar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. THREADS */}
+              <div id="preview-card-threads" className="w-[285px] sm:w-[325px] shrink-0 snap-start flex flex-col space-y-2">
+                {/* Header do Card Threads */}
+                <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-100 rounded-lg border border-zinc-200">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full bg-black text-white flex items-center justify-center">
+                      <ThreadsIcon className="w-2.5 h-2.5" />
+                    </div>
+                    <span className="text-xs font-bold text-zinc-900">Threads (Card)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleRegenerateThreadsCaption}
+                      title="Regerar texto do Threads"
+                      className="p-1 hover:bg-zinc-200 rounded text-zinc-700 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPlatformCaption('threads')}
+                      title="Copiar texto do Threads"
+                      className="p-1 hover:bg-zinc-200 rounded text-zinc-700 transition-colors"
+                    >
+                      {copiedPlatform === 'threads' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('threads')}
+                      title={editingPlatforms.threads ? "Ver prévia no feed" : "Editar texto"}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                        editingPlatforms.threads ? 'bg-black text-white' : 'bg-white text-zinc-800 border border-zinc-200 hover:bg-zinc-50'
+                      }`}
+                    >
+                      {editingPlatforms.threads ? <Eye className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
+                      <span>{editingPlatforms.threads ? 'Prévia' : 'Editar'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {editingPlatforms.threads ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                      <span>Limite da API Threads</span>
+                      <span className={captionThreads.length > 500 ? 'text-red-500 font-bold' : ''}>
+                        {captionThreads.length} / 500
+                      </span>
+                    </div>
+                    <textarea
+                      value={captionThreads}
+                      onChange={(e) => {
+                        setCaptionThreads(e.target.value);
+                        setIsThreadsCaptionCustomized(true);
+                      }}
+                      rows={9}
+                      placeholder="Texto do Threads..."
+                      className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-black focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('threads')}
+                      className="w-full py-1.5 bg-black hover:bg-zinc-800 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1 shadow-xs"
+                    >
+                      <Eye className="w-3 h-3" /> Concluir e ver no feed
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-slate-900 font-sans p-3 flex flex-col justify-between">
+                    <div>
+                      {/* Top Bar Threads */}
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full border border-slate-200 bg-white overflow-hidden p-0.5 shrink-0">
+                            <img src="/favicon.png" alt="Portal NG" className="w-full h-full object-cover rounded-full" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1 leading-none">
+                              <span className="text-[11px] font-bold text-slate-900">portalngbrasil</span>
+                              <span className="inline-flex items-center justify-center w-2.5 h-2.5 rounded-full bg-black text-white text-[6px] font-bold">✓</span>
+                            </div>
+                            <span className="text-[9px] text-slate-400">Agora</span>
+                          </div>
+                        </div>
+                        <MoreHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
+
+                      {/* Texto do Post Threads */}
+                      <div className="text-[11px] text-slate-800 leading-relaxed whitespace-pre-wrap line-clamp-4 mb-2">
+                        {captionThreads || article?.title}
+                      </div>
+
+                      {/* Imagem do Threads com Design Canva */}
+                      <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 mb-2">
+                        {renderCanvaArtPreview("aspect-[4/5] max-h-[250px]")}
+                      </div>
+
+                      {/* Ações Threads */}
+                      <div className="flex items-center gap-3 text-slate-700 pt-0.5">
+                        <Heart className="w-3.5 h-3.5 hover:text-red-500 cursor-pointer" />
+                        <MessageCircle className="w-3.5 h-3.5 hover:text-black cursor-pointer" />
+                        <Repeat2 className="w-3.5 h-3.5 hover:text-green-600 cursor-pointer" />
+                        <Send className="w-3.5 h-3.5 hover:text-black cursor-pointer" />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400">24 curtidas · 4 respostas</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleEditing('threads')}
+                        className="text-black font-bold hover:underline flex items-center gap-0.5"
+                      >
+                        <Edit3 className="w-2.5 h-2.5" /> Editar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. LINKEDIN */}
+              <div id="preview-card-linkedin" className="w-[285px] sm:w-[325px] shrink-0 snap-start flex flex-col space-y-2">
+                {/* Header do Card LinkedIn */}
+                <div className="flex items-center justify-between px-3 py-1.5 bg-sky-50/70 rounded-lg border border-sky-200">
+                  <div className="flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-[#0077b5]" />
+                    <span className="text-xs font-bold text-sky-950">LinkedIn (Card)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleRegenerateLinkedinCaption}
+                      title="Regerar texto do LinkedIn"
+                      className="p-1 hover:bg-sky-100 rounded text-sky-800 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPlatformCaption('linkedin')}
+                      title="Copiar texto do LinkedIn"
+                      className="p-1 hover:bg-sky-100 rounded text-sky-800 transition-colors"
+                    >
+                      {copiedPlatform === 'linkedin' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('linkedin')}
+                      title={editingPlatforms.linkedin ? "Ver prévia no feed" : "Editar texto"}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                        editingPlatforms.linkedin ? 'bg-[#0077b5] text-white' : 'bg-white text-sky-900 border border-sky-200 hover:bg-sky-50'
+                      }`}
+                    >
+                      {editingPlatforms.linkedin ? <Eye className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
+                      <span>{editingPlatforms.linkedin ? 'Prévia' : 'Editar'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {editingPlatforms.linkedin ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      Texto corporativo e analítico para a Company Page:
+                    </div>
+                    <textarea
+                      value={captionLinkedin}
+                      onChange={(e) => {
+                        setCaptionLinkedin(e.target.value);
+                        setIsLinkedinCaptionCustomized(true);
+                      }}
+                      rows={9}
+                      placeholder="Texto do LinkedIn..."
+                      className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-[#0077b5] focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('linkedin')}
+                      className="w-full py-1.5 bg-[#0077b5] hover:bg-sky-800 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1 shadow-xs"
+                    >
+                      <Eye className="w-3 h-3" /> Concluir e ver no feed
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-slate-900 font-sans flex flex-col justify-between">
+                    <div>
+                      {/* Top Bar LinkedIn */}
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-sm border border-slate-200 bg-white overflow-hidden p-0.5 shrink-0">
+                            <img src="/favicon.png" alt="Portal NG Brasil" className="w-full h-full object-cover" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1 leading-none">
+                              <span className="text-xs font-bold text-slate-900">Portal NG Brasil</span>
+                              <span className="text-[9px] text-slate-400">• 1º</span>
+                            </div>
+                            <p className="text-[9px] text-slate-500 leading-tight">12.450 seguidores</p>
+                            <div className="flex items-center gap-1 text-[9px] text-slate-400">
+                              <span>Agora</span>
+                              <span>•</span>
+                              <Globe className="w-2.5 h-2.5" />
+                            </div>
+                          </div>
+                        </div>
+                        <MoreHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
+
+                      {/* Texto Corporativo */}
+                      <div className="px-3 py-2 text-[11px] text-slate-800 leading-relaxed whitespace-pre-wrap line-clamp-3">
+                        {captionLinkedin || captionFacebook || article?.subtitle || article?.title}
+                      </div>
+
+                      {/* Card Visual LinkedIn com Design Canva */}
+                      <div className="mx-3 mb-2 rounded-lg overflow-hidden border border-slate-200 bg-slate-900">
+                        {renderCanvaArtPreview("aspect-[4/5] max-h-[250px]")}
+                      </div>
+
+                      {/* Ações LinkedIn */}
+                      <div className="px-2 py-1.5 flex items-center justify-between border-t border-slate-100 text-slate-600 text-[10px] font-semibold">
+                        <div className="flex-1 flex items-center justify-center gap-1 py-1 hover:bg-slate-50 rounded">
+                          <ThumbsUp className="w-3 h-3" /> <span>Gostei</span>
+                        </div>
+                        <div className="flex-1 flex items-center justify-center gap-1 py-1 hover:bg-slate-50 rounded">
+                          <MessageSquare className="w-3 h-3" /> <span>Comentar</span>
+                        </div>
+                        <div className="flex-1 flex items-center justify-center gap-1 py-1 hover:bg-slate-50 rounded">
+                          <Share2 className="w-3 h-3" /> <span>Compartilhar</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                      <span className="text-[#0077b5] font-medium flex items-center gap-1">
+                        <Briefcase className="w-2.5 h-2.5" /> Company Page
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleEditing('linkedin')}
+                        className="text-[#0077b5] font-bold hover:underline flex items-center gap-0.5"
+                      >
+                        <Edit3 className="w-2.5 h-2.5" /> Editar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 5. X (TWITTER) */}
+              <div id="preview-card-x" className="w-[285px] sm:w-[325px] shrink-0 snap-start flex flex-col space-y-2">
+                {/* Header do Card X */}
+                <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900 rounded-lg text-white">
+                  <div className="flex items-center gap-1.5">
+                    <XIcon className="w-3 h-3 text-white" />
+                    <span className="text-xs font-bold text-white">X / Twitter (Card)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleRegenerateXCaption}
+                      title="Regerar tweet"
+                      className="p-1 hover:bg-zinc-800 rounded text-zinc-300 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPlatformCaption('x')}
+                      title="Copiar tweet"
+                      className="p-1 hover:bg-zinc-800 rounded text-zinc-300 transition-colors"
+                    >
+                      {copiedPlatform === 'x' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('x')}
+                      title={editingPlatforms.x ? "Ver prévia no feed" : "Editar tweet"}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                        editingPlatforms.x ? 'bg-white text-zinc-900' : 'bg-zinc-800 text-zinc-200 border border-zinc-700 hover:bg-zinc-700'
+                      }`}
+                    >
+                      {editingPlatforms.x ? <Eye className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
+                      <span>{editingPlatforms.x ? 'Prévia' : 'Editar'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {editingPlatforms.x ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                      <span>Limite de 280 caracteres</span>
+                      <span className={calculateXTweetLength(captionX) > 280 ? 'text-red-500 font-bold' : ''}>
+                        {calculateXTweetLength(captionX)} / 280
+                      </span>
+                    </div>
+                    <textarea
+                      value={captionX}
+                      onChange={(e) => {
+                        setCaptionX(e.target.value);
+                        setIsXCaptionCustomized(true);
+                      }}
+                      rows={9}
+                      placeholder="Tweet para o X..."
+                      className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-black focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleEditing('x')}
+                      className="w-full py-1.5 bg-zinc-900 hover:bg-black text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1 shadow-xs"
+                    >
+                      <Eye className="w-3 h-3" /> Concluir e ver no feed
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-slate-900 font-sans p-3 flex flex-col justify-between">
+                    <div>
+                      {/* Top Bar X */}
+                      <div className="flex items-start gap-2 mb-1.5">
+                        <div className="w-7 h-7 rounded-full border border-slate-200 bg-white overflow-hidden shrink-0">
+                          <img src="/favicon.png" alt="Portal NG" className="w-full h-full object-cover rounded-full" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className="text-[11px] font-bold text-slate-900">Portal NG Brasil</span>
+                              <span className="inline-flex items-center justify-center w-2.5 h-2.5 rounded-full bg-blue-500 text-white text-[6px] font-bold">✓</span>
+                              <span className="text-[10px] text-slate-500">@portalngbrasil</span>
+                              <span className="text-[10px] text-slate-400">· 1m</span>
+                            </div>
+                            <MoreHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                          </div>
+
+                          {/* Texto do Tweet */}
+                          <div className="mt-1 text-[11px] text-slate-900 leading-normal whitespace-pre-wrap line-clamp-3">
+                            {captionX || article?.title}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Imagem do Tweet no X com Design Canva */}
+                      <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-900 mt-1 mb-2">
+                        {renderCanvaArtPreview("aspect-[4/5] max-h-[250px]")}
+                      </div>
+
+                      {/* Ações X */}
+                      <div className="flex items-center justify-between text-slate-500 text-[10px] px-1">
+                        <div className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> 8</div>
+                        <div className="flex items-center gap-1"><Repeat2 className="w-3 h-3" /> 14</div>
+                        <div className="flex items-center gap-1"><Heart className="w-3 h-3" /> 42</div>
+                        <div className="flex items-center gap-1"><BarChart2 className="w-3 h-3" /> 1.8K</div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                      <span className="text-slate-500 font-mono">
+                        {calculateXTweetLength(captionX)} / 280
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleEditing('x')}
+                        className="text-slate-900 font-bold hover:underline flex items-center gap-0.5"
+                      >
+                        <Edit3 className="w-2.5 h-2.5" /> Editar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+
 
         {/* Action Buttons (Modal Standalone) */}
         {!hideButtons && (
           <div className="space-y-2 pt-2 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => handlePostToMeta(['facebook', 'instagram'])}
-              disabled={isPosting || (!metaToken || !imgbbKey)}
-              className={`w-full ${isPosting ? 'bg-slate-400' : (!metaToken || !imgbbKey) ? 'bg-slate-300' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'} text-white font-bold py-3 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all text-sm`}
-              title={(!metaToken || !imgbbKey) ? "Configure as chaves do Meta e ImgBB nas Configurações primeiro" : "Postar simultaneamente no Facebook e Instagram"}
+              onClick={() => handlePostToMeta(['facebook', 'instagram', 'threads', 'linkedin', 'x'])}
+              disabled={isPosting}
+              className={`w-full ${isPosting ? 'bg-slate-400' : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-900 hover:opacity-95'} text-white font-bold py-3 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all text-sm`}
+              title="Postar em todas as redes sociais configuradas (Facebook, Instagram, Threads, LinkedIn e X)"
             >
               {isPosting ? (
                 <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> {postStatus}</>
@@ -2038,8 +2984,8 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
                 <>
                   <Send className="w-4 h-4" />
                   {cards.length > 1
-                    ? `Postar Carrossel (${cards.length} Cards) no Instagram e Facebook`
-                    : 'Postar no Instagram e Facebook'}
+                    ? `Postar Carrossel (${cards.length} Cards) nas Redes Sociais`
+                    : 'Postar Matéria nas Redes Sociais'}
                 </>
               )}
             </button>
@@ -2073,7 +3019,7 @@ const SocialPostGenerator = forwardRef(({ showToast, article, onClose, inline = 
   }
 
   return (
-    <div className="fixed inset-0 z-[999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
       {content}
     </div>
   );

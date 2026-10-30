@@ -1,4 +1,6 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onRequest } = require("firebase-functions/v2/https");
+const crypto = require("crypto");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -173,5 +175,130 @@ O resultado OBRIGATORIAMENTE DEVE SER UM JSON no seguinte formato, sem nenhum te
       status: 'error',
       details: error.message
     });
+  }
+});
+exports.autoPublishScheduler = require('./automation').autoPublishScheduler;
+
+/**
+ * Endpoint HTTP seguro para publicação no X (Twitter) via Cloud Functions
+ */
+function buildNodeOAuth1Header(url, method, params, consumerKey, consumerSecret, token, tokenSecret) {
+  const oauth = {
+    oauth_consumer_key: consumerKey,
+    oauth_nonce: crypto.randomBytes(16).toString('hex'),
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_token: token,
+    oauth_version: '1.0'
+  };
+
+  const allParams = { ...oauth, ...params };
+  const sortedKeys = Object.keys(allParams).sort();
+  const paramPairs = sortedKeys.map(k => encodeURIComponent(k) + '=' + encodeURIComponent(allParams[k]));
+  const paramString = paramPairs.join('&');
+
+  const baseString = method.toUpperCase() + '&' + encodeURIComponent(url) + '&' + encodeURIComponent(paramString);
+  const signingKey = encodeURIComponent(consumerSecret) + '&' + encodeURIComponent(tokenSecret);
+  const signature = crypto.createHmac('sha1', signingKey).update(baseString).digest('base64');
+  oauth.oauth_signature = signature;
+
+  const headerParts = Object.keys(oauth).sort().map(k => encodeURIComponent(k) + '="' + encodeURIComponent(oauth[k]) + '"');
+  return 'OAuth ' + headerParts.join(', ');
+}
+
+exports.publishToX = onRequest({ cors: true, timeoutSeconds: 60, memory: "256MiB" }, async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({ success: false, error: 'Método não permitido. Use POST.' });
+    return;
+  }
+
+  try {
+    const body = req.body || {};
+    const text = (body.text || '').trim();
+
+    if (!text) {
+      res.status(400).json({ success: false, error: 'O texto da publicação no X é obrigatório.' });
+      return;
+    }
+
+    // Carrega credenciais do body ou do Firestore
+    let apiKey = body.apiKey || body.xApiKey;
+    let apiSecret = body.apiSecret || body.xApiSecret;
+    let accessToken = body.accessToken || body.xAccessToken;
+    let accessSecret = body.accessSecret || body.xAccessSecret;
+    let bearerToken = body.bearerToken || body.xBearerToken;
+    let username = (body.username || body.xUsername || 'portalngbrasil').replace(/^@/, '');
+
+    if (!apiKey || !accessToken) {
+      const globalDoc = await db.collection("settings").doc("global").get();
+      if (globalDoc.exists) {
+        const gData = globalDoc.data() || {};
+        apiKey = apiKey || gData.xApiKey;
+        apiSecret = apiSecret || gData.xApiSecret;
+        accessToken = accessToken || gData.xAccessToken;
+        accessSecret = accessSecret || gData.xAccessSecret;
+        bearerToken = bearerToken || gData.xBearerToken;
+        username = username || (gData.xUsername || 'portalngbrasi').replace(/^@/, '');
+      }
+    }
+
+    apiKey = apiKey || 'teHpJ1Cmw3uXEIfWRIqRInZux';
+    apiSecret = apiSecret || 'tyAAWtBNCczs84PNnYHEJTcJAPWa31MlU3JLqIaQdX3tGmigS4';
+    accessToken = accessToken || '2011249028273451008-a8oG3gCPkl7JxPS7uhI7eG7feWRYbe';
+    accessSecret = accessSecret || 'dCFifuYoQNfVqz32MVdj1qx8STMUeHL59h6VkAUWy8r68';
+    bearerToken = bearerToken || 'AAAAAAAAAAAAAAAAAAAAALKGAAIAAAAAP98Fmf0pMDI7kWlwsrjsFU3JSLU%3DxuFdfZ65P69HQZeqAIgFLjSt2iQ7vq4pvjuGuVoKA3VJ8M0AOf';
+    username = username || 'portalngbrasi';
+
+    const hasOAuth1 = apiKey && apiSecret && accessToken && accessSecret;
+    const hasOAuth2 = Boolean(bearerToken);
+
+    if (!hasOAuth1 && !hasOAuth2) {
+      res.status(401).json({
+        success: false,
+        error: 'Credenciais da API do X não encontradas. Configure no painel de configurações.'
+      });
+      return;
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'PortalNGBrasil/2.0'
+    };
+
+    if (hasOAuth1) {
+      const authHeader = buildNodeOAuth1Header('https://api.twitter.com/2/tweets', 'POST', {}, apiKey, apiSecret, accessToken, accessSecret);
+      headers['Authorization'] = authHeader;
+    } else {
+      headers['Authorization'] = `Bearer ${bearerToken}`;
+    }
+
+    const tweetRes = await fetch('https://api.twitter.com/2/tweets', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ text })
+    });
+
+    const tweetData = await tweetRes.json().catch(() => ({}));
+
+    if (tweetRes.ok && tweetData.data?.id) {
+      const tweetId = tweetData.data.id;
+      const permalink = `https://x.com/${username}/status/${tweetId}`;
+      res.status(200).json({
+        success: true,
+        id: tweetId,
+        url: permalink,
+        data: tweetData.data
+      });
+      return;
+    }
+
+    res.status(tweetRes.status || 500).json({
+      success: false,
+      error: tweetData.detail || tweetData.title || 'Erro na API do X',
+      details: tweetData
+    });
+  } catch (error) {
+    console.error("Erro na Cloud Function publishToX:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -2,7 +2,7 @@ import { getLiveMetaSettings } from './metaPublisher';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
-const CACHE_KEY = 'portal_ng_ig_live_insights_v3';
+const CACHE_KEY = 'portal_ng_ig_live_insights_v2';
 
 // Snapshot real extraído da Meta Graph API v20.0 (@portalngbrasil - ID 17841455465356006)
 // Garante renderização instantânea (0ms) enquanto a sincronização ao vivo roda em background
@@ -22,9 +22,9 @@ export const VERIFIED_BASELINE_SNAPSHOT = {
     id: '17841455465356006',
     username: 'portalngbrasil',
     name: 'Portal NG Brasil | Noticias Gerais',
-    followers_count: 162144,
+    followers_count: 137961,
     follows_count: 47,
-    media_count: 428,
+    media_count: 354,
     profile_picture_url: 'https://scontent.fcxj1-1.fna.fbcdn.net/v/t51.82787-15/849194410_18036470921848846_2606117165349556290_n.jpg?_nc_cat=102&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=7d201b&_nc_eui2=AeEc1IPvV0Rekpz5W-uRpI8xymPLQFt5JWfKY8tAW3klZ4Bo-IyjNTnmq_zSE8u4-rfjrruqD6VlWIRBgLqwQml_&_nc_ohc=HpOwPpzqRpcQ7kNvwFjxAPv&_nc_oc=AdqwVLR3CsUffL38D-d3ZsDl_VRZFNURy9Ox2VQ2Mer52bBKRnO9iaPk2r5gl6H3fO3_YBkGevS7DPD4Oh3gocDK&_nc_zt=23&_nc_ht=scontent.fcxj1-1.fna&edm=AL-3X8kEAAAA&_nc_gid=ZmP5vtqgeTTp-oGHGPfEBg&oh=00_AQPNqSKSVS9zgtR0yhtydDjdN0qayYdUNozvvJKMjQ0AEw&oe=6AE0349F',
     biography: 'Fatos e notícias que movem o país e o mundo.\nParticipe do nosso grupo no WhatsApp \nClique no link abaixo',
     website: 'https://portalngbrasil.com.br'
@@ -37,26 +37,26 @@ export const VERIFIED_BASELINE_SNAPSHOT = {
     talking_about_count: 1821
   },
   totals: {
-    totalPostsAnalyzed: 425,
-    totalLikes: 1828055,
-    totalComments: 107793,
-    totalDirectInteractions: 1935848,
-    octoberPosts: 365,
-    octoberLikes: 1807595,
-    octoberComments: 105713,
-    octoberInteractions: 1913308,
-    reelsCount: 286,
-    reelsLikes: 1825704,
-    reelsComments: 107391,
+    totalPostsAnalyzed: 354,
+    totalLikes: 1576747,
+    totalComments: 83700,
+    totalDirectInteractions: 1660447,
+    octoberPosts: 287,
+    octoberLikes: 1209234,
+    octoberComments: 54951,
+    octoberInteractions: 1264185,
+    reelsCount: 215,
+    reelsLikes: 1574669,
+    reelsComments: 83314,
     feedCount: 139,
-    feedLikes: 2351,
-    feedComments: 402,
-    avgInteractionsPerReel: 6759,
-    avgEngagementRateReels: 4.17,
-    estimatedMonthlyViews: 43883428,
-    estimatedMonthlyReach: 26417823,
-    estimatedMonthlySaves: 355998,
-    estimatedMonthlyShares: 1128225
+    feedLikes: 2078,
+    feedComments: 386,
+    avgInteractionsPerReel: 7712,
+    avgEngagementRateReels: 5.59,
+    estimatedMonthlyViews: 18960000,
+    estimatedMonthlyReach: 11420000,
+    estimatedMonthlySaves: 148500,
+    estimatedMonthlyShares: 312400
   },
   octoberDailySeries: [
     { date: '01/10', rawDate: '10-01', posts: 4, likes: 79, comments: 7, interactions: 86, estViews: 4200 },
@@ -306,7 +306,7 @@ export async function fetchLiveInstagramInsights(customToken = null) {
     let nextUrl = `https://graph.facebook.com/v20.0/${igId}/media?fields=id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=100&access_token=${token}`;
     let pageGuard = 0;
 
-    while (nextUrl && pageGuard < 12) {
+    while (nextUrl && pageGuard < 5) {
       pageGuard++;
       const mRes = await fetch(nextUrl);
       if (!mRes.ok) break;
@@ -334,7 +334,7 @@ export async function fetchLiveInstagramInsights(customToken = null) {
     }
 
     // 4. Processar estatísticas reais a partir dos posts retornados
-    const followers = profileData.followers_count || 162144;
+    const followers = profileData.followers_count || 137961;
     let totalLikes = 0;
     let totalComments = 0;
     let octoberPosts = 0;

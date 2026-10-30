@@ -137,10 +137,93 @@ export default function App() {
                          new URLSearchParams(location.search).has('aprovacao') ||
                          location.hash.includes('aprovacao');
 
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [selectedPraca, setSelectedPraca] = useState('Todas');
-  const [searchQuery, setSearchQuery] = useState('');
+  const VALID_CATEGORIES = ['brasil', 'policial', 'politica', 'tecnologia', 'saude', 'turismo', 'entretenimento', 'geral', 'economia'];
+
+  const getCategoryFromPath = (pathname) => {
+    if (!pathname) return 'all';
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length === 0) return 'all';
+    const first = segments[0].toLowerCase();
+    if (VALID_CATEGORIES.includes(first)) {
+      return first;
+    }
+    return 'all';
+  };
+
+  const [activeCategory, setActiveCategory] = useState(() => {
+    try {
+      const fromPath = getCategoryFromPath(window.location.pathname);
+      if (fromPath !== 'all') return fromPath;
+      const saved = sessionStorage.getItem('portal_ng_active_category');
+      if (saved && VALID_CATEGORIES.includes(saved)) return saved;
+    } catch(e) {}
+    return 'all';
+  });
+
+  const [selectedPraca, setSelectedPraca] = useState(() => {
+    try {
+      return sessionStorage.getItem('portal_ng_selected_praca') || 'Todas';
+    } catch(e) {
+      return 'Todas';
+    }
+  });
+
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('q') || '';
+    } catch(e) {
+      return '';
+    }
+  });
+
   const [selectedArticle, setSelectedArticle] = useState(null);
+
+  // Sincroniza categoria e praça com a sessão para persistir em F5/atualizações
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('portal_ng_selected_praca', selectedPraca);
+    } catch(e) {}
+  }, [selectedPraca]);
+
+  useEffect(() => {
+    try {
+      const fromPath = getCategoryFromPath(location.pathname);
+      if (fromPath !== 'all') {
+        setActiveCategory(fromPath);
+        sessionStorage.setItem('portal_ng_active_category', fromPath);
+      } else if (location.pathname === '/' && !selectedArticle) {
+        setActiveCategory('all');
+        sessionStorage.setItem('portal_ng_active_category', 'all');
+      }
+    } catch(e) {}
+  }, [location.pathname, selectedArticle]);
+
+  // Salva rota atual na sessão para restaurar em caso de recarga do navegador (F5)
+  useEffect(() => {
+    try {
+      const full = location.pathname + location.search + location.hash;
+      if (location.pathname && location.pathname !== '/' && !location.pathname.includes('/login')) {
+        sessionStorage.setItem('portal_ng_last_route', full);
+      }
+    } catch(e) {}
+  }, [location.pathname, location.search, location.hash]);
+
+  // Se o navegador recarregar e o servidor entregar '/', restaura a página/aba onde o usuário estava
+  useEffect(() => {
+    if (location.pathname === '/' && !location.search && !location.hash) {
+      try {
+        const isReload = window.performance && (
+          (window.performance.navigation && window.performance.navigation.type === 1) ||
+          window.performance.getEntriesByType('navigation')?.[0]?.type === 'reload'
+        );
+        const savedRoute = sessionStorage.getItem('portal_ng_last_route');
+        if (isReload && savedRoute && savedRoute !== '/' && !savedRoute.includes('/login')) {
+          console.log("Restaurando página após atualização F5:", savedRoute);
+          navigate(savedRoute, { replace: true });
+        }
+      } catch(e) {}
+    }
+  }, []);
 
   // Sync URL with selected article for unique links
   useEffect(() => {
@@ -169,6 +252,9 @@ export default function App() {
 
       if (found) {
         setSelectedArticle(found);
+        if (found.category && VALID_CATEGORIES.includes(found.category.toLowerCase())) {
+          setActiveCategory(found.category.toLowerCase());
+        }
       } else if (selectedArticle) {
         setSelectedArticle(null);
       }

@@ -8,7 +8,7 @@ import StoriesGenerator from './StoriesGenerator';
 import CarouselsGenerator from './CarouselsGenerator';
 import PublishSuccessModal from './PublishSuccessModal';
 import { shareToWhatsApp } from '../utils/socialExporter';
-import { publishArticleToAllChannels } from '../utils/metaPublisher';
+import { publishArticleToAllChannels, retryPlatformPublish } from '../utils/metaPublisher';
 import { useFirebaseSync, useFirebaseDoc } from '../hooks/useFirebaseSync';
 import { storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -491,6 +491,14 @@ COMO VOCÊ DEVE AGIR:
     metaIgAccountId: localStorage.getItem("portal_ng_meta_ig_account_id") || "17841455465356006",
     threadsToken: localStorage.getItem("portal_ng_threads_token") || "THAAVZB1HEtu6ZABYlk5QU0yRTVqZAFJyWENyQWdXOEZAIa3VhUVFSUHJ5S3BIbXdJSnNSSnVQR2V3OWY5OXhwQWFtVGJqQ1phOFU0enpGYWE0Tk5tRHBYTHFPc0dYUEJlWTh2MlJRWkt6WXBuaXdZAcGYtamVqeWw4dW9Fb1pBNkFoZAjA1bVB3cUc4eWFjdk11aHMZD",
     threadsUserId: localStorage.getItem("portal_ng_threads_user_id") || "29313904888222414",
+    linkedinToken: localStorage.getItem("portal_ng_linkedin_token") || "",
+    linkedinOrgId: localStorage.getItem("portal_ng_linkedin_org_id") || "145261110",
+    xApiKey: localStorage.getItem("portal_ng_x_api_key") || "teHpJ1Cmw3uXEIfWRIqRInZux",
+    xApiSecret: localStorage.getItem("portal_ng_x_api_secret") || "tyAAWtBNCczs84PNnYHEJTcJAPWa31MlU3JLqIaQdX3tGmigS4",
+    xAccessToken: localStorage.getItem("portal_ng_x_access_token") || "2011249028273451008-a8oG3gCPkl7JxPS7uhI7eG7feWRYbe",
+    xAccessSecret: localStorage.getItem("portal_ng_x_access_secret") || "dCFifuYoQNfVqz32MVdj1qx8STMUeHL59h6VkAUWy8r68",
+    xBearerToken: localStorage.getItem("portal_ng_x_bearer_token") || "AAAAAAAAAAAAAAAAAAAAALKGAAIAAAAAP98Fmf0pMDI7kWlwsrjsFU3JSLU%3DxuFdfZ65P69HQZeqAIgFLjSt2iQ7vq4pvjuGuVoKA3VJ8M0AOf",
+    xUsername: localStorage.getItem("portal_ng_x_username") || "portalngbrasi",
     imgbbKey: localStorage.getItem("portal_ng_imgbb_key") || "16be6a5efa6c25b8e50bf9ae6ef9b9bf",
     robotFeedback: localStorage.getItem("portal_ng_robot_feedback") ? JSON.parse(localStorage.getItem("portal_ng_robot_feedback")) : { liked: [], disliked: [] },
     robotGoldStandard: localStorage.getItem("portal_ng_robot_gold_standard") ? JSON.parse(localStorage.getItem("portal_ng_robot_gold_standard")) : null,
@@ -541,6 +549,30 @@ COMO VOCÊ DEVE AGIR:
 
   const threadsUserId = settings.threadsUserId || fallbackSettings.threadsUserId;
   const setThreadsUserId = (val) => setSettings(prev => ({ ...prev, threadsUserId: typeof val === "function" ? val(prev.threadsUserId) : val }));
+
+  const linkedinToken = settings.linkedinToken || fallbackSettings.linkedinToken;
+  const setLinkedinToken = (val) => setSettings(prev => ({ ...prev, linkedinToken: typeof val === "function" ? val(prev.linkedinToken) : val }));
+
+  const linkedinOrgId = settings.linkedinOrgId || fallbackSettings.linkedinOrgId;
+  const setLinkedinOrgId = (val) => setSettings(prev => ({ ...prev, linkedinOrgId: typeof val === "function" ? val(prev.linkedinOrgId) : val }));
+
+  const xApiKey = settings.xApiKey || fallbackSettings.xApiKey;
+  const setXApiKey = (val) => setSettings(prev => ({ ...prev, xApiKey: typeof val === "function" ? val(prev.xApiKey) : val }));
+
+  const xApiSecret = settings.xApiSecret || fallbackSettings.xApiSecret;
+  const setXApiSecret = (val) => setSettings(prev => ({ ...prev, xApiSecret: typeof val === "function" ? val(prev.xApiSecret) : val }));
+
+  const xAccessToken = settings.xAccessToken || fallbackSettings.xAccessToken;
+  const setXAccessToken = (val) => setSettings(prev => ({ ...prev, xAccessToken: typeof val === "function" ? val(prev.xAccessToken) : val }));
+
+  const xAccessSecret = settings.xAccessSecret || fallbackSettings.xAccessSecret;
+  const setXAccessSecret = (val) => setSettings(prev => ({ ...prev, xAccessSecret: typeof val === "function" ? val(prev.xAccessSecret) : val }));
+
+  const xBearerToken = settings.xBearerToken || fallbackSettings.xBearerToken;
+  const setXBearerToken = (val) => setSettings(prev => ({ ...prev, xBearerToken: typeof val === "function" ? val(prev.xBearerToken) : val }));
+
+  const xUsername = settings.xUsername || fallbackSettings.xUsername;
+  const setXUsername = (val) => setSettings(prev => ({ ...prev, xUsername: typeof val === "function" ? val(prev.xUsername) : val }));
 
   const imgbbKey = settings.imgbbKey || fallbackSettings.imgbbKey;
   const setImgbbKey = (val) => setSettings(prev => ({ ...prev, imgbbKey: typeof val === "function" ? val(prev.imgbbKey) : val }));
@@ -690,6 +722,60 @@ COMO VOCÊ DEVE AGIR:
     setFormData({ title: '', subtitle: '', category: 'politica', praca: 'Nacional', image: '', content: '', authorName: 'Redação NG Brasil' });
     setActiveTab('materias');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleRetryPublishPlatform = async (platform, modalData) => {
+    const art = modalData?.article;
+    const shareUrl = modalData?.links?.share || (art?.id ? `https://portalngbrasil.com.br/share.php?id=${art.id}` : 'https://portalngbrasil.com.br');
+
+    if (socialRef.current) {
+      try {
+        const socialResult = await socialRef.current.postToMeta([platform], {
+          article: art,
+          shareUrl: shareUrl
+        });
+        const keyMap = {
+          facebook: { url: socialResult?.facebook, err: socialResult?.fbError },
+          instagram: { url: socialResult?.instagram, err: socialResult?.igError },
+          threads: { url: socialResult?.threads, err: socialResult?.thError },
+          linkedin: { url: socialResult?.linkedin, err: socialResult?.liError }
+        };
+        const r = keyMap[platform];
+        if (r?.err) throw new Error(r.err);
+        if (r?.url) {
+          setPublishModalData(prev => prev ? ({
+            ...prev,
+            links: { ...prev.links, [platform]: r.url },
+            errors: { ...prev.errors, [platform]: null }
+          }) : null);
+          return { success: true, url: r.url };
+        }
+      } catch (socErr) {
+        console.warn(`Tentativa socialRef para ${platform} falhou, usando fallback direto:`, socErr);
+      }
+    }
+
+    const res = await retryPlatformPublish({
+      platform,
+      article: art,
+      shareUrl,
+      settings: {
+        metaToken,
+        metaFbPageId,
+        metaIgAccountId,
+        threadsToken,
+        threadsUserId,
+        imgbbKey
+      }
+    });
+
+    setPublishModalData(prev => prev ? ({
+      ...prev,
+      links: { ...prev.links, [platform]: res.url },
+      errors: { ...prev.errors, [platform]: null }
+    }) : null);
+
+    return res;
   };
   const [isRobotRunning, setIsRobotRunning] = useState(false);
   const [robotStatus, setRobotStatus] = useState("");
@@ -1019,16 +1105,18 @@ COMO VOCÊ DEVE AGIR:
     setPublishModalData({
       isOpen: true,
       isPublishing: true,
-      statusText: '🚀 Publicando no Portal NG Brasil, Instagram, Facebook e Threads...',
+      statusText: '🚀 Publicando no Portal NG Brasil, Instagram, Facebook, Threads, LinkedIn e X...',
       article: draft,
       target: 'all',
-      targetPlatforms: ['facebook', 'instagram', 'threads'],
+      targetPlatforms: ['facebook', 'instagram', 'threads', 'linkedin', 'x'],
       links: {
         site: siteUrl,
         share: shareUrl,
         instagram: null,
         facebook: null,
-        threads: null
+        threads: null,
+        linkedin: null,
+        x: null
       },
       errors: {}
     });
@@ -1042,6 +1130,14 @@ COMO VOCÊ DEVE AGIR:
           metaIgAccountId,
           threadsToken,
           threadsUserId,
+          linkedinToken,
+          linkedinOrgId,
+          xApiKey,
+          xApiSecret,
+          xAccessToken,
+          xAccessSecret,
+          xBearerToken,
+          xUsername,
           imgbbKey
         },
         reviewerName: draft.approvedBy || 'Editora-Chefe',
@@ -1334,7 +1430,7 @@ COMO VOCÊ DEVE AGIR:
     
     const target = publishTargetRef.current || 'all';
     const targetPlatforms = target === 'all' 
-      ? ['facebook', 'instagram', 'threads'] 
+      ? ['facebook', 'instagram', 'threads', 'linkedin', 'x'] 
       : (target === 'portal' ? [] : [target]);
     const finalArticleId = editingId || publishedArticleRef?.id || `news-${Date.now()}`;
     const siteUrl = `https://portalngbrasil.com.br/#/noticia/${finalArticleId}`;
@@ -1365,7 +1461,9 @@ COMO VOCÊ DEVE AGIR:
         share: shareUrl,
         instagram: null,
         facebook: null,
-        threads: null
+        threads: null,
+        linkedin: null,
+        x: null
       },
       errors: {}
     });
@@ -1384,12 +1482,16 @@ COMO VOCÊ DEVE AGIR:
             ...prev.links,
             instagram: socialResult?.instagram || (targetPlatforms.includes('instagram') ? 'https://www.instagram.com/portalngbrasil/' : null),
             facebook: socialResult?.facebook || (targetPlatforms.includes('facebook') ? (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil') : null),
-            threads: socialResult?.threads || (targetPlatforms.includes('threads') ? 'https://www.threads.net/@portalngbrasil' : null)
+            threads: socialResult?.threads || (targetPlatforms.includes('threads') ? 'https://www.threads.net/@portalngbrasil' : null),
+            linkedin: socialResult?.linkedin || (targetPlatforms.includes('linkedin') ? 'https://www.linkedin.com/company/portalngbrasil' : null),
+            x: socialResult?.x || (targetPlatforms.includes('x') ? (xUsername ? `https://x.com/${xUsername}` : 'https://x.com/portalngbrasil') : null)
           },
           errors: {
             instagram: socialResult?.igError,
             facebook: socialResult?.fbError,
-            threads: socialResult?.thError
+            threads: socialResult?.thError,
+            linkedin: socialResult?.liError,
+            x: socialResult?.xError
           }
         }));
       } catch (err) {
@@ -1401,7 +1503,9 @@ COMO VOCÊ DEVE AGIR:
             ...prev.links,
             instagram: targetPlatforms.includes('instagram') ? 'https://www.instagram.com/portalngbrasil/' : null,
             facebook: targetPlatforms.includes('facebook') ? (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil') : null,
-            threads: targetPlatforms.includes('threads') ? 'https://www.threads.net/@portalngbrasil' : null
+            threads: targetPlatforms.includes('threads') ? 'https://www.threads.net/@portalngbrasil' : null,
+            linkedin: targetPlatforms.includes('linkedin') ? 'https://www.linkedin.com/company/portalngbrasil' : null,
+            x: targetPlatforms.includes('x') ? (xUsername ? `https://x.com/${xUsername}` : 'https://x.com/portalngbrasil') : null
           },
           errors: {
             general: err.message
@@ -2721,8 +2825,8 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             <button onClick={() => {setShowForm(false); setEditingId(null); setShowAiAssistant(false); setFormActiveTab('portal');}} className="text-sm text-slate-500 hover:text-slate-800 font-semibold">Cancelar</button>
           </div>
 
-          <div className="p-6">
-            <div className="max-w-4xl mx-auto">
+          <div className="p-4 sm:p-6">
+            <div className="w-full">
 
           {showAiAssistant && (
             <div className="mb-8 p-5 bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 rounded-xl shadow-sm animate-in slide-in-from-top-2 duration-300">
@@ -3335,7 +3439,27 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             {/* Social Post Generator Integrado */}
             <div className="mt-12 mb-8">
               <h3 className="text-xl font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200">Artes e Redes Sociais</h3>
-              <SocialPostGenerator ref={socialRef} hideButtons={true} showToast={showToast} inline={true} article={formData} metaToken={metaToken} metaFbPageId={metaFbPageId} metaIgAccountId={metaIgAccountId} threadsToken={threadsToken} threadsUserId={threadsUserId} imgbbKey={imgbbKey} />
+              <SocialPostGenerator 
+                ref={socialRef} 
+                hideButtons={true} 
+                showToast={showToast} 
+                inline={true} 
+                article={formData} 
+                metaToken={metaToken} 
+                metaFbPageId={metaFbPageId} 
+                metaIgAccountId={metaIgAccountId} 
+                threadsToken={threadsToken} 
+                threadsUserId={threadsUserId} 
+                imgbbKey={imgbbKey} 
+                linkedinToken={linkedinToken} 
+                linkedinOrgId={linkedinOrgId}
+                xApiKey={xApiKey}
+                xApiSecret={xApiSecret}
+                xAccessToken={xAccessToken}
+                xAccessSecret={xAccessSecret}
+                xBearerToken={xBearerToken}
+                xUsername={xUsername}
+              />
             </div>
 
             {/* Ações de Publicação e Aprovação */}
@@ -3371,7 +3495,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
               </button>
               
               {/* Linha 3: Publicação em canais específicos */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'portal'}
@@ -3396,9 +3520,23 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                 <button 
                   type="submit" 
                   onClick={() => publishTargetRef.current = 'threads'}
-                  className="bg-black hover:bg-zinc-800 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
+                  className="bg-zinc-800 hover:bg-zinc-900 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
                 >
                   Postar Apenas no Threads
+                </button>
+                <button 
+                  type="submit" 
+                  onClick={() => publishTargetRef.current = 'linkedin'}
+                  className="bg-[#0077b5] hover:bg-[#005f93] text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
+                >
+                  Postar Apenas no LinkedIn
+                </button>
+                <button 
+                  type="submit" 
+                  onClick={() => publishTargetRef.current = 'x'}
+                  className="bg-black hover:bg-zinc-900 text-white py-3 rounded-lg text-xs font-bold shadow-sm transition-all text-center flex items-center justify-center cursor-pointer"
+                >
+                  Postar Apenas no X
                 </button>
               </div>
             </div>
@@ -3541,7 +3679,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
     }
 
     return (
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm max-w-4xl">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm w-full">
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Gestão de Autores</h2>
           <button onClick={() => setShowAuthorForm(true)} className="bg-[#d40a38] hover:bg-red-700 text-white transition-colors px-3 py-1.5 rounded text-xs font-bold">
@@ -3580,7 +3718,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
 
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-5xl">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
           {/* Card de Configuração do Slogan e SEO */}
           <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col justify-between">
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
@@ -3691,7 +3829,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-4xl shadow-sm mt-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 w-full shadow-sm mt-6">
             <h4 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Key className="w-4 h-4 text-slate-500" /> Configuração de Chaves (APIs)</h4>
             <p className="text-xs text-slate-500 mb-6">Insira a chave da IA de sua preferência. As chaves de API ficam salvas apenas no seu navegador para segurança.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -3733,7 +3871,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             </div>
 
             <div className="mt-8 border-t border-slate-200 pt-6">
-            <h4 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Share2 className="w-4 h-4 text-slate-500" /> Integração de Redes Sociais (Meta, Threads & ImgBB)</h4>
+            <h4 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><Share2 className="w-4 h-4 text-slate-500" /> Integração de Redes Sociais (Meta, Threads, LinkedIn & ImgBB)</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Token de Acesso (Meta - Facebook & Instagram)</label>
@@ -3741,6 +3879,22 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                   setMetaToken(e.target.value);
                   localStorage.setItem("portal_ng_meta_token", e.target.value);
                 }} placeholder="EAAG..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                </div>
+                <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Token de Acesso (LinkedIn - Company Page)</label>
+                <input type="password" value={linkedinToken} onChange={e => {
+                  setLinkedinToken(e.target.value);
+                  localStorage.setItem("portal_ng_linkedin_token", e.target.value);
+                }} placeholder="Cole o token corporativo do LinkedIn..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-[#0077b5] focus:outline-none" />
+                <p className="text-[11px] text-slate-500 mt-1">Token corporativo com escopo w_organization_social.</p>
+                </div>
+                <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">ID da Organização (LinkedIn)</label>
+                <input type="text" value={linkedinOrgId} onChange={e => {
+                  setLinkedinOrgId(e.target.value);
+                  localStorage.setItem("portal_ng_linkedin_org_id", e.target.value);
+                }} placeholder="145261110" className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-[#0077b5] focus:outline-none" />
+                <p className="text-[11px] text-slate-500 mt-1">ID numérico da página oficial do Portal NG Brasil: 145261110</p>
                 </div>
                 <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Token de Acesso (Threads)</label>
@@ -3768,6 +3922,97 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                 <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">ID da Conta Comercial (Instagram)</label>
                 <input type="text" value={metaIgAccountId} onChange={e => setMetaIgAccountId(e.target.value)} placeholder="987654321..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                </div>
+
+                {/* X (antigo Twitter) */}
+                <div className="md:col-span-2 pt-4 mt-2 border-t border-slate-200">
+                  <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <span className="w-4 h-4 bg-black text-white rounded-sm flex items-center justify-center text-[10px] font-bold">𝕏</span>
+                    X (antigo Twitter) API v2 - Postagem Automática
+                  </h5>
+                  <p className="text-[11px] text-slate-500 mb-3">
+                    Requer um App no <a href="https://developer.x.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-semibold">developer.x.com</a> com permissão de escrita (<strong>Read and Write</strong>). Permite até 1.500 tweets/mês no plano gratuito.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">API Key (Consumer Key)</label>
+                      <input 
+                        type="password" 
+                        value={xApiKey} 
+                        onChange={e => {
+                          setXApiKey(e.target.value);
+                          localStorage.setItem("portal_ng_x_api_key", e.target.value);
+                        }} 
+                        placeholder="Cole sua API Key..." 
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">API Secret (Consumer Secret)</label>
+                      <input 
+                        type="password" 
+                        value={xApiSecret} 
+                        onChange={e => {
+                          setXApiSecret(e.target.value);
+                          localStorage.setItem("portal_ng_x_api_secret", e.target.value);
+                        }} 
+                        placeholder="Cole sua API Key Secret..." 
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Access Token</label>
+                      <input 
+                        type="password" 
+                        value={xAccessToken} 
+                        onChange={e => {
+                          setXAccessToken(e.target.value);
+                          localStorage.setItem("portal_ng_x_access_token", e.target.value);
+                        }} 
+                        placeholder="Cole seu Access Token..." 
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Access Token Secret</label>
+                      <input 
+                        type="password" 
+                        value={xAccessSecret} 
+                        onChange={e => {
+                          setXAccessSecret(e.target.value);
+                          localStorage.setItem("portal_ng_x_access_secret", e.target.value);
+                        }} 
+                        placeholder="Cole seu Access Token Secret..." 
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Bearer Token (OAuth 2.0 - Opcional)</label>
+                      <input 
+                        type="password" 
+                        value={xBearerToken} 
+                        onChange={e => {
+                          setXBearerToken(e.target.value);
+                          localStorage.setItem("portal_ng_x_bearer_token", e.target.value);
+                        }} 
+                        placeholder="AAAA..." 
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Nome de Usuário (@)</label>
+                      <input 
+                        type="text" 
+                        value={xUsername} 
+                        onChange={e => {
+                          setXUsername(e.target.value);
+                          localStorage.setItem("portal_ng_x_username", e.target.value);
+                        }} 
+                        placeholder="portalngbrasil" 
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-black focus:outline-none" 
+                      />
+                    </div>
+                  </div>
                 </div>
             </div>
             <div className="mt-4 flex justify-end">
@@ -3940,7 +4185,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
 
   const renderRobot = () => {
     return (
-      <div className="flex flex-col gap-6 max-w-5xl">
+      <div className="flex flex-col gap-6 w-full">
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
           <BrainCircuit className="w-6 h-6 text-indigo-600" />
@@ -4558,6 +4803,102 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                       value={metaIgAccountId}
                       onChange={e => setMetaIgAccountId(e.target.value)}
                       placeholder="17841455465356006"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* LINKEDIN */}
+              <div className="pt-4 border-t border-slate-100">
+                <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Share2 className="w-3.5 h-3.5 text-[#0077b5]" /> LinkedIn API (Company Page Oficial)
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Token de Acesso LinkedIn</label>
+                    <input
+                      type="password"
+                      value={linkedinToken}
+                      onChange={e => {
+                        setLinkedinToken(e.target.value);
+                        localStorage.setItem("portal_ng_linkedin_token", e.target.value);
+                      }}
+                      placeholder="Cole o token corporativo do LinkedIn..."
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">ID da Organização</label>
+                    <input
+                      type="text"
+                      value={linkedinOrgId}
+                      onChange={e => {
+                        setLinkedinOrgId(e.target.value);
+                        localStorage.setItem("portal_ng_linkedin_org_id", e.target.value);
+                      }}
+                      placeholder="145261110"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* X / TWITTER */}
+              <div className="pt-4 border-t border-slate-100">
+                <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 bg-black text-white rounded-sm flex items-center justify-center text-[9px] font-bold">𝕏</span> X (Twitter) API v2
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">API Key</label>
+                    <input
+                      type="password"
+                      value={xApiKey}
+                      onChange={e => {
+                        setXApiKey(e.target.value);
+                        localStorage.setItem("portal_ng_x_api_key", e.target.value);
+                      }}
+                      placeholder="API Key..."
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">API Secret</label>
+                    <input
+                      type="password"
+                      value={xApiSecret}
+                      onChange={e => {
+                        setXApiSecret(e.target.value);
+                        localStorage.setItem("portal_ng_x_api_secret", e.target.value);
+                      }}
+                      placeholder="API Secret..."
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Access Token</label>
+                    <input
+                      type="password"
+                      value={xAccessToken}
+                      onChange={e => {
+                        setXAccessToken(e.target.value);
+                        localStorage.setItem("portal_ng_x_access_token", e.target.value);
+                      }}
+                      placeholder="Access Token..."
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Access Token Secret</label>
+                    <input
+                      type="password"
+                      value={xAccessSecret}
+                      onChange={e => {
+                        setXAccessSecret(e.target.value);
+                        localStorage.setItem("portal_ng_x_access_secret", e.target.value);
+                      }}
+                      placeholder="Access Token Secret..."
                       className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
                     />
                   </div>
@@ -5967,7 +6308,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
         
         {/* Topbar (oculta no Dashboard para visual escuro em tela cheia sem faixa branca) */}
         {activeTab !== 'dashboard' && (
-          <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm sticky top-0 z-20">
+          <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm sticky top-0 z-20">
             <h1 className="text-xl font-bold text-title-blue font-heading capitalize">
               {activeTab === 'insights' && 'Analytics e Desempenho'}
               {activeTab === 'materias' && (showForm ? 'Publicador' : 'Gestão de Notícias')}
@@ -5991,7 +6332,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
         )}
 
         {/* Dashboard Content Area */}
-        <div className={activeTab === 'dashboard' ? "p-0 flex-1 overflow-y-auto bg-[#060913]" : "p-4 md:p-8 flex-1 overflow-y-auto bg-slate-50/50"}>
+        <div className={activeTab === 'dashboard' ? "p-0 flex-1 overflow-y-auto bg-[#060913]" : "p-3 sm:p-4 md:p-5 flex-1 overflow-y-auto bg-slate-50/50"}>
           {activeTab === 'insights' && renderInsights()}
           {activeTab === 'materias' && renderMaterias()}
           {activeTab === 'autores' && renderAutores()}
@@ -6038,18 +6379,22 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
                 statusText: 'Publicado nas redes sociais com sucesso!',
                 article: socialModalArticle,
                 target: 'all',
-                targetPlatforms: ['facebook', 'instagram', 'threads'],
+                targetPlatforms: ['facebook', 'instagram', 'threads', 'linkedin', 'x'],
                 links: {
                   site: `https://portalngbrasil.com.br/#/noticia/${artId}`,
                   share: `https://portalngbrasil.com.br/share.php?id=${artId}`,
                   instagram: postResult?.instagram || 'https://www.instagram.com/portalngbrasil/',
                   facebook: postResult?.facebook || (metaFbPageId ? `https://www.facebook.com/${metaFbPageId}` : 'https://www.facebook.com/portalngbrasil'),
-                  threads: postResult?.threads || 'https://www.threads.net/@portalngbrasil'
+                  threads: postResult?.threads || 'https://www.threads.net/@portalngbrasil',
+                  linkedin: postResult?.linkedin || (linkedinOrgId ? `https://www.linkedin.com/company/${linkedinOrgId}` : 'https://www.linkedin.com/company/portalngbrasil'),
+                  x: postResult?.x || (xUsername ? `https://x.com/${xUsername}` : 'https://x.com/portalngbrasil')
                 },
                 errors: {
                   instagram: postResult?.igError,
                   facebook: postResult?.fbError,
-                  threads: postResult?.thError
+                  threads: postResult?.thError,
+                  linkedin: postResult?.liError,
+                  x: postResult?.xError
                 }
               });
             }}
@@ -6058,6 +6403,14 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
             metaIgAccountId={metaIgAccountId}
             threadsToken={threadsToken}
             threadsUserId={threadsUserId}
+            linkedinToken={linkedinToken}
+            linkedinOrgId={linkedinOrgId}
+            xApiKey={xApiKey}
+            xApiSecret={xApiSecret}
+            xAccessToken={xAccessToken}
+            xAccessSecret={xAccessSecret}
+            xBearerToken={xBearerToken}
+            xUsername={xUsername}
             imgbbKey={imgbbKey}
           />
         )}
@@ -6066,6 +6419,7 @@ IMPORTANTE: Retorne ESTRITAMENTE um JSON com este formato (NENHUM TEXTO ADICIONA
           isOpen={Boolean(publishModalData)} 
           onClose={handleClosePublishModal} 
           data={publishModalData} 
+          onRetryPlatform={handleRetryPublishPlatform}
         />
 
         {/* Modal de Compartilhamento de Link de Aprovação */}

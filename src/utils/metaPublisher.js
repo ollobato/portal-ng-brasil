@@ -3,9 +3,11 @@ import { db } from '../lib/firebase';
 import { uploadImageForSocial, uploadVideoForSocial } from './imageUploader';
 import { formatInstagramCaption, formatFacebookCaption, formatThreadsCaption } from './socialExporter';
 import { renderCardSlideToBlob, renderNgCardToBlob } from './ngCardRenderer.js';
+import { publishArticleToLinkedIn } from './linkedinPublisher';
+import { publishArticleToX } from './xPublisher';
 
 export const FALLBACK_META_SETTINGS = {
-  metaToken: "EAAfkmL0QDnwBSZCazrXzU3uVto6vWKdtDEMaWiWIKe9b66NPhCzSlQALQlZBkcNyM3DDoz2iD84JZCGcs9ueHkUsGplljRIbXmUM4Smx3tuIF14ZBYD4NF8EFN5FZBCcbXcEMwzlOZAJEZBW47ASG47DXtDynrNVmDAuKDCnuRZCH3CmiBJZAvpwwswirCAov58prHZCgAMPzZChHkLee1cmtMYPhDu5vXrFT8L4szKiDPlJZAFlEsXm4ryyXoL0qzZAJJ2NUAdKCkCXf1jVmgbOve9NVuyoK",
+  metaToken: "EAAfkmL0QDnwBS82apn4Xc0VDUKhZAc1JyIBkUQYlZAVwZALJ7AVNvUKSHyXROrKiHRGbId2WP4CzE5Qsw4BuRv11yTHOQave839MIqz3wMOx49KE8lfl2KJpkKQegnqTdiRgtmAXgEAyhx7ltrRIZAH5v2knzZAR8aUXrUhpI5MkwBnXqLlBvb2bnJKgwbmtaGhLcbjk5jvZB7Dcv9cE6ZAnteNvbouoIvHWGyEOA7JsXvgZAUjb4dpoEiA0SMywZAIFToKgC4K2jF2KbTgxJ7DqaEn8NzwZDZD",
   metaFbPageId: "109031887591187",
   metaIgAccountId: "17841455465356006",
   imgbbKey: "813f88f11b22e11a7a08ef94bfa29fa9",
@@ -718,7 +720,9 @@ export async function publishArticleToAllChannels({
       share: shareUrl,
       instagram: null,
       facebook: null,
-      threads: null
+      threads: null,
+      linkedin: null,
+      x: null
     },
     errors: {}
   };
@@ -775,6 +779,17 @@ export async function publishArticleToAllChannels({
     // -------------------------------------------------------------
     onProgress({ step: 'portal', message: '🚀 Publicando no Portal NG Brasil...' });
     
+    // Garante que a foto de capa do portal use a imagem do card/customizada pelo usuário com máxima prioridade
+    const resolvedCoverImage = (
+      article.cardInstagram?.imagem ||
+      effectiveCards?.[0]?.imageUrl ||
+      article.socialCards?.[0]?.imageUrl ||
+      article.cards?.[0]?.imageUrl ||
+      article.image ||
+      article.metadata?.imagem ||
+      ''
+    ).trim();
+
     const publishedPayload = {
       ...article,
       id: finalArticleId,
@@ -783,7 +798,7 @@ export async function publishArticleToAllChannels({
       category: article.category || 'geral',
       categoryLabel: article.category ? (article.category.charAt(0).toUpperCase() + article.category.slice(1)) : 'Geral',
       praca: article.praca || 'Nacional',
-      image: article.image || '',
+      image: resolvedCoverImage,
       content: article.content || '',
       date: article.date || dateStr,
       readTime: article.readTime || '3 min de leitura',
@@ -914,18 +929,28 @@ export async function publishArticleToAllChannels({
           linkUrl: shareUrl,
           asPhoto: false
         });
-        result.links.facebook = fbRes.url || `https://www.facebook.com/${conf.metaFbPageId}`;
-        console.log("Facebook postado com sucesso:", result.links.facebook);
+        if (fbRes && (fbRes.postId || fbRes.url)) {
+          result.links.facebook = fbRes.url || `https://www.facebook.com/${fbRes.postId}`;
+          console.log("Facebook postado com sucesso:", result.links.facebook);
+        } else {
+          result.errors.facebook = "Falha ao publicar no Facebook (resposta sem confirmação de ID).";
+        }
       } catch (fbErr) {
         console.error("Exceção ao postar no Facebook:", fbErr);
         result.errors.facebook = fbErr.message;
       }
+    } else {
+      result.errors.facebook = "Token da Meta ou ID da Página do Facebook não configurados.";
     }
 
     // -------------------------------------------------------------
     // ETAPA 5: PUBLICAR NO INSTAGRAM FEED (CARD ÚNICO OU CARROSSEL COMPLETO)
     // -------------------------------------------------------------
-    if (conf.metaIgAccountId && conf.metaToken && mediaItems.length > 0) {
+    if (!conf.metaIgAccountId || !conf.metaToken) {
+      result.errors.instagram = "Token da Meta ou ID da Conta do Instagram não configurados.";
+    } else if (mediaItems.length === 0) {
+      result.errors.instagram = "Falha ao renderizar ou hospedar a arte dos cards para o Instagram.";
+    } else {
       try {
         const safeCaption = caption.length > 2100 ? caption.substring(0, 2100) + '...' : caption;
 
@@ -982,12 +1007,14 @@ export async function publishArticleToAllChannels({
             throw new Error("Publicação Instagram: " + (igPublishData.error.error_user_msg || igPublishData.error.message));
           }
 
-          result.links.instagram = 'https://www.instagram.com/portalngbrasil/';
-          try {
-            const permaRes = await fetch(`https://graph.facebook.com/v20.0/${igPublishData.id}?fields=permalink&access_token=${conf.metaToken}`);
-            const permaData = await permaRes.json();
-            if (permaData.permalink) result.links.instagram = permaData.permalink;
-          } catch (_) {}
+          if (igPublishData.id) {
+            result.links.instagram = `https://www.instagram.com/p/${igPublishData.id}/`;
+            try {
+              const permaRes = await fetch(`https://graph.facebook.com/v20.0/${igPublishData.id}?fields=permalink&access_token=${conf.metaToken}`);
+              const permaData = await permaRes.json();
+              if (permaData.permalink) result.links.instagram = permaData.permalink;
+            } catch (_) {}
+          }
         } else {
           // Publicação de CARROSSEL COMPLETO (Fotos e Vídeos)
           onProgress({ step: 'instagram_carousel', message: `📸 Criando carrossel de ${mediaItems.length} cards no Instagram...` });
@@ -1098,12 +1125,14 @@ export async function publishArticleToAllChannels({
             throw new Error("Publicação Carrossel Instagram: " + (igPublishData.error.error_user_msg || igPublishData.error.message));
           }
 
-          result.links.instagram = 'https://www.instagram.com/portalngbrasil/';
-          try {
-            const permaRes = await fetch(`https://graph.facebook.com/v20.0/${igPublishData.id}?fields=permalink&access_token=${conf.metaToken}`);
-            const permaData = await permaRes.json();
-            if (permaData.permalink) result.links.instagram = permaData.permalink;
-          } catch (_) {}
+          if (igPublishData.id) {
+            result.links.instagram = `https://www.instagram.com/p/${igPublishData.id}/`;
+            try {
+              const permaRes = await fetch(`https://graph.facebook.com/v20.0/${igPublishData.id}?fields=permalink&access_token=${conf.metaToken}`);
+              const permaData = await permaRes.json();
+              if (permaData.permalink) result.links.instagram = permaData.permalink;
+            } catch (_) {}
+          }
           console.log("Carrossel Instagram publicado com sucesso:", result.links.instagram);
         }
       } catch (igErr) {
@@ -1138,6 +1167,60 @@ export async function publishArticleToAllChannels({
     }
 
     // -------------------------------------------------------------
+    // ETAPA 4.6: PUBLICAR NO LINKEDIN (Company Page Oficial)
+    // -------------------------------------------------------------
+    try {
+      onProgress({ step: 'linkedin', message: '💼 Publicando na Company Page do LinkedIn...' });
+      const liRes = await publishArticleToLinkedIn({
+        article: publishedPayload,
+        shareUrl,
+        settings: {
+          linkedinToken: settings?.linkedinToken,
+          linkedinOrgId: settings?.linkedinOrgId
+        }
+      });
+      if (liRes.success) {
+        result.links.linkedin = liRes.url;
+        console.log("LinkedIn publicado com sucesso:", result.links.linkedin);
+      } else if (liRes.error && !liRes.error.includes('não configurado')) {
+        result.errors.linkedin = liRes.error;
+      }
+    } catch (liErr) {
+      console.warn("Aviso ao postar no LinkedIn:", liErr.message);
+      result.errors.linkedin = liErr.message;
+    }
+
+    // -------------------------------------------------------------
+    // ETAPA 4.7: PUBLICAR NO X / TWITTER (@portalngbrasil)
+    // -------------------------------------------------------------
+    try {
+      onProgress({ step: 'x', message: '🐦 Publicando no X (@portalngbrasil)...' });
+      const xRes = await publishArticleToX({
+        article: publishedPayload,
+        shareUrl,
+        mediaBlob: imageBlobs[0] || null,
+        mediaUrl: publicImageUrl,
+        settings: {
+          xApiKey: settings?.xApiKey,
+          xApiSecret: settings?.xApiSecret,
+          xAccessToken: settings?.xAccessToken,
+          xAccessSecret: settings?.xAccessSecret,
+          xBearerToken: settings?.xBearerToken,
+          xUsername: settings?.xUsername
+        }
+      });
+      if (xRes.success) {
+        result.links.x = xRes.url;
+        console.log("X (Twitter) publicado com sucesso:", result.links.x);
+      } else if (xRes.error && !xRes.error.includes('não configuradas')) {
+        result.errors.x = xRes.error;
+      }
+    } catch (xErr) {
+      console.warn("Aviso ao postar no X:", xErr.message);
+      result.errors.x = xErr.message;
+    }
+
+    // -------------------------------------------------------------
     // ETAPA 5: ATUALIZAR LINKS SOCIAIS NO FIRESTORE
     // -------------------------------------------------------------
     try {
@@ -1160,4 +1243,313 @@ export async function publishArticleToAllChannels({
     result.errors.general = err.message;
     throw err;
   }
+}
+
+/**
+ * Reenvia a publicação de uma matéria para uma rede social específica (retry pontual)
+ */
+export async function retryPlatformPublish({
+  platform,
+  article,
+  shareUrl = null,
+  canvas = null,
+  cards = null,
+  settings = {},
+  onProgress = () => {}
+}) {
+  if (!article) throw new Error("Artigo não informado para reenvio.");
+  const conf = await getLiveMetaSettings(settings);
+  const finalArticleId = String(article.id || `news-${Date.now()}`);
+  const effectiveShareUrl = shareUrl || `https://portalngbrasil.com.br/share.php?id=${finalArticleId}`;
+
+  let resultUrl = null;
+
+  if (platform === 'facebook') {
+    onProgress({ step: 'facebook', message: 'Reenviando para o Facebook...' });
+    if (!conf.metaFbPageId || !conf.metaToken) {
+      throw new Error("Token do Meta ou ID da Página do Facebook não configurados.");
+    }
+    const fbCaption = formatFacebookCaption(article, effectiveShareUrl);
+    const fbRes = await publishToFacebookPage({
+      pageId: conf.metaFbPageId,
+      token: conf.metaToken,
+      message: fbCaption,
+      linkUrl: effectiveShareUrl,
+      asPhoto: false
+    });
+    resultUrl = fbRes.url || (fbRes.postId ? `https://www.facebook.com/${fbRes.postId}` : null);
+    if (!resultUrl) throw new Error("Facebook não retornou confirmação da publicação.");
+
+  } else if (platform === 'instagram') {
+    onProgress({ step: 'instagram', message: 'Reenviando para o Instagram...' });
+    if (!conf.metaIgAccountId || !conf.metaToken) {
+      throw new Error("Token do Meta ou ID da Conta do Instagram não configurados.");
+    }
+
+    let effectiveCards = cards || article.socialCards || article.cards || null;
+    if (!Array.isArray(effectiveCards) || effectiveCards.length === 0) {
+      effectiveCards = [
+        {
+          id: 'card-1',
+          mode: 'template',
+          mediaType: 'image',
+          imageUrl: (article.cardInstagram?.imagem || article.image || article.metadata?.imagem || '').trim(),
+          title: article.cardInstagram?.titulo || article.title || '',
+          subtitle: article.cardInstagram?.apoio || article.subtitle || '',
+          highlightText: article.cardInstagram?.destaque || '',
+          categoryLabel: article.categoryLabel || article.category || 'NOTÍCIAS'
+        },
+        {
+          id: 'card-cta',
+          mode: 'full_image',
+          mediaType: 'image',
+          imageUrl: '/siga-portalngbrasil.jpg',
+          title: 'Siga @portalngbrasil',
+          subtitle: 'Acompanhe as notícias que impactam o país e o mundo.',
+          isCtaCard: true
+        }
+      ];
+    } else if (effectiveCards.length === 1 && !effectiveCards.some(c => c.isCtaCard || (c.imageUrl && c.imageUrl.includes('siga-portalngbrasil')))) {
+      effectiveCards = [
+        ...effectiveCards,
+        {
+          id: 'card-cta',
+          mode: 'full_image',
+          mediaType: 'image',
+          imageUrl: '/siga-portalngbrasil.jpg',
+          title: 'Siga @portalngbrasil',
+          subtitle: 'Acompanhe as notícias que impactam o país e o mundo.',
+          isCtaCard: true
+        }
+      ];
+    }
+
+    const mediaItems = [];
+    for (let i = 0; i < effectiveCards.length; i++) {
+      const card = effectiveCards[i];
+      if (card.mediaType === 'video' && (card.videoFile || card.videoUrl)) {
+        const upVidUrl = await uploadVideoForSocial(card.videoFile || card.videoUrl);
+        mediaItems.push({ type: 'video', url: upVidUrl });
+      } else {
+        let cardBlob = null;
+        if (i === 0 && canvas && canvas.width > 0 && canvas.height > 0) {
+          try {
+            cardBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+          } catch (_) {}
+        }
+        if (!cardBlob) {
+          cardBlob = await renderCardSlideToBlob(card, {
+            aspectRatio: '4:5',
+            title: card.title || article.cardInstagram?.titulo || article.title,
+            subtitle: card.subtitle || article.cardInstagram?.apoio || article.subtitle,
+            imageUrl: card.imageUrl || card.image || article.cardInstagram?.imagem || article.image,
+            customHighlightText: card.highlightText || article.cardInstagram?.destaque
+          });
+        }
+        if (cardBlob) {
+          const upUrl = await uploadImageForSocial(cardBlob, conf.imgbbKey);
+          if (upUrl) mediaItems.push({ type: 'image', url: upUrl });
+        }
+      }
+    }
+
+    if (mediaItems.length === 0) {
+      throw new Error("Falha ao gerar/hospedar os cards da notícia para o Instagram.");
+    }
+
+    const caption = formatInstagramCaption(article);
+    const safeCaption = caption.length > 2100 ? caption.substring(0, 2100) + '...' : caption;
+    resultUrl = null;
+
+    if (mediaItems.length === 1) {
+      const single = mediaItems[0];
+      const payload = single.type === 'video'
+        ? { media_type: 'REELS', video_url: single.url, caption: safeCaption, access_token: conf.metaToken }
+        : { image_url: single.url, caption: safeCaption, access_token: conf.metaToken };
+
+      const mRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const mData = await mRes.json();
+      if (mData.error) throw new Error("Instagram: " + (mData.error.error_user_msg || mData.error.message));
+
+      const creationId = mData.id;
+      let retries = single.type === 'video' ? 24 : 12;
+      while (retries > 0) {
+        await new Promise(r => setTimeout(r, 3000));
+        try {
+          const stRes = await fetch(`https://graph.facebook.com/v20.0/${creationId}?fields=status_code,status&access_token=${conf.metaToken}`);
+          const stData = await stRes.json();
+          if (stData.status_code === 'FINISHED') break;
+          if (stData.status_code === 'ERROR') throw new Error("Processamento Instagram falhou.");
+        } catch (stErr) {
+          if (stErr.message.includes('Processamento Instagram')) throw stErr;
+        }
+        retries--;
+      }
+
+      const pubRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media_publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creation_id: creationId, access_token: conf.metaToken })
+      });
+      const pubData = await pubRes.json();
+      if (pubData.error) throw new Error("Publicação Instagram: " + (pubData.error.error_user_msg || pubData.error.message));
+      if (pubData.id) {
+        resultUrl = `https://www.instagram.com/p/${pubData.id}/`;
+        try {
+          const pRes = await fetch(`https://graph.facebook.com/v20.0/${pubData.id}?fields=permalink&access_token=${conf.metaToken}`);
+          const pData = await pRes.json();
+          if (pData.permalink) resultUrl = pData.permalink;
+        } catch (_) {}
+      }
+    } else {
+      // Carrossel
+      const childrenIds = [];
+      for (let i = 0; i < mediaItems.length; i++) {
+        const item = mediaItems[i];
+        const childPayload = item.type === 'video'
+          ? { media_type: 'VIDEO', video_url: item.url, is_carousel_item: true, access_token: conf.metaToken }
+          : { image_url: item.url, is_carousel_item: true, access_token: conf.metaToken };
+
+        const cRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(childPayload)
+        });
+        const cData = await cRes.json();
+        if (cData.error) throw new Error(`Slide ${i + 1} Instagram: ` + (cData.error.error_user_msg || cData.error.message));
+        if (cData.id) childrenIds.push(cData.id);
+      }
+
+      if (childrenIds.length < 2) {
+        throw new Error("Carrossel requer pelo menos 2 slides no Instagram.");
+      }
+
+      const carRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          media_type: 'CAROUSEL',
+          children: childrenIds,
+          caption: safeCaption,
+          access_token: conf.metaToken
+        })
+      });
+      const carData = await carRes.json();
+      if (carData.error) throw new Error("Container Carrossel: " + (carData.error.error_user_msg || carData.error.message));
+
+      const carouselCreationId = carData.id;
+      let retries = 18;
+      while (retries > 0) {
+        await new Promise(r => setTimeout(r, 3500));
+        try {
+          const stRes = await fetch(`https://graph.facebook.com/v20.0/${carouselCreationId}?fields=status_code,status&access_token=${conf.metaToken}`);
+          const stData = await stRes.json();
+          if (stData.status_code === 'FINISHED') break;
+          if (stData.status_code === 'ERROR') throw new Error("Processamento Carrossel falhou.");
+        } catch (stErr) {
+          if (stErr.message.includes('Processamento Carrossel')) throw stErr;
+        }
+        retries--;
+      }
+
+      const carPubRes = await fetch(`https://graph.facebook.com/v20.0/${conf.metaIgAccountId}/media_publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creation_id: carouselCreationId, access_token: conf.metaToken })
+      });
+      const carPubData = await carPubRes.json();
+      if (carPubData.error) throw new Error("Publicação Carrossel: " + (carPubData.error.error_user_msg || carPubData.error.message));
+      if (carPubData.id) {
+        resultUrl = `https://www.instagram.com/p/${carPubData.id}/`;
+        try {
+          const pRes = await fetch(`https://graph.facebook.com/v20.0/${carPubData.id}?fields=permalink&access_token=${conf.metaToken}`);
+          const pData = await pRes.json();
+          if (pData.permalink) resultUrl = pData.permalink;
+        } catch (_) {}
+      }
+    }
+
+    if (!resultUrl) {
+      throw new Error("Instagram não confirmou a publicação da publicação.");
+    }
+
+  } else if (platform === 'threads') {
+    onProgress({ step: 'threads', message: 'Reenviando para o Threads...' });
+    const effectiveThreadsToken = (conf.threadsToken || FALLBACK_META_SETTINGS.threadsToken || '').trim();
+    const effectiveThreadsUserId = (conf.threadsUserId || FALLBACK_META_SETTINGS.threadsUserId || '').trim();
+    if (!effectiveThreadsToken || !effectiveThreadsUserId) {
+      throw new Error("Token e ID do Threads não configurados.");
+    }
+    const text = formatThreadsCaption(article, effectiveShareUrl);
+    const publicImageUrl = (article.image || '').trim() || null;
+    const thRes = await publishToThreads({
+      userId: effectiveThreadsUserId,
+      token: effectiveThreadsToken,
+      publicImageUrl,
+      text,
+      linkUrl: effectiveShareUrl
+    });
+    resultUrl = thRes.url || 'https://www.threads.net/@portalngbrasil';
+
+  } else if (platform === 'linkedin') {
+    onProgress({ step: 'linkedin', message: 'Reenviando para o LinkedIn...' });
+    const liRes = await publishArticleToLinkedIn({
+      article,
+      shareUrl: effectiveShareUrl,
+      settings: {
+        linkedinToken: settings?.linkedinToken || localStorage.getItem('portal_ng_linkedin_token'),
+        linkedinOrgId: settings?.linkedinOrgId || localStorage.getItem('portal_ng_linkedin_org_id')
+      }
+    });
+    if (liRes.success) {
+      resultUrl = liRes.url;
+    } else {
+      throw new Error(liRes.error || "Falha ao reenviar para o LinkedIn.");
+    }
+
+  } else if (platform === 'x') {
+    onProgress({ step: 'x', message: 'Reenviando para o X (Twitter)...' });
+    const xRes = await publishArticleToX({
+      article,
+      shareUrl: effectiveShareUrl,
+      settings: {
+        xApiKey: settings?.xApiKey || localStorage.getItem('portal_ng_x_api_key'),
+        xApiSecret: settings?.xApiSecret || localStorage.getItem('portal_ng_x_api_secret'),
+        xAccessToken: settings?.xAccessToken || localStorage.getItem('portal_ng_x_access_token'),
+        xAccessSecret: settings?.xAccessSecret || localStorage.getItem('portal_ng_x_access_secret'),
+        xBearerToken: settings?.xBearerToken || localStorage.getItem('portal_ng_x_bearer_token'),
+        xUsername: settings?.xUsername || localStorage.getItem('portal_ng_x_username')
+      }
+    });
+    if (xRes.success) {
+      resultUrl = xRes.url;
+    } else {
+      throw new Error(xRes.error || "Falha ao reenviar para o X.");
+    }
+  } else {
+    throw new Error(`Plataforma ${platform} não suportada.`);
+  }
+
+  // Atualiza Firestore com o novo link
+  if (article.id && resultUrl) {
+    try {
+      await updateDoc(doc(db, 'news', String(article.id)), {
+        [`socialLinks.${platform}`]: resultUrl,
+        [`socialErrors.${platform}`]: null
+      });
+      await updateDoc(doc(db, 'drafts', String(article.id)), {
+        [`socialLinks.${platform}`]: resultUrl,
+        [`socialErrors.${platform}`]: null
+      });
+    } catch (_) {}
+  }
+
+  return {
+    success: true,
+    url: resultUrl
+  };
 }

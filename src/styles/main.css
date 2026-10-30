@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source "../**/*.{js,jsx,ts,tsx}";
+@source "../../index.html";
 
 /* Custom Theme Variables & Portal NG Brasil Palette */
 @layer base {

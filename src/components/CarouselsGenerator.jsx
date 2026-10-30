@@ -827,7 +827,7 @@ Quantidade de Telas Solicitadas: ${pautasCount}
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4">
+    <div className="w-full py-4 px-2 sm:px-4">
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">

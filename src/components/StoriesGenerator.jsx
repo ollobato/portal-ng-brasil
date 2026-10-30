@@ -91,22 +91,99 @@ export function extractStoriesFromAiResponse(obj, defaultBg = 'plantao') {
   }).filter(s => s.text && s.text.trim().length > 0);
 }
 
+// Normalização e remoção de acentos para comparação textual precisa
+export function normalizeTextForMatching(text) {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Stopwords ampliadas da língua portuguesa e termos jornalísticos genéricos
+export const PT_STOPWORDS = new Set([
+  'de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'com', 'nao', 'uma', 'os', 'no',
+  'se', 'na', 'por', 'mais', 'as', 'dos', 'como', 'mas', 'foi', 'ao', 'ele', 'das', 'tem', 'seu',
+  'sua', 'ou', 'ser', 'quando', 'muito', 'nos', 'ja', 'esta', 'estao', 'tambem', 'so', 'pelo',
+  'pela', 'ate', 'isso', 'ela', 'entre', 'era', 'depois', 'sem', 'mesmo', 'aos', 'ter', 'seus',
+  'quem', 'nas', 'me', 'esse', 'eles', 'voce', 'tinha', 'foram', 'essa', 'num', 'nem', 'suas',
+  'meu', 'minha', 'numa', 'pelos', 'elas', 'havia', 'seja', 'qual', 'sera', 'tenho',
+  'deles', 'essas', 'esses', 'pelas', 'este', 'dele', 'nossa', 'nosso', 'nossos', 'nossas', 'dela',
+  'delas', 'estes', 'estas', 'aquele', 'aquela', 'aqueles', 'aquelas', 'isto', 'aquilo',
+  'segundo', 'afirma', 'disse', 'diz', 'anuncia', 'aponta', 'revela', 'destaca', 'informa',
+  'noticia', 'noticias', 'hoje', 'ontem', 'nesta', 'neste', 'ultimas', 'ultimos', 'hora',
+  'momento', 'portal', 'brasil', 'mundo', 'governo', 'pais', 'sobre', 'apos', 'durante', 'contra',
+  'novo', 'nova', 'novos', 'novas', 'tudo', 'todos', 'todas', 'cada', 'onde', 'porque', 'enquanto'
+]);
+
+export function extractKeyTokens(text) {
+  const normalized = normalizeTextForMatching(text);
+  return normalized
+    .split(' ')
+    .filter(w => w.length >= 4 && !PT_STOPWORDS.has(w));
+}
+
+// Verifica se dois textos são repetidos ou abordam o mesmo tema/personagem/notícia
+export function areTextsSimilarOrRepeated(textA, textB, threshold = 0.25) {
+  if (!textA || !textB) return false;
+  
+  const tokensA = extractKeyTokens(textA);
+  const tokensB = extractKeyTokens(textB);
+  
+  if (tokensA.length === 0 || tokensB.length === 0) return false;
+
+  const setA = new Set(tokensA);
+  const setB = new Set(tokensB);
+
+  // Calcula interseção de palavras-chave
+  const intersection = [];
+  setA.forEach(t => {
+    if (setB.has(t)) intersection.push(t);
+  });
+
+  // Se compartilham 3 ou mais palavras-chave idênticas
+  if (intersection.length >= 3) {
+    return true;
+  }
+
+  // Se compartilham 2 palavras-chave específicas e longas (>= 5 letras, ex: "bolsonaro", "passaporte", "guimaraes", "tarifa")
+  const longMatches = intersection.filter(w => w.length >= 5);
+  if (longMatches.length >= 2) {
+    return true;
+  }
+
+  // Similaridade de Jaccard
+  const union = new Set([...tokensA, ...tokensB]);
+  const jaccard = intersection.length / union.size;
+  if (jaccard >= threshold) {
+    return true;
+  }
+
+  return false;
+}
+
 export default function StoriesGenerator({ perplexityKey, geminiKey, metaToken, metaIgAccountId, imgbbKey, newsData = [], draftData = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [logFilter, setLogFilter] = useState('');
   const [copiedLogId, setCopiedLogId] = useState(null);
-  const [pautasCount, setPautasCount] = useState('5');
+  const [pautasCount, setPautasCount] = useState('2');
   const [globalBackground, setGlobalBackground] = useState('plantao');
   
-const defaultPrompt = `Você é um editor de social media conservador e ágil do Portal NG Brasil. 
-Crie telas curtas para Stories do Instagram com as NOTÍCIAS MAIS QUENTES E IMPORTANTES DO MOMENTO.
+const defaultPrompt = `Você é um editor de social media sênior e conservador do Portal NG Brasil. 
+Crie EXATAMENTE 2 telas curtas para Stories do Instagram com as NOTÍCIAS MAIS QUENTES E IMPORTANTES DO MOMENTO.
 
-Regras Fundamentais:
-1. DIVISÃO EQUILIBRADA: Metade das notícias sobre o Brasil (política, economia, segurança, justiça) e metade Internacional (EUA, geopolítica, mundo).
-2. CONTEÚDO RECENTE: Priorize fatos quentes e recentes de hoje ou dos últimos dias. Foque em acontecimentos de alto impacto e repercussão pública.
-3. NÃO REPETIR: Evite focar exatamente nos mesmos fatos das coberturas recentes enviadas abaixo, buscando novos desdobramentos ou outros acontecimentos quentes de relevância.
-4. OBRIGATÓRIO: Retorne SEMPRE a quantidade de notícias solicitada. NUNCA retorne a lista vazia. Se uma pauta já foi coberta, escolha outro acontecimento quente do momento.
-5. FORMATO DE CADA TELA: Um resumo direto e impactante de 1 a 2 frases com emojis conservadores (🇧🇷, 🚨, ⚖️, 🛑, 🌍). Fácil de ler no celular.
+Regras Fundamentais (Invioláveis):
+1. QUANTIDADE E DIVISÃO OBRIGATÓRIA (EXATAMENTE 2 TELAS):
+   - Tela 1: Notícia quente e inédita do BRASIL (política, economia, agronegócio, judiciário ou segurança).
+   - Tela 2: Notícia quente e inédita INTERNACIONAL (geopolítica mundial, EUA, Europa ou mercado global).
+2. DIVERSIDADE ENTRE TELAS: As 2 telas DEVEM cobrir assuntos 100% distintos entre si. É estritamente proibido que a tela 1 e a tela 2 abordem a mesma pessoa, mesmo tema ou mesmo assunto.
+3. PROIBIÇÃO ABSOLUTA DE REPETIÇÃO E SIMILARIDADE: É TERMINANTEMENTE PROIBIDO gerar notícias sobre pessoas, temas, projetos de lei ou notícias parecidas com as coberturas recentes (ver lista abaixo).
+4. ZERO DESDOBRAMENTOS DO MESMO CASO: Não traga desdobramentos, novas declarações, opiniões ou novas notas sobre pautas já abordadas. Se um tema (ex: Flávio Bolsonaro, MP das Bets, PEC da Segurança, Fachin/STF, Rombo fiscal, Superendividados) já foi citado, ele está 100% VETADO. Traga outros fatos quentes de hoje.
+5. CONTEÚDO RECENTE E INÉDITO: Apenas fatos reais de hoje (últimas horas) com relevância pública.
+6. FORMATO DE CADA TELA: Um resumo direto de 1 a 2 frases com emojis conservadores (🇧🇷, 🚨, ⚖️, 🛑, 🌍). Fácil de ler no celular.
 
 Retorne estritamente um JSON no formato abaixo, com todas as notícias dentro do array "stories":
 { "stories": [
@@ -131,11 +208,29 @@ Retorne estritamente um JSON no formato abaixo, com todas as notícias dentro do
   const [storiesLog, setStoriesLog] = useFirebaseSync('stories_logs', []);
   const [showPromptConfig, setShowPromptConfig] = useState(false);
 
-  const [automationSettings, setAutomationSettings] = useFirebaseDoc('settings', 'automation', { carousel: { enabled: false, intervalMinutes: 30, pautasCount: 5, lastRun: 0 }, stories: { enabled: false, intervalMinutes: 30, pautasCount: 5, lastRun: 0 } });
+  const [automationSettings, setAutomationSettings] = useFirebaseDoc('settings', 'automation', { carousel: { enabled: false, intervalMinutes: 30, pautasCount: 5, lastRun: 0 }, stories: { enabled: false, intervalMinutes: 30, pautasCount: 2, lastRun: 0 } });
   
   const autoPostEnabled = Boolean(automationSettings?.stories?.enabled);
   const autoPostInterval = Number(automationSettings?.stories?.intervalMinutes) || 30;
-  const autoPostCount = Number(automationSettings?.stories?.pautasCount) || 5;
+  const autoPostCount = Number(automationSettings?.stories?.pautasCount) || 2;
+
+  // Garante que por padrão sejam 2 telas a cada 30 minutos de forma persistente
+  useEffect(() => {
+    if (automationSettings?.stories) {
+      const count = automationSettings.stories.pautasCount;
+      const interval = automationSettings.stories.intervalMinutes;
+      if (!count || count === 3 || count === 5 || !interval) {
+        setAutomationSettings(prev => ({
+          ...prev,
+          stories: {
+            ...(prev?.stories || {}),
+            pautasCount: 2,
+            intervalMinutes: 30
+          }
+        }));
+      }
+    }
+  }, [automationSettings?.stories?.pautasCount, automationSettings?.stories?.intervalMinutes]);
 
   // Relógio ativo para sincronização segundo a segundo da contagem regressiva
   const [nowTick, setNowTick] = useState(Date.now());
@@ -211,8 +306,8 @@ Retorne estritamente um JSON no formato abaixo, com todas as notícias dentro do
     const seen = new Set();
     const items = [];
 
-    // 1. Stories gerados anteriormente (últimos 35 registros)
-    (sortedStoriesLog || []).slice(0, 35).forEach(log => {
+    // 1. Stories gerados anteriormente (últimos 50 registros)
+    (sortedStoriesLog || []).slice(0, 50).forEach(log => {
       if (log.pauta && !log.pauta.toLowerCase().includes('notícias quentes') && !log.pauta.toLowerCase().includes('auto-post')) {
         const cleanPauta = log.pauta.trim();
         if (cleanPauta.length > 5 && !seen.has(cleanPauta.toLowerCase())) {
@@ -222,8 +317,8 @@ Retorne estritamente um JSON no formato abaixo, com todas as notícias dentro do
       }
       (log.stories || []).forEach(s => {
         const raw = typeof s === 'string' ? s : (s.title || s.text || '');
-        const cleanHeadline = raw.replace(/^[🚨🛑🇧🇷⚖️📢⚠️\s]+/, '').split('\n')[0].split('.')[0].trim();
-        if (cleanHeadline.length > 12 && !seen.has(cleanHeadline.toLowerCase())) {
+        const cleanHeadline = raw.replace(/^[🚨🛑🇧🇷⚖️📢⚠️🌍\s]+/, '').split('\n')[0].trim();
+        if (cleanHeadline.length > 10 && !seen.has(cleanHeadline.toLowerCase())) {
           seen.add(cleanHeadline.toLowerCase());
           items.push(`Story: ${cleanHeadline}`);
         }
@@ -231,7 +326,7 @@ Retorne estritamente um JSON no formato abaixo, com todas as notícias dentro do
     });
 
     // 2. Notícias recentes publicadas ou em rascunho no portal
-    [...(newsData || []), ...(draftData || [])].slice(0, 35).forEach(n => {
+    [...(newsData || []), ...(draftData || [])].slice(0, 40).forEach(n => {
       if (n.title) {
         const cleanTitle = n.title.trim();
         if (cleanTitle.length > 10 && !seen.has(cleanTitle.toLowerCase())) {
@@ -241,18 +336,22 @@ Retorne estritamente um JSON no formato abaixo, com todas as notícias dentro do
       }
     });
 
-    return items.slice(0, 50);
+    return items;
   }, [sortedStoriesLog, newsData, draftData]);
 
   const getAntiRepetitionPrompt = (customList = null) => {
     const list = customList || antiRepetitionList;
     if (!list || list.length === 0) return '';
     return `
-🚨 DIRETRIZ DE NÃO REPETIÇÃO (COBERTURAS RECENTES) 🚨
-Evite focar exatamente nos mesmos fatos das coberturas recentes abaixo, priorizando novos desdobramentos ou outros acontecimentos quentes:
-${list.slice(0, 15).map(item => `• ${item}`).join('\n')}
+🚨 REGRA CRÍTICA DE ANTIDUPLICIDADE E ZERO REPETIÇÃO (PAUTAS VETADAS) 🚨
+As seguintes notícias, pessoas e temas JÁ FORAM PUBLICADOS recentemente pelo portal:
+${list.slice(0, 45).map(item => `• ${item}`).join('\n')}
 
-OBRIGATÓRIO: Retorne SEMPRE a quantidade de notícias solicitada. NUNCA retorne a lista vazia. Se uma pauta acima já foi coberta, escolha outro acontecimento quente do momento.
+ESTRITAMENTE PROIBIDO:
+1. NÃO repita nenhuma notícia, tema, pessoa, ministro, político ou acontecimento listado acima.
+2. NÃO traga notícias parecidas, sinônimas ou "novos desdobramentos" de notícias recentes.
+3. Se um assunto já foi noticiado recentemente, ele está 100% VETADO. Traga outros fatos quentes de hoje.
+4. As 2 telas DEVEM cobrir assuntos totalmente diferentes entre si (1 nacional e 1 internacional).
 `;
   };
 
@@ -332,23 +431,31 @@ OBRIGATÓRIO: Retorne SEMPRE a quantidade de notícias solicitada. NUNCA retorne
 
   const backgroundGenerateAndPost = async () => {
       if (!perplexityKey && !geminiKey) return;
+
+      const lastRunTime = automationSettings?.stories?.lastRun || 0;
+      // Impede disparos simultâneos ou duplicados com tolerância mínima de 5 minutos
+      if (Date.now() - lastRunTime < 5 * 60 * 1000) {
+        console.log("[Piloto Automático Stories] Ciclo abortado: disparo recente já concluído há menos de 5 min.");
+        return;
+      }
+
       setIsAutoPosting(true);
       isAutoPostingRef.current = true;
 
       try {
           const topic = 'Notícias de Última Hora - Quentes do Momento';
           const recentLogItems = [];
-          (storiesLogRef.current || []).slice(0, 35).forEach(l => {
+          (storiesLogRef.current || []).slice(0, 50).forEach(l => {
               if (l.pauta && !l.pauta.toLowerCase().includes('notícias quentes') && !l.pauta.toLowerCase().includes('auto-post')) {
                   recentLogItems.push(`Pauta: ${l.pauta.trim()}`);
               }
               (l.stories || []).forEach(s => {
                   const raw = typeof s === 'string' ? s : (s.title || s.text || '');
-                  const clean = raw.replace(/^[🚨🛑🇧🇷⚖️📢⚠️\s]+/, '').split('\n')[0].split('.')[0].trim();
-                  if (clean.length > 12) recentLogItems.push(`Story: ${clean}`);
+                  const clean = raw.replace(/^[🚨🛑🇧🇷⚖️📢⚠️🌍\s]+/, '').split('\n')[0].trim();
+                  if (clean.length > 10) recentLogItems.push(clean);
               });
           });
-          const antiRepetitionPrompt = getAntiRepetitionPrompt(Array.from(new Set(recentLogItems)).slice(0, 45));
+          const antiRepetitionPrompt = getAntiRepetitionPrompt(Array.from(new Set(recentLogItems)).slice(0, 50));
 
           const finalPrompt = `
 ${basePrompt}
@@ -358,25 +465,90 @@ Data e Hora Atual (Para buscar notícias AGORA): ${new Date().toLocaleString('pt
 Quantidade de Telas Solicitadas: ${autoPostCount}
           `;
 
-           const obj = await callAI(finalPrompt, 'all');
-           const mappedStories = extractStoriesFromAiResponse(obj, globalBackground);
+          const obj = await callAI(finalPrompt, 'all');
+          let mappedStories = extractStoriesFromAiResponse(obj, globalBackground);
 
-           if (mappedStories.length > 0) {
+          // Função de validação contra histórico e intra-lote
+          const isCandidateApproved = (candText, currentBatch) => {
+            if (!candText || candText.trim().length < 15) return false;
+            // Checa contra histórico recente (antiRepetitionList)
+            const matchesHistory = antiRepetitionList.some(histItem => areTextsSimilarOrRepeated(candText, histItem));
+            if (matchesHistory) return false;
+            // Checa contra as telas já adicionadas neste lote
+            const matchesCurrentBatch = currentBatch.some(item => areTextsSimilarOrRepeated(candText, item.text || ''));
+            if (matchesCurrentBatch) return false;
+            return true;
+          };
+
+          // Filtra estritamente pautas sem repetição e sem similaridade
+          let approvedStories = [];
+          for (const cand of mappedStories) {
+            if (isCandidateApproved(cand.text || '', approvedStories)) {
+              approvedStories.push(cand);
+            } else {
+              console.warn(`[Auto-Post] Pauta vetada por repetição ou similaridade: "${(cand.text || '').substring(0, 60)}..."`);
+            }
+            if (approvedStories.length >= autoPostCount) break;
+          }
+
+          // Se faltou história para completar a meta (ex: 2 telas), busca reforço inédito
+          if (approvedStories.length < autoPostCount) {
+            console.log(`[Auto-Post] Aprovados ${approvedStories.length}/${autoPostCount}. Buscando reposição 100% inédita...`);
+            const needed = autoPostCount - approvedStories.length;
+            const rejectedKeys = mappedStories.map(m => extractKeyTokens(m.text || '').slice(0, 2).join(' ')).filter(Boolean).join(', ');
+            const retryPrompt = `
+${basePrompt}
+${antiRepetitionPrompt}
+ATENÇÃO: Pautas rejeitadas por similaridade: ${rejectedKeys || 'notícias repetidas'}.
+Gere EXATAMENTE ${needed} nova(s) tela(s) de Stories sobre um assunto 100% INÉDITO, diferente de tudo listado acima.
+Retorne estritamente um JSON: { "stories": [ { "text": "Texto..." } ] }
+`;
+            try {
+              const retryObj = await callAI(retryPrompt, 'all');
+              const retryMapped = extractStoriesFromAiResponse(retryObj, globalBackground);
+              for (const rCand of retryMapped) {
+                if (approvedStories.length >= autoPostCount) break;
+                if (isCandidateApproved(rCand.text || '', approvedStories)) {
+                  approvedStories.push(rCand);
+                }
+              }
+            } catch (errRetry) {
+              console.warn("[Auto-Post] Falha no retry de pauta inédita:", errRetry);
+            }
+          }
+
+          // Se ainda faltar, completa com notícias recentes do próprio portal que não sejam repetidas
+          if (approvedStories.length < autoPostCount && newsData && newsData.length > 0) {
+            for (const n of newsData) {
+              if (approvedStories.length >= autoPostCount) break;
+              const portalStoryText = `🇧🇷 ${n.title}\n\n${n.subtitle || n.description || 'Acompanhe a cobertura completa no Portal NG Brasil.'}`;
+              if (isCandidateApproved(portalStoryText, approvedStories)) {
+                approvedStories.push({
+                  text: portalStoryText,
+                  bgId: globalBackground,
+                  title: n.title,
+                  source: n.source || 'Portal NG Brasil'
+                });
+              }
+            }
+          }
+
+          if (approvedStories.length > 0) {
                setStoriesLog(prev => [{
                   id: Date.now().toString(),
                   pauta: "Auto-Post Bot (Nuvem/Servidor)",
                   searchQuery: topic,
                   engine: 'Perplexity',
                   status: 'success',
-                  storiesCount: mappedStories.length,
-                  stories: mappedStories,
+                  storiesCount: approvedStories.length,
+                  stories: approvedStories,
                   date: new Date().toISOString()
               }, ...prev]);
 
               if (metaToken && imgbbKey && metaIgAccountId) {
-                  for (let i = 0; i < mappedStories.length; i++) {
+                  for (let i = 0; i < approvedStories.length; i++) {
                       try {
-                          const blob = await createStoryBlob(mappedStories[i], i, mappedStories.length);
+                          const blob = await createStoryBlob(approvedStories[i], i, approvedStories.length);
                           const imageUrl = await uploadImageForSocial(blob, imgbbKey);
                           if (imageUrl) {
                               const containerRes = await fetch(`https://graph.facebook.com/v20.0/${metaIgAccountId}/media`, {
@@ -434,7 +606,7 @@ Quantidade de Telas Solicitadas: ${autoPostCount}
                   nextRun: nextTime,
                   status: 'idle',
                   lastSuccess: new Date().toISOString(),
-                  lastStoriesCount: mappedStories.length,
+                  lastStoriesCount: approvedStories.length,
                   lastError: null
                 }
               }));
@@ -687,13 +859,35 @@ Quantidade de Telas Solicitadas: ${pautasCount}
 
       let mappedStories = extractStoriesFromAiResponse(obj, globalBackground);
 
-      // Redundância instantânea: se vier vazio (ex: filtros rígidos), recupera automaticamente
-      if (mappedStories.length === 0) {
-          setStatus('Ajustando critérios para garantir geração imediata...');
-          // 1. Tenta Gemini imediatamente se disponível
+      // Validação rigorosa: anti-duplicação e anti-similaridade
+      const isCandApproved = (candText, currentBatch) => {
+        if (!candText || candText.trim().length < 15) return false;
+        const matchesHistory = antiRepetitionList.some(histItem => areTextsSimilarOrRepeated(candText, histItem));
+        if (matchesHistory) return false;
+        const matchesCurrentBatch = currentBatch.some(item => areTextsSimilarOrRepeated(candText, item.text || ''));
+        if (matchesCurrentBatch) return false;
+        return true;
+      };
+
+      let filteredApproved = [];
+      for (const cand of mappedStories) {
+        if (isCandApproved(cand.text || '', filteredApproved)) {
+          filteredApproved.push(cand);
+        } else {
+          console.warn(`[Geração Manual] Pauta vetada por repetição/similaridade: "${(cand.text || '').substring(0, 60)}..."`);
+        }
+        if (filteredApproved.length >= Number(pautasCount)) break;
+      }
+
+      // Se faltaram histórias devido ao filtro de duplicação, recupera automaticamente
+      if (filteredApproved.length < Number(pautasCount)) {
+          setStatus('Filtrando repetições e refinando pautas 100% inéditas...');
+          const needed = Number(pautasCount) - filteredApproved.length;
+          const rejectedKeys = mappedStories.map(m => extractKeyTokens(m.text || '').slice(0, 2).join(' ')).filter(Boolean).join(', ');
+          
           if (geminiKey) {
               try {
-                  const gPrompt = `${basePrompt}\nAssunto Solicitado: "${topic}". Traga exatamente ${pautasCount} notícias quentes recentes (50% Brasil e 50% Internacional). Retorne estritamente JSON.`;
+                  const gPrompt = `${basePrompt}\n${antiDuplicationContext}\nATENÇÃO: Veto a repetições de: ${rejectedKeys || 'notícias anteriores'}. Assunto Solicitado: "${topic}". Traga exatamente ${needed} notícias quentes 100% inéditas de hoje (50% Brasil e 50% Internacional). Retorne estritamente JSON.`;
                   const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey.trim()}`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -706,7 +900,13 @@ Quantidade de Telas Solicitadas: ${pautasCount}
                       const gData = await gRes.json();
                       const gText = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
                       if (gText) {
-                          mappedStories = extractStoriesFromAiResponse(JSON.parse(gText), globalBackground);
+                          const retryMapped = extractStoriesFromAiResponse(JSON.parse(gText), globalBackground);
+                          for (const rCand of retryMapped) {
+                            if (filteredApproved.length >= Number(pautasCount)) break;
+                            if (isCandApproved(rCand.text || '', filteredApproved)) {
+                              filteredApproved.push(rCand);
+                            }
+                          }
                       }
                   }
               } catch (e) {
@@ -714,21 +914,42 @@ Quantidade de Telas Solicitadas: ${pautasCount}
               }
           }
 
-          // 2. Se ainda assim estiver vazio e for Perplexity, faz uma busca direta sem filtros impeditivos
-          if (mappedStories.length === 0 && perplexityKey) {
+          if (filteredApproved.length < Number(pautasCount) && perplexityKey) {
               try {
-                  const cleanPrompt = `${basePrompt}\nAssunto Solicitado: "${topic}". Traga exatamente ${pautasCount} notícias quentes de hoje ou dos últimos dias (50% Brasil e 50% Internacional). Retorne estritamente JSON com ${pautasCount} notícias.`;
+                  const cleanPrompt = `${basePrompt}\n${antiDuplicationContext}\nATENÇÃO: Veto a repetições de: ${rejectedKeys || 'notícias anteriores'}. Assunto: "${topic}". Traga exatamente ${needed} notícias 100% inéditas de hoje (1 Brasil e 1 Internacional). Retorne estritamente JSON.`;
                   const retryObj = await callAI(cleanPrompt, 'perplexity');
-                  mappedStories = extractStoriesFromAiResponse(retryObj, globalBackground);
+                  const retryMapped = extractStoriesFromAiResponse(retryObj, globalBackground);
+                  for (const rCand of retryMapped) {
+                    if (filteredApproved.length >= Number(pautasCount)) break;
+                    if (isCandApproved(rCand.text || '', filteredApproved)) {
+                      filteredApproved.push(rCand);
+                    }
+                  }
               } catch (e) {
                   console.warn("Retry Perplexity:", e);
               }
           }
       }
 
-      if (mappedStories.length > 0) {
-          setStories(mappedStories);
-          setStatus('Stories gerados com sucesso!');
+      // Se ainda faltar, completa com notícias do próprio portal
+      if (filteredApproved.length < Number(pautasCount) && newsData && newsData.length > 0) {
+        for (const n of newsData) {
+          if (filteredApproved.length >= Number(pautasCount)) break;
+          const portalText = `🇧🇷 ${n.title}\n\n${n.subtitle || n.description || 'Acompanhe a matéria completa no Portal NG Brasil.'}`;
+          if (isCandApproved(portalText, filteredApproved)) {
+            filteredApproved.push({
+              text: portalText,
+              bgId: globalBackground,
+              title: n.title,
+              source: n.source || 'Portal NG Brasil'
+            });
+          }
+        }
+      }
+
+      if (filteredApproved.length > 0) {
+          setStories(filteredApproved);
+          setStatus('Stories inéditos gerados com sucesso (sem repetições)!');
           
           const newLog = {
               id: Date.now().toString(),
@@ -736,8 +957,8 @@ Quantidade de Telas Solicitadas: ${pautasCount}
               searchQuery: searchQuery.trim(),
               engine: aiChoice === 'perplexity' ? 'Perplexity (Busca Web)' : aiChoice === 'gemini' ? 'Gemini' : 'Perplexity + IA',
               status: 'success',
-              storiesCount: mappedStories.length,
-              stories: mappedStories,
+              storiesCount: filteredApproved.length,
+              stories: filteredApproved,
               date: new Date().toISOString()
           };
           setStoriesLog(prev => [newLog, ...prev]);
@@ -772,7 +993,7 @@ Quantidade de Telas Solicitadas: ${pautasCount}
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4">
+    <div className="w-full py-4 px-2 sm:px-4">
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -890,7 +1111,7 @@ Quantidade de Telas Solicitadas: ${pautasCount}
                       type="number" 
                       value={autoPostCount} 
                       onChange={e => {
-                        const val = Math.max(1, Math.min(10, Number(e.target.value) || 5));
+                        const val = Math.max(1, Math.min(10, Number(e.target.value) || 2));
                         setAutomationSettings(prev => ({
                           ...prev, 
                           stories: {

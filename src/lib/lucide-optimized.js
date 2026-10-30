@@ -60,6 +60,7 @@ export { default as LucideMapPin, default as MapPin, default as MapPinIcon } fro
 export { default as LucideMessageCircle, default as MessageCircle, default as MessageCircleIcon } from 'lucide-react/dist/esm/icons/message-circle.mjs';
 export { default as LucideMessageSquare, default as MessageSquare, default as MessageSquareIcon } from 'lucide-react/dist/esm/icons/message-square.mjs';
 export { default as LucideMonitorPlay, default as MonitorPlay, default as MonitorPlayIcon } from 'lucide-react/dist/esm/icons/monitor-play.mjs';
+export { default as LucideMoreHorizontal, default as MoreHorizontal, default as MoreHorizontalIcon, default as Ellipsis, default as EllipsisIcon, default as LucideEllipsis } from 'lucide-react/dist/esm/icons/ellipsis.mjs';
 export { default as LucideMusic2, default as Music2, default as Music2Icon } from 'lucide-react/dist/esm/icons/music-2.mjs';
 export { default as LucideNetwork, default as Network, default as NetworkIcon } from 'lucide-react/dist/esm/icons/network.mjs';
 export { default as LucideNewspaper, default as Newspaper, default as NewspaperIcon } from 'lucide-react/dist/esm/icons/newspaper.mjs';
@@ -70,6 +71,7 @@ export { default as LucidePlus, default as Plus, default as PlusIcon } from 'luc
 export { default as CirclePlus, default as CirclePlusIcon, default as LucideCirclePlus, default as LucidePlusCircle, default as PlusCircle, default as PlusCircleIcon } from 'lucide-react/dist/esm/icons/circle-plus.mjs';
 export { default as LucideQuote, default as Quote, default as QuoteIcon } from 'lucide-react/dist/esm/icons/quote.mjs';
 export { default as LucideRefreshCw, default as RefreshCw, default as RefreshCwIcon } from 'lucide-react/dist/esm/icons/refresh-cw.mjs';
+export { default as LucideRepeat2, default as Repeat2, default as Repeat2Icon } from 'lucide-react/dist/esm/icons/repeat-2.mjs';
 export { default as LucideSave, default as Save, default as SaveIcon } from 'lucide-react/dist/esm/icons/save.mjs';
 export { default as LucideSearch, default as Search, default as SearchIcon } from 'lucide-react/dist/esm/icons/search.mjs';
 export { default as LucideSearchX, default as SearchX, default as SearchXIcon } from 'lucide-react/dist/esm/icons/search-x.mjs';

@@ -190,23 +190,102 @@ export function formatInstagramCaption(article) {
 }
 
 /**
- * Formata a legenda para postagem na Página do Facebook com link clicável da matéria
+ * Formata uma legenda curta, magnética e de alto impacto para a Página do Facebook
+ * Projetada especificamente para acompanhar o Link Preview nativo (card clicável do portal).
  */
 export function formatFacebookCaption(article, shareUrl = '') {
   if (!article) return '';
 
   const title = (article.title || '').trim();
   const subtitle = (article.subtitle || '').trim();
-  const category = (article.categoryLabel || article.category || 'Notícias').replace(/\s+/g, '');
-  const praca = (article.praca || 'Brasil').replace(/\s+/g, '');
-  const linkLine = shareUrl || `https://portalngbrasil.com.br/#/noticia/${article.id || ''}`;
+  const hook = (article.jogada || article.metadata?.jogada || '').trim();
+  const rawCat = (article.categoryLabel || article.category || '').toLowerCase();
+  const linkLine = shareUrl || (article.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br');
 
-  const summary = extractArticleSummary(article.content, 1200, 3);
+  // Seleciona badge/emoji temático de urgência e apelo editorial
+  let badge = '🚨 URGENTE';
+  if (rawCat.includes('pol') || rawCat.includes('brasil')) {
+    badge = '🇧🇷 ATENÇÃO';
+  } else if (rawCat.includes('econ') || rawCat.includes('dinheiro') || rawCat.includes('agro')) {
+    badge = '📊 IMPACTO';
+  } else if (rawCat.includes('just') || rawCat.includes('stf') || rawCat.includes('lei') || rawCat.includes('polic') || rawCat.includes('segur')) {
+    badge = '⚖️ BASTIDORES';
+  } else if (rawCat.includes('mundo') || rawCat.includes('inter')) {
+    badge = '🌍 MUNDO';
+  }
+
+  const sections = [];
+
+  // 1. Gancho de abertura chamativo com título
+  if (title) {
+    sections.push(`${badge} | ${title}`);
+  }
+
+  // 2. Frase de apoio provocativa (jogada editorial ou subtítulo) que instiga a curiosidade sem entregar o spoiler completo
+  if (hook && hook.toLowerCase() !== title.toLowerCase()) {
+    sections.push(hook);
+  } else if (subtitle && subtitle.toLowerCase() !== title.toLowerCase()) {
+    const cleanSub = subtitle.split(/\. |\.\n/)[0].trim();
+    sections.push(cleanSub.endsWith('.') ? cleanSub : `${cleanSub}.`);
+  }
+
+  // 3. Chamada direta de clique para ler a matéria no portal
+  sections.push(
+    `👉 Veja todos os detalhes e os bastidores na reportagem completa:\n🔗 ${linkLine}`
+  );
+
+  return sections.join('\n\n');
+}
+
+/**
+ * Formata o texto para postagem no Threads (Limite estrito de 500 caracteres da API)
+ */
+export function formatThreadsCaption(article, shareUrl = '') {
+  if (!article) return '';
+
+  const title = (article.title || '').trim();
+  const subtitle = (article.subtitle || '').trim();
+  const linkLine = shareUrl || `https://portalngbrasil.com.br/#/noticia/${article.id || ''}`;
+  const category = (article.categoryLabel || article.category || 'Notícias').replace(/\s+/g, '');
+  const tags = `#PortalNGBrasil #${category}`;
+
+  const footer = `\n\n👉 Leia a matéria completa:\n${linkLine}\n\n${tags}`;
+  const maxAvailableForBody = 495 - footer.length;
+
+  let body = `🚨 ${title}`;
+  if (subtitle && subtitle.toLowerCase() !== title.toLowerCase()) {
+    const combined = `${body}\n\n${subtitle}`;
+    if (combined.length <= maxAvailableForBody) {
+      body = combined;
+    } else if (body.length < maxAvailableForBody - 20) {
+      const allowedSub = maxAvailableForBody - body.length - 7;
+      body = `${body}\n\n${subtitle.slice(0, allowedSub).trim()}...`;
+    }
+  }
+
+  if (body.length > maxAvailableForBody) {
+    body = body.slice(0, maxAvailableForBody - 3).trim() + '...';
+  }
+
+  return (body + footer).trim();
+}
+
+/**
+ * Formata o texto para postagem no LinkedIn (Company Page / Organização)
+ * Tom analítico, direto e corporativo (estilo Forbes / CNN Brasil).
+ */
+export function formatLinkedInCaption(article, shareUrl = '') {
+  if (!article) return '';
+
+  const title = (article.title || '').trim();
+  const subtitle = (article.subtitle || '').trim();
+  const linkLine = shareUrl || (article.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br');
+  const summary = extractArticleSummary(article.content, 900, 2);
 
   const sections = [];
 
   if (title) {
-    sections.push(`📰 ${title}`);
+    sections.push(`📌 ${title}`);
   }
 
   if (subtitle && subtitle.toLowerCase() !== title.toLowerCase()) {
@@ -217,8 +296,6 @@ export function formatFacebookCaption(article, shareUrl = '') {
     let cleanSummary = summary;
     if (subtitle && cleanSummary.toLowerCase().startsWith(subtitle.toLowerCase())) {
       cleanSummary = cleanSummary.slice(subtitle.length).replace(/^[:\s\-–—]+/, '').trim();
-    } else if (title && cleanSummary.toLowerCase().startsWith(title.toLowerCase())) {
-      cleanSummary = cleanSummary.slice(title.length).replace(/^[:\s\-–—]+/, '').trim();
     }
     if (cleanSummary) {
       sections.push(cleanSummary);
@@ -226,10 +303,81 @@ export function formatFacebookCaption(article, shareUrl = '') {
   }
 
   sections.push(
-    `📖 Leia a matéria completa no Portal NG Brasil:\n👉 ${linkLine}\n\n---\n#PortalNGBrasil #${category} #${praca} #Noticias #Brasil`
+    `🔗 Confira a análise e a cobertura completa no Portal NG Brasil:\n${linkLine}\n\n` +
+    `#PortalNGBrasil #Economia #Politica #Negocios #Agronegocio #Jornalismo`
   );
 
   return sections.join('\n\n');
+}
+
+/**
+ * Calcula o tamanho real de um tweet no X (Twitter), onde URLs ocupam sempre 23 caracteres (t.co)
+ */
+export function calculateXTweetLength(text) {
+  if (!text) return 0;
+  // Substitui qualquer URL http/https por 23 caracteres para contagem precisa do X
+  const normalized = text.replace(/https?:\/\/\S+/gi, 'x'.repeat(23));
+  return normalized.length;
+}
+
+/**
+ * Formata o texto para postagem no X (antigo Twitter) - Limite estrito de 280 caracteres
+ * Focado em agilidade, manchete impactante, gancho, link com Twitter Card e hashtags.
+ */
+export function formatXCaption(article, shareUrl = '') {
+  if (!article) return '';
+
+  const title = (article.title || '').trim();
+  const subtitle = (article.subtitle || '').trim();
+  const rawCat = (article.categoryLabel || article.category || '').toLowerCase();
+  const linkLine = shareUrl || (article.id ? `https://portalngbrasil.com.br/share.php?id=${article.id}` : 'https://portalngbrasil.com.br');
+
+  // Badge jornalístico de urgência/tema
+  let badge = '🚨 URGENTE';
+  if (rawCat.includes('pol') || rawCat.includes('brasil')) {
+    badge = '🇧🇷 ATENÇÃO';
+  } else if (rawCat.includes('econ') || rawCat.includes('agro') || rawCat.includes('dinheiro')) {
+    badge = '📊 ECONOMIA';
+  } else if (rawCat.includes('just') || rawCat.includes('stf') || rawCat.includes('segur') || rawCat.includes('polic')) {
+    badge = '⚖️ BASTIDORES';
+  } else if (rawCat.includes('mundo') || rawCat.includes('inter')) {
+    badge = '🌍 MUNDO';
+  }
+
+  const tags = '#PortalNGBrasil #Brasil';
+  // No X, uma URL sempre conta 23 caracteres (t.co)
+  const urlCost = 23;
+  // Estrutura:
+  // [Headline]
+  //
+  // [Subtítulo/Gancho]
+  //
+  // 🔗 [Link] [Tags]
+  const footerPattern = `\n\n🔗 ${linkLine} ${tags}`;
+  const fixedOverhead = `\n\n🔗  ${tags}`.length + urlCost;
+  const maxAvailableForText = 280 - fixedOverhead; // ~235 caracteres para headline + apoio
+
+  let headline = `${badge}: ${title}`;
+  if (headline.length > maxAvailableForText) {
+    headline = headline.slice(0, maxAvailableForText - 3).trim() + '...';
+    return `${headline}${footerPattern}`;
+  }
+
+  const remaining = maxAvailableForText - headline.length - 2; // -2 para o \n\n
+  let body = headline;
+
+  if (remaining > 35 && subtitle && subtitle.toLowerCase() !== title.toLowerCase()) {
+    let cleanSub = subtitle.split(/\. |\.\n/)[0].trim();
+    if (!cleanSub.endsWith('.')) cleanSub += '.';
+
+    if (cleanSub.length <= remaining) {
+      body = `${headline}\n\n${cleanSub}`;
+    } else if (remaining > 45) {
+      body = `${headline}\n\n${cleanSub.slice(0, remaining - 3).trim()}...`;
+    }
+  }
+
+  return `${body}${footerPattern}`;
 }
 
 /**

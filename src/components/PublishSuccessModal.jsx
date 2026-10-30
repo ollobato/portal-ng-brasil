@@ -11,8 +11,10 @@ import {
   Loader2, 
   AlertCircle,
   ArrowRight,
-  Layers
+  Layers,
+  RefreshCw
 } from 'lucide-react';
+import { retryPlatformPublish } from '../utils/metaPublisher.js';
 
 const InstagramIcon = ({ className = "w-5 h-5" }) => (
   <svg 
@@ -40,12 +42,50 @@ const FacebookIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
+const ThreadsIcon = ({ className = "w-5 h-5" }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    className={className}
+  >
+    <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm5.727 12.604c-.396.993-1.01 1.79-1.842 2.39-1.077.78-2.457 1.055-3.885.772-2.38-.47-4.11-2.483-4.11-4.766 0-2.673 2.167-4.84 4.84-4.84 2.45 0 4.49 1.835 4.79 4.25h-1.98c-.27-1.35-1.44-2.35-2.81-2.35-1.57 0-2.85 1.28-2.85 2.85 0 1.57 1.28 2.85 2.85 2.85.91 0 1.7-.44 2.19-1.12l1.64.91c-.08.13-.17.26-.26.39l1.45.86z"/>
+  </svg>
+);
+
+const LinkedInIcon = ({ className = "w-5 h-5" }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    className={className}
+  >
+    <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+  </svg>
+);
+
+const XIcon = ({ className = "w-5 h-5" }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </svg>
+);
+
 export default function PublishSuccessModal({
   isOpen,
   onClose,
-  data
+  data,
+  onRetryPlatform
 }) {
   const [copiedKey, setCopiedKey] = useState(null);
+  const [retryingPlatform, setRetryingPlatform] = useState(null);
+  const [localLinks, setLocalLinks] = useState({});
+  const [localErrors, setLocalErrors] = useState({});
+
+  useEffect(() => {
+    if (data) {
+      setLocalLinks(data.links || {});
+      setLocalErrors(data.errors || {});
+      setRetryingPlatform(null);
+    }
+  }, [data?.article?.id, isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -66,10 +106,58 @@ export default function PublishSuccessModal({
     statusText = '',
     article = {},
     target = 'all',
-    targetPlatforms = ['facebook', 'instagram'],
-    links = {},
-    errors = {}
+    targetPlatforms = ['facebook', 'instagram']
   } = data;
+
+  const handleRetry = async (platform) => {
+    if (retryingPlatform) return;
+    setRetryingPlatform(platform);
+
+    try {
+      let result = null;
+      if (typeof onRetryPlatform === 'function') {
+        result = await onRetryPlatform(platform, { ...data, links: localLinks, errors: localErrors });
+      } else {
+        result = await retryPlatformPublish({
+          platform,
+          article,
+          shareUrl: localLinks.share || localLinks.site,
+          settings: {
+            metaToken: localStorage.getItem("portal_ng_meta_token"),
+            metaFbPageId: localStorage.getItem("portal_ng_meta_fb_page_id"),
+            metaIgAccountId: localStorage.getItem("portal_ng_meta_ig_account_id"),
+            threadsToken: localStorage.getItem("portal_ng_threads_token"),
+            threadsUserId: localStorage.getItem("portal_ng_threads_user_id"),
+            imgbbKey: localStorage.getItem("portal_ng_imgbb_key")
+          }
+        });
+      }
+
+      if (result?.success || result?.url) {
+        const newUrl = result.url || (
+          platform === 'instagram' ? 'https://www.instagram.com/portalngbrasil/' :
+          platform === 'facebook' ? (localStorage.getItem("portal_ng_meta_fb_page_id") ? `https://www.facebook.com/${localStorage.getItem("portal_ng_meta_fb_page_id")}` : 'https://www.facebook.com/portalngbrasil') :
+          platform === 'threads' ? 'https://www.threads.net/@portalngbrasil' :
+          'https://www.linkedin.com/company/portalngbrasil'
+        );
+
+        setLocalLinks(prev => ({ ...prev, [platform]: newUrl }));
+        setLocalErrors(prev => {
+          const next = { ...prev };
+          delete next[platform];
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error(`Erro ao reenviar para ${platform}:`, err);
+      setLocalErrors(prev => ({
+        ...prev,
+        [platform]: err.message || `Erro ao reenviar para ${platform}`
+      }));
+    } finally {
+      setRetryingPlatform(null);
+    }
+  };
 
   const handleCopy = (key, text) => {
     if (!text) return;
@@ -79,17 +167,23 @@ export default function PublishSuccessModal({
   };
 
   const handleWhatsAppShare = () => {
-    const text = `🚨 *${article.title || 'Notícia em Destaque'}*\n\n${article.subtitle ? article.subtitle + '\n\n' : ''}Confira a matéria completa no Portal NG Brasil:\n${links.site || links.share || 'https://portalngbrasil.com.br'}`;
+    const text = `🚨 *${article.title || 'Notícia em Destaque'}*\n\n${article.subtitle ? article.subtitle + '\n\n' : ''}Confira a matéria completa no Portal NG Brasil:\n${localLinks.site || localLinks.share || 'https://portalngbrasil.com.br'}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const isPortalRequested = true; // Sempre publica no portal
   const isInstagramRequested = target === 'all' || target === 'instagram' || targetPlatforms.includes('instagram');
   const isFacebookRequested = target === 'all' || target === 'facebook' || targetPlatforms.includes('facebook');
+  const isThreadsRequested = target === 'all' || target === 'threads' || targetPlatforms.includes('threads');
+  const isLinkedinRequested = target === 'all' || target === 'linkedin' || targetPlatforms.includes('linkedin');
+  const isXRequested = target === 'all' || target === 'x' || targetPlatforms.includes('x');
 
-  const siteUrl = links.site || `https://portalngbrasil.com.br/#/noticia/${article.id}`;
-  const instagramUrl = links.instagram || 'https://www.instagram.com/portalngbrasil/';
-  const facebookUrl = links.facebook || 'https://www.facebook.com/portalngbrasil';
+  const siteUrl = localLinks.site || `https://portalngbrasil.com.br/#/noticia/${article.id}`;
+  const instagramUrl = localLinks.instagram || 'https://www.instagram.com/portalngbrasil/';
+  const facebookUrl = localLinks.facebook || 'https://www.facebook.com/portalngbrasil';
+  const threadsUrl = localLinks.threads || 'https://www.threads.net/@portalngbrasil';
+  const linkedinUrl = localLinks.linkedin || 'https://www.linkedin.com/company/portalngbrasil';
+  const xUrl = localLinks.x || 'https://x.com/portalngbrasil';
 
   return (
     <div 
@@ -227,14 +321,26 @@ export default function PublishSuccessModal({
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm text-slate-800">Instagram (@portalngbrasil)</span>
                     {isInstagramRequested ? (
-                      isPublishing ? (
+                      (isPublishing || retryingPlatform === 'instagram') ? (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
-                          <Loader2 className="w-3 h-3 animate-spin" /> Processando...
+                          <Loader2 className="w-3 h-3 animate-spin" /> {retryingPlatform === 'instagram' ? 'Reenviando...' : 'Processando...'}
                         </span>
-                      ) : errors.instagram ? (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700">
-                          Erro no Envio
-                        </span>
+                      ) : localErrors.instagram ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700" title={localErrors.instagram}>
+                            Erro no Envio
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRetry('instagram')}
+                            disabled={Boolean(retryingPlatform)}
+                            className="p-1 rounded-md bg-rose-100/80 hover:bg-rose-200 text-rose-700 hover:text-rose-900 border border-rose-200/60 transition-all flex items-center justify-center active:scale-95 disabled:opacity-50"
+                            title="Tentar postar novamente no Instagram (forçar reenvio)"
+                            aria-label="Tentar novamente no Instagram"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${retryingPlatform === 'instagram' ? 'animate-spin text-rose-600' : ''}`} />
+                          </button>
+                        </div>
                       ) : (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">
                           Publicado no Feed
@@ -253,6 +359,18 @@ export default function PublishSuccessModal({
               </div>
 
               <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                {localErrors.instagram && (
+                  <button
+                    type="button"
+                    onClick={() => handleRetry('instagram')}
+                    disabled={Boolean(retryingPlatform)}
+                    className="p-1.5 px-2 text-xs font-bold rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 flex items-center justify-center transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                    title="Tentar postar novamente no Instagram (forçar reenvio)"
+                    aria-label="Tentar novamente no Instagram"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${retryingPlatform === 'instagram' ? 'animate-spin text-rose-600' : ''}`} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleCopy('instagram', instagramUrl)}
@@ -287,14 +405,26 @@ export default function PublishSuccessModal({
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm text-slate-800">Facebook (Página Oficial)</span>
                     {isFacebookRequested ? (
-                      isPublishing ? (
+                      (isPublishing || retryingPlatform === 'facebook') ? (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
-                          <Loader2 className="w-3 h-3 animate-spin" /> Enviando...
+                          <Loader2 className="w-3 h-3 animate-spin" /> {retryingPlatform === 'facebook' ? 'Reenviando...' : 'Enviando...'}
                         </span>
-                      ) : errors.facebook ? (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700">
-                          Erro no Envio
-                        </span>
+                      ) : localErrors.facebook ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700" title={localErrors.facebook}>
+                            Erro no Envio
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRetry('facebook')}
+                            disabled={Boolean(retryingPlatform)}
+                            className="p-1 rounded-md bg-rose-100/80 hover:bg-rose-200 text-rose-700 hover:text-rose-900 border border-rose-200/60 transition-all flex items-center justify-center active:scale-95 disabled:opacity-50"
+                            title="Tentar postar novamente no Facebook (forçar reenvio)"
+                            aria-label="Tentar novamente no Facebook"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${retryingPlatform === 'facebook' ? 'animate-spin text-rose-600' : ''}`} />
+                          </button>
+                        </div>
                       ) : (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">
                           Publicado
@@ -313,6 +443,18 @@ export default function PublishSuccessModal({
               </div>
 
               <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                {localErrors.facebook && (
+                  <button
+                    type="button"
+                    onClick={() => handleRetry('facebook')}
+                    disabled={Boolean(retryingPlatform)}
+                    className="p-1.5 px-2 text-xs font-bold rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 flex items-center justify-center transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                    title="Tentar postar novamente no Facebook (forçar reenvio)"
+                    aria-label="Tentar novamente no Facebook"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${retryingPlatform === 'facebook' ? 'animate-spin text-rose-600' : ''}`} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleCopy('facebook', facebookUrl)}
@@ -335,7 +477,237 @@ export default function PublishSuccessModal({
               </div>
             </div>
 
-            {/* 4. WhatsApp Quick Share */}
+            {/* 4. Threads */}
+            <div className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm ${
+              isThreadsRequested ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50/60 opacity-75'
+            }`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-zinc-900 text-white flex items-center justify-center shrink-0 border border-zinc-800">
+                  <ThreadsIcon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-slate-800">Threads (@portalngbrasil)</span>
+                    {isThreadsRequested ? (
+                      (isPublishing || retryingPlatform === 'threads') ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" /> {retryingPlatform === 'threads' ? 'Reenviando...' : 'Enviando...'}
+                        </span>
+                      ) : localErrors.threads ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700" title={localErrors.threads}>
+                            Erro no Envio
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRetry('threads')}
+                            disabled={Boolean(retryingPlatform)}
+                            className="p-1 rounded-md bg-rose-100/80 hover:bg-rose-200 text-rose-700 hover:text-rose-900 border border-rose-200/60 transition-all flex items-center justify-center active:scale-95 disabled:opacity-50"
+                            title="Tentar postar novamente no Threads (forçar reenvio)"
+                            aria-label="Tentar novamente no Threads"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${retryingPlatform === 'threads' ? 'animate-spin text-rose-600' : ''}`} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">
+                          Publicado
+                        </span>
+                      )
+                    ) : (
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-200 text-slate-600">
+                        Não selecionado
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 truncate max-w-sm mt-0.5 font-mono">
+                    {threadsUrl}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                {localErrors.threads && (
+                  <button
+                    type="button"
+                    onClick={() => handleRetry('threads')}
+                    disabled={Boolean(retryingPlatform)}
+                    className="p-1.5 px-2 text-xs font-bold rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 flex items-center justify-center transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                    title="Tentar postar novamente no Threads (forçar reenvio)"
+                    aria-label="Tentar novamente no Threads"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${retryingPlatform === 'threads' ? 'animate-spin text-rose-600' : ''}`} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleCopy('threads', threadsUrl)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition-colors"
+                >
+                  {copiedKey === 'threads' ? (
+                    <><Check className="w-3.5 h-3.5 text-emerald-600" /> Copiado</>
+                  ) : (
+                    <><Copy className="w-3.5 h-3.5" /> Copiar Link</>
+                  )}
+                </button>
+                <a
+                  href={threadsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-black text-white hover:bg-zinc-800 flex items-center gap-1.5 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Ver no Threads
+                </a>
+              </div>
+            </div>
+
+            {/* 5. LinkedIn */}
+            <div className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm ${
+              isLinkedinRequested ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50/60 opacity-75'
+            }`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-[#0077b5] text-white flex items-center justify-center shrink-0 border border-[#006097]">
+                  <LinkedInIcon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-slate-800">LinkedIn (Página Oficial)</span>
+                    {isLinkedinRequested ? (
+                      (isPublishing || retryingPlatform === 'linkedin') ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" /> {retryingPlatform === 'linkedin' ? 'Reenviando...' : 'Enviando...'}
+                        </span>
+                      ) : localErrors.linkedin ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700" title={localErrors.linkedin}>
+                            {localErrors.linkedin.includes('Token') ? 'Token Ausente' : 'Erro no Envio'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRetry('linkedin')}
+                            disabled={Boolean(retryingPlatform)}
+                            className="p-1 rounded-md bg-rose-100/80 hover:bg-rose-200 text-rose-700 hover:text-rose-900 border border-rose-200/60 transition-all flex items-center justify-center active:scale-95 disabled:opacity-50"
+                            title="Tentar postar novamente no LinkedIn (forçar reenvio)"
+                            aria-label="Tentar novamente no LinkedIn"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${retryingPlatform === 'linkedin' ? 'animate-spin text-rose-600' : ''}`} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">
+                          Publicado
+                        </span>
+                      )
+                    ) : (
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-200 text-slate-600">
+                        Não selecionado
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 truncate max-w-sm mt-0.5 font-mono">
+                    {linkedinUrl}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                {localErrors.linkedin && (
+                  <button
+                    type="button"
+                    onClick={() => handleRetry('linkedin')}
+                    disabled={Boolean(retryingPlatform)}
+                    className="p-1.5 px-2 text-xs font-bold rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 flex items-center justify-center transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                    title="Tentar postar novamente no LinkedIn (forçar reenvio)"
+                    aria-label="Tentar novamente no LinkedIn"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${retryingPlatform === 'linkedin' ? 'animate-spin text-rose-600' : ''}`} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleCopy('linkedin', linkedinUrl)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition-colors"
+                >
+                  {copiedKey === 'linkedin' ? (
+                    <><Check className="w-3.5 h-3.5 text-emerald-600" /> Copiado</>
+                  ) : (
+                    <><Copy className="w-3.5 h-3.5" /> Copiar Link</>
+                  )}
+                </button>
+                <a
+                  href={linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#0077b5] text-white hover:bg-[#005f93] flex items-center gap-1.5 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Ver no LinkedIn
+                </a>
+              </div>
+            </div>
+
+            {/* 6. X (antigo Twitter) */}
+            <div className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm ${
+              isXRequested ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50/60 opacity-75'
+            }`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-black text-white flex items-center justify-center shrink-0 border border-zinc-800">
+                  <XIcon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-slate-800">X / Twitter (@portalngbrasil)</span>
+                    {isXRequested ? (
+                      (isPublishing || retryingPlatform === 'x') ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" /> {retryingPlatform === 'x' ? 'Reenviando...' : 'Enviando...'}
+                        </span>
+                      ) : localErrors.x ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700" title={localErrors.x}>
+                            {localErrors.x.includes('não configuradas') ? 'Chaves Ausentes' : 'Erro no Envio'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">
+                          Publicado
+                        </span>
+                      )
+                    ) : (
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-200 text-slate-600">
+                        Não selecionado
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 truncate max-w-sm mt-0.5 font-mono">
+                    {xUrl}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => handleCopy('x', xUrl)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition-colors"
+                >
+                  {copiedKey === 'x' ? (
+                    <><Check className="w-3.5 h-3.5 text-emerald-600" /> Copiado</>
+                  ) : (
+                    <><Copy className="w-3.5 h-3.5" /> Copiar Link</>
+                  )}
+                </button>
+                <a
+                  href={xUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-black text-white hover:bg-zinc-800 flex items-center gap-1.5 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Ver no X
+                </a>
+              </div>
+            </div>
+
+            {/* 7. WhatsApp Quick Share */}
             <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
@@ -359,13 +731,15 @@ export default function PublishSuccessModal({
           </div>
 
           {/* Erros pontuais, se houver */}
-          {(errors.general || errors.instagram || errors.facebook) && (
+          {(localErrors.general || localErrors.instagram || localErrors.facebook || localErrors.threads || localErrors.linkedin) && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold">Aviso sobre redes sociais:</p>
-                <p className="mt-0.5">{errors.general || errors.instagram || errors.facebook}</p>
-                <p className="mt-1 text-slate-500">A matéria foi salva com segurança no portal.</p>
+                <p className="mt-0.5">{localErrors.general || localErrors.instagram || localErrors.facebook || localErrors.threads || localErrors.linkedin}</p>
+                <p className="mt-1 text-slate-500">
+                  Você pode forçar a postagem individual clicando no ícone de recarregar (🔄) ao lado da rede com erro.
+                </p>
               </div>
             </div>
           )}

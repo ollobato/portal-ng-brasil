@@ -43,9 +43,14 @@ export default function Header({
       {/* Brand Header Row */}
       <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 flex flex-col md:flex-row items-center justify-between gap-6">
         
-        {/* Brand Logo & Title */}
         <div 
-          onClick={() => { trackEvent('Navegação', 'Clique Logo Home'); setActiveCategory('all'); setSelectedPraca('Todas'); }}
+          onClick={() => { 
+            trackEvent('Navegação', 'Clique Logo Home'); 
+            if (onGoHome) onGoHome();
+            setActiveCategory('all'); 
+            setSelectedPraca('Todas'); 
+            if (setSearchQuery) setSearchQuery('');
+          }}
           className="flex items-center gap-5 cursor-pointer group"
         >
           {/* Logo Container */}

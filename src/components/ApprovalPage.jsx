@@ -34,7 +34,8 @@ import { doc, getDoc, updateDoc, setDoc, onSnapshot, collection, query, limit, g
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
 import { formatInstagramCaption, copyToClipboard } from '../utils/socialExporter';
-import { publishArticleToAllChannels } from '../utils/metaPublisher';
+import { publishArticleToAllChannels, retryPlatformPublish } from '../utils/metaPublisher';
+import { uploadImageForSocial } from '../utils/imageUploader';
 import { safeLoadImageForCanvas, preloadImageForCanvas } from '../utils/imageLoader';
 import { drawNgCardOnCanvas, ensureBarlowCondensedLoaded, renderNgCardToBlob, drawAnyCardOnCanvas, renderCardSlideToBlob } from '../utils/ngCardRenderer.js';
 
@@ -77,6 +78,12 @@ const ThreadsIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
+const XIcon = ({ className = "w-4 h-4" }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </svg>
+);
+
 export default function ApprovalPage({ onNavigateHome }) {
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -100,7 +107,34 @@ export default function ApprovalPage({ onNavigateHome }) {
   const [postProgressText, setPostProgressText] = useState('');
   const [publishedSocialLinks, setPublishedSocialLinks] = useState(null);
   const [publishedSocialErrors, setPublishedSocialErrors] = useState(null);
+  const [retryingSocialPlatform, setRetryingSocialPlatform] = useState(null);
   const [actionSuccessMessage, setActionSuccessMessage] = useState('');
+
+  const handleRetrySocialPlatform = async (platform) => {
+    if (retryingSocialPlatform) return;
+    setRetryingSocialPlatform(platform);
+    try {
+      const res = await retryPlatformPublish({
+        platform,
+        article,
+        canvas: activeCardIndex === 0 ? canvasRef.current : null,
+        cards: carouselCards || article?.socialCards
+      });
+      if (res?.success && res?.url) {
+        setPublishedSocialLinks(prev => ({ ...prev, [platform]: res.url }));
+        setPublishedSocialErrors(prev => {
+          const next = { ...(prev || {}) };
+          delete next[platform];
+          return next;
+        });
+      }
+    } catch (e) {
+      console.error(`Erro ao tentar reenviar para ${platform}:`, e);
+      setPublishedSocialErrors(prev => ({ ...prev, [platform]: e.message }));
+    } finally {
+      setRetryingSocialPlatform(null);
+    }
+  };
 
   // Canvas do Card do Instagram
   const canvasRef = useRef(null);
@@ -515,11 +549,26 @@ export default function ApprovalPage({ onNavigateHome }) {
       localStorage.setItem('portal_ng_reviewer_name', name);
       const notes = approvalNotes.trim() || (autoPublish ? 'Aprovado e publicado imediatamente em todos os canais pela editora-chefe.' : 'Aprovado sem ressalvas.');
 
+      // Se a imagem for Base64 (upload local do PC), hospeda no servidor antes de gravar no Firestore
+      let finalCoverUrl = (customCoverUrl || article.cardInstagram?.imagem || article.image || '').trim();
+      if (finalCoverUrl.startsWith('data:')) {
+        try {
+          setPostProgressText('☁️ Hospedando foto selecionada em alta definição no servidor...');
+          const uploadedUrl = await uploadImageForSocial(finalCoverUrl);
+          if (uploadedUrl) {
+            finalCoverUrl = uploadedUrl;
+            setCustomCoverUrl(uploadedUrl);
+          }
+        } catch (upErr) {
+          console.warn("Aviso: Falha ao hospedar foto base64 no servidor:", upErr.message);
+        }
+      }
+
       const finalCardInstagram = {
         titulo: customCardTitle || article.cardInstagram?.titulo || article.title || '',
         apoio: customCardSubtitle || article.cardInstagram?.apoio || article.subtitle || '',
         destaque: customHighlightText || article.cardInstagram?.destaque || '',
-        imagem: customCoverUrl || article.image || ''
+        imagem: finalCoverUrl
       };
 
       // Garante os cards do carrossel completos com atualizações aplicadas ao Card 1
@@ -528,7 +577,7 @@ export default function ApprovalPage({ onNavigateHome }) {
           id: 'card-1',
           mode: 'template',
           mediaType: 'image',
-          imageUrl: finalCardInstagram.imagem,
+          imageUrl: finalCoverUrl,
           title: finalCardInstagram.titulo,
           subtitle: finalCardInstagram.apoio,
           highlightText: finalCardInstagram.destaque,
@@ -551,7 +600,7 @@ export default function ApprovalPage({ onNavigateHome }) {
             ...c,
             title: finalCardInstagram.titulo || c.title,
             subtitle: finalCardInstagram.apoio || c.subtitle,
-            imageUrl: finalCardInstagram.imagem || c.imageUrl,
+            imageUrl: finalCoverUrl || c.imageUrl,
             highlightText: finalCardInstagram.destaque || c.highlightText
           };
         }
@@ -576,7 +625,7 @@ export default function ApprovalPage({ onNavigateHome }) {
         ...article,
         cardInstagram: finalCardInstagram,
         socialCards: cardsToPublish,
-        image: customCoverUrl || article.image
+        image: finalCoverUrl
       };
 
       if (autoPublish) {
@@ -2058,13 +2107,42 @@ export default function ApprovalPage({ onNavigateHome }) {
                     <Instagram className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[11px] font-bold text-slate-300 block uppercase">Instagram Feed (@portalngbrasil)</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-300 uppercase">Instagram Feed (@portalngbrasil)</span>
+                      {publishedSocialErrors?.instagram ? (
+                        <div className="flex items-center gap-1">
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                            Erro no Envio
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRetrySocialPlatform('instagram')}
+                            disabled={Boolean(retryingSocialPlatform)}
+                            className="p-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition-all disabled:opacity-50"
+                            title="Tentar novamente no Instagram"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${retryingSocialPlatform === 'instagram' ? 'animate-spin text-rose-400' : ''}`} />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                     <span className="text-xs text-pink-400 font-medium truncate block">
-                      {publishedSocialLinks?.instagram || 'Publicado no Feed Oficial'}
+                      {publishedSocialLinks?.instagram || (publishedSocialErrors?.instagram ? publishedSocialErrors.instagram : 'Publicado no Feed Oficial')}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {publishedSocialErrors?.instagram && (
+                    <button
+                      type="button"
+                      onClick={() => handleRetrySocialPlatform('instagram')}
+                      disabled={Boolean(retryingSocialPlatform)}
+                      className="p-1.5 px-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-50"
+                      title="Forçar reenvio para o Instagram"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${retryingSocialPlatform === 'instagram' ? 'animate-spin' : ''}`} />
+                    </button>
+                  )}
                   <button
                     onClick={() => copyToClipboard(publishedSocialLinks?.instagram || 'https://www.instagram.com/portalngbrasil/')}
                     className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg text-xs flex items-center gap-1 transition-colors"
@@ -2090,13 +2168,42 @@ export default function ApprovalPage({ onNavigateHome }) {
                     <Facebook className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[11px] font-bold text-slate-300 block uppercase">Página do Facebook</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-300 uppercase">Página do Facebook</span>
+                      {publishedSocialErrors?.facebook ? (
+                        <div className="flex items-center gap-1">
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                            Erro no Envio
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRetrySocialPlatform('facebook')}
+                            disabled={Boolean(retryingSocialPlatform)}
+                            className="p-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition-all disabled:opacity-50"
+                            title="Tentar novamente no Facebook"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${retryingSocialPlatform === 'facebook' ? 'animate-spin text-rose-400' : ''}`} />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                     <span className="text-xs text-blue-400 font-medium truncate block">
-                      {publishedSocialLinks?.facebook || 'Publicado na Página Oficial'}
+                      {publishedSocialLinks?.facebook || (publishedSocialErrors?.facebook ? publishedSocialErrors.facebook : 'Publicado na Página Oficial')}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {publishedSocialErrors?.facebook && (
+                    <button
+                      type="button"
+                      onClick={() => handleRetrySocialPlatform('facebook')}
+                      disabled={Boolean(retryingSocialPlatform)}
+                      className="p-1.5 px-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-50"
+                      title="Forçar reenvio para o Facebook"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${retryingSocialPlatform === 'facebook' ? 'animate-spin' : ''}`} />
+                    </button>
+                  )}
                   <button
                     onClick={() => copyToClipboard(publishedSocialLinks?.facebook || 'https://www.facebook.com/portalngbrasil')}
                     className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg text-xs flex items-center gap-1 transition-colors"
@@ -2122,13 +2229,42 @@ export default function ApprovalPage({ onNavigateHome }) {
                     <ThreadsIcon className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[11px] font-bold text-slate-300 block uppercase">Threads (@portalngbrasil)</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-300 uppercase">Threads (@portalngbrasil)</span>
+                      {publishedSocialErrors?.threads ? (
+                        <div className="flex items-center gap-1">
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                            Erro no Envio
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRetrySocialPlatform('threads')}
+                            disabled={Boolean(retryingSocialPlatform)}
+                            className="p-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition-all disabled:opacity-50"
+                            title="Tentar novamente no Threads"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${retryingSocialPlatform === 'threads' ? 'animate-spin text-rose-400' : ''}`} />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                     <span className="text-xs text-zinc-300 font-medium truncate block">
-                      {publishedSocialLinks?.threads || 'Publicado no Threads'}
+                      {publishedSocialLinks?.threads || (publishedSocialErrors?.threads ? publishedSocialErrors.threads : 'Publicado no Threads')}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {publishedSocialErrors?.threads && (
+                    <button
+                      type="button"
+                      onClick={() => handleRetrySocialPlatform('threads')}
+                      disabled={Boolean(retryingSocialPlatform)}
+                      className="p-1.5 px-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-50"
+                      title="Forçar reenvio para o Threads"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${retryingSocialPlatform === 'threads' ? 'animate-spin' : ''}`} />
+                    </button>
+                  )}
                   <button
                     onClick={() => copyToClipboard(publishedSocialLinks?.threads || 'https://www.threads.net/@portalngbrasil')}
                     className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg text-xs flex items-center gap-1 transition-colors"
@@ -2146,13 +2282,74 @@ export default function ApprovalPage({ onNavigateHome }) {
                   </a>
                 </div>
               </div>
+
+              {/* X / Twitter */}
+              <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-black text-white flex items-center justify-center shrink-0 border border-zinc-800">
+                    <XIcon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-300 uppercase">X / Twitter (@portalngbrasil)</span>
+                      {publishedSocialErrors?.x ? (
+                        <div className="flex items-center gap-1">
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                            Erro no Envio
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRetrySocialPlatform('x')}
+                            disabled={Boolean(retryingSocialPlatform)}
+                            className="p-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition-all disabled:opacity-50"
+                            title="Tentar novamente no X"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${retryingSocialPlatform === 'x' ? 'animate-spin text-rose-400' : ''}`} />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                    <span className="text-xs text-zinc-300 font-medium truncate block">
+                      {publishedSocialLinks?.x || (publishedSocialErrors?.x ? publishedSocialErrors.x : 'Publicado no X')}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {publishedSocialErrors?.x && (
+                    <button
+                      type="button"
+                      onClick={() => handleRetrySocialPlatform('x')}
+                      disabled={Boolean(retryingSocialPlatform)}
+                      className="p-1.5 px-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-50"
+                      title="Forçar reenvio para o X"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${retryingSocialPlatform === 'x' ? 'animate-spin' : ''}`} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => copyToClipboard(publishedSocialLinks?.x || 'https://x.com/portalngbrasil')}
+                    className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg text-xs flex items-center gap-1 transition-colors"
+                    title="Copiar Link do X"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                  <a
+                    href={publishedSocialLinks?.x || 'https://x.com/portalngbrasil'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1.5 bg-black hover:bg-zinc-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                  >
+                    Abrir ↗
+                  </a>
+                </div>
+              </div>
             </div>
 
             {/* Ações Finais */}
             <div className="space-y-2 pt-2 border-t border-slate-800">
               <a
                 href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                  `📢 *${article?.title}*\n\nConfira nos nossos canais oficiais:\n🌐 *Portal:* ${publishedSocialLinks?.site || `https://portalngbrasil.com.br/#/noticia/${article?.id}`}\n📸 *Instagram:* ${publishedSocialLinks?.instagram || 'https://www.instagram.com/portalngbrasil/'}\n📘 *Facebook:* ${publishedSocialLinks?.facebook || 'https://www.facebook.com/portalngbrasil'}\n🧵 *Threads:* ${publishedSocialLinks?.threads || 'https://www.threads.net/@portalngbrasil'}`
+                  `📢 *${article?.title}*\n\nConfira nos nossos canais oficiais:\n🌐 *Portal:* ${publishedSocialLinks?.site || `https://portalngbrasil.com.br/#/noticia/${article?.id}`}\n📸 *Instagram:* ${publishedSocialLinks?.instagram || 'https://www.instagram.com/portalngbrasil/'}\n📘 *Facebook:* ${publishedSocialLinks?.facebook || 'https://www.facebook.com/portalngbrasil'}\n🧵 *Threads:* ${publishedSocialLinks?.threads || 'https://www.threads.net/@portalngbrasil'}\n🐦 *X (Twitter):* ${publishedSocialLinks?.x || 'https://x.com/portalngbrasil'}`
                 )}`}
                 target="_blank"
                 rel="noreferrer"
