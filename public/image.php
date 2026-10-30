@@ -39,7 +39,10 @@ foreach ($endpoints as $url) {
 
     if ($httpCode === 200 && $response) {
         $data = json_decode($response, true);
-        if (isset($data['fields']['image']['stringValue']) && !empty($data['fields']['image']['stringValue'])) {
+        if (isset($data['fields']['cardInstagram']['mapValue']['fields']['imagem']['stringValue']) && !empty($data['fields']['cardInstagram']['mapValue']['fields']['imagem']['stringValue'])) {
+            $image_data = $data['fields']['cardInstagram']['mapValue']['fields']['imagem']['stringValue'];
+            break;
+        } elseif (isset($data['fields']['image']['stringValue']) && !empty($data['fields']['image']['stringValue'])) {
             $image_data = $data['fields']['image']['stringValue'];
             break;
         } elseif (isset($data['fields']['metadata']['mapValue']['fields']['imagem']['stringValue'])) {
